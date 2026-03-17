@@ -10,16 +10,16 @@ using Dates
 #         - Remove additional " - vehicle charging" in "BHV_PHEV_Profile_kW"
 #      - Create additional mapping dict:
 car_type_mapping = Dict(
-    "Articulated Truck" => "Buses and Trucks",
-    "Bus" => "Buses and Trucks",
-    "Large Light Commercial" => "Commercial",
-    "Large Residential" => "Residential",
+    "Articulated Truck"       => "Buses and Trucks",
+    "Bus"                     => "Buses and Trucks",
+    "Large Light Commercial"  => "Commercial",
+    "Large Residential"       => "Residential",
     "Medium Light Commercial" => "Commercial",
-    "Medium Residential" => "Residential",
-    "Motorcycle" => "Residential",
-    "Rigid Truck" => "Buses and Trucks",
-    "Small Light Commercial" => "Commercial",
-    "Small Residential" => "Residential"
+    "Medium Residential"      => "Residential",
+    "Motorcycle"              => "Residential",
+    "Rigid Truck"             => "Buses and Trucks",
+    "Small Light Commercial"  => "Commercial",
+    "Small Residential"       => "Residential"
 )
 
 #%%
