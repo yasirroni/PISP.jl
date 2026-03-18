@@ -2,6 +2,25 @@ using DataFrames
 using Dates
 using OrderedCollections
 using XLSX
+using PISP
+# =============================== #
+# Data from other PISP elements
+years = [2030]
+scenarios = [2]
+reftrace = 2011
+poe = 10
+downloadpath = normpath("/Users/papablaza/git/ARPST-CSIRO-STAGE-5/PISP-dev-pub.jl/data/PISP-downloads")
+data_paths = PISP.default_data_paths(filepath=downloadpath)
+
+for year in years
+    tc, ts, tv = PISP.initialise_time_structures()
+    PISP.fill_problem_table_year(tc, year, sce=scenarios)
+    static_params = PISP.populate_time_static!(ts, tv, data_paths; refyear = reftrace, poe = poe)
+    @info "Populating time-varying data from ISP 2024 - POE $(poe) - reference weather trace $(reftrace) - planning year $(year) ..."
+    PISP.populate_time_varying!(tc, ts, tv, data_paths, static_params; refyear = reftrace, poe = poe)
+end
+
+# =============================== #
 
 ev_workbook_path   = "/Users/papablaza/git/ARPST-CSIRO-STAGE-5/PISP-dev-pub.jl/data/PISP-downloads/2023-iasr-ev-workbook.xlsx"
 iasr_workbook_path = "/Users/papablaza/git/ARPST-CSIRO-STAGE-5/PISP-dev-pub.jl/data/PISP-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx"
@@ -10,6 +29,13 @@ const BEV_PHEV_PROFILE_WEEKEND_SHEET = "BEV_PHEV_Profile_kW (Weekend)"
 const BEV_PHEV_PROFILE_WEEKDAY_SHEET = "BEV_PHEV_Profile_kW (Weekday)"
 const BEV_PHEV_CHARGE_TYPE_SHEET     = "BEV_PHEV_Charge_Type (%)"
 const VEHICLE_NUMBERS_SHEET_SUFFIX   = "_Numbers"
+const SUBREGIONAL_DEMAND_ALLOCATION_SHEET = "Sub-regional demand allocation"
+const VEHICLE_NUMBER_VALUE_COLUMN_BY_SHEET = OrderedDict(
+    "BEV_Numbers" => :number_bev,
+    "PHEV_Numbers" => :number_phev,
+    "FCEV_Numbers" => :number_fcev,
+    "ICE_Numbers" => :number_ice,
+)
 
 include(joinpath(dirname(@__DIR__), "parameters", "general2024ISP.jl"))
 
@@ -99,6 +125,12 @@ end
 
 function year_column_name(value)
     return Symbol(replace(strip(String(value)), "-" => "_"))
+end
+
+function parse_year_header(row)
+    indices = nonblank_indices(row[2:end])
+    labels = [replace(strip(String(row[index + 1])), "-" => "_") for index in indices]
+    return indices, labels
 end
 
 function map_vehicle_type_to_category(vehicle_type::AbstractString)
@@ -488,3 +520,73 @@ bev_phev_charge_type_df = build_bev_phev_charge_type_dataframe(
 subregional_demand_allocation_df = melt_subregional_demand_allocation_dataframe(
     build_subregional_demand_allocation_dataframe(iasr_workbook_path),
 )
+
+# ======================================= #
+# Implementation of the profile calculation
+# ======================================= #
+profiles    = profiles
+shares      = bev_phev_charge_type_df
+numbers     = ev_numbers
+subregional = subregional_demand_allocation_df
+
+# Filter profiles, shares, numbers and subregional, for the year 2030_31 and scenario 2
+shares = filter(row -> row.year == "2030_31" && row.scenario == 2, shares)
+numbers = filter(row -> row.year == "2030_31" && row.scenario == 2, numbers)
+subregional = filter(row -> row.year == "2030_31" && row.scenario == 2, subregional)
+# ======================================= #
+# Combine the data into one dataframe
+_profiles          = leftjoin(profiles, numbers, on=["state", "vehicle_type"])
+_profiles.category = [VEHICLE_CATEGORY_BY_TYPE[string(t)] for t in _profiles.vehicle_type]
+_profiles          = leftjoin(_profiles, shares[:, [:state, :category, :charging, :share]], on=[:state, :category, :charging_profile => :charging])
+
+start_dt             = DateTime("2030-01-01 00:00:00", dateformat"yyyy-mm-dd HH:MM:SS") # This is parameterised via the tc.problem
+scenario = 2
+target_year = "2030_31"
+
+filtered_profiles    = filter(row -> row.scenario == scenario && row.year == target_year, _profiles)
+filtered_subregional = filter(row -> row.scenario == scenario && row.year == target_year, subregional)
+
+filtered_profiles              = copy(filtered_profiles)
+filtered_profiles.total_number = filtered_profiles.number_bev .+ filtered_profiles.number_phev
+filtered_profiles.total_number_share   .= filtered_profiles.total_number .* filtered_profiles.share
+
+profile_start_index = findfirst(==("00_00"), names(filtered_profiles))
+profile_end_index   = findfirst(==("23_30"), names(filtered_profiles))
+
+if !isnothing(profile_start_index) && !isnothing(profile_end_index) && profile_start_index <= profile_end_index
+    leading_columns = names(filtered_profiles)[1:(profile_start_index - 1)]
+    profile_columns = names(filtered_profiles)[profile_start_index:profile_end_index]
+    trailing_columns = names(filtered_profiles)[(profile_end_index + 1):end]
+    select!(filtered_profiles, vcat(leading_columns, trailing_columns, profile_columns))
+end
+
+function get_profile_column_names(df::DataFrame)
+    return filter(name -> occursin(r"^\d{2}_\d{2}$", name), names(df))
+end
+
+profile_column_names = get_profile_column_names(filtered_profiles)
+
+idxs_weekday = findall(filtered_profiles.day_type .== "Weekday")
+idxs_weekend = findall(filtered_profiles.day_type .== "Weekend")
+total_profiles_weekday       = filtered_profiles[idxs_weekday, profile_column_names] .* filtered_profiles.total_number_share[idxs_weekday]
+total_profiles_weekday.state = filtered_profiles.state[idxs_weekday]
+total_profiles_weekend       = filtered_profiles[idxs_weekend, profile_column_names] .* filtered_profiles.total_number_share[idxs_weekend]
+total_profiles_weekend.state = filtered_profiles.state[idxs_weekend]
+
+for col in profile_column_names
+    if col[end-1:end] == "00"
+        total_profiles_weekday[!, col] = (total_profiles_weekday[!, col] .+ total_profiles_weekday[!, string(col[1:end-2], "30")]) ./ 2
+        total_profiles_weekend[!, col] = (total_profiles_weekend[!, col] .+ total_profiles_weekend[!, string(col[1:end-2], "30")]) ./ 2
+    end
+end
+total_profiles_weekday = total_profiles_weekday[:, Not(profile_column_names[2:2:end])] # Drop the half-hourly columns
+total_profiles_weekend = total_profiles_weekend[:, Not(profile_column_names[2:2:end])] # Drop the half-hourly columns
+
+# Finally sum up the profiles and assign to each state then subregion for the whole year
+all_times = collect(start_dt:Hour(1):start_dt + Year(1) - Hour(1))
+weekday   = dayofweek.(all_times) .<= 5
+
+final_profiles = DataFrame(date=all_times)
+for region in unique(subregional.region_id)
+    final_profiles[!, "$region"] = zeros(length(all_times))
+end
