@@ -107,6 +107,7 @@ function populate_time_static!(ts::PISPtimeStatic, tv::PISPtimeVarying, paths::N
     SYNC4, GENERATORS, PS = PISP.generator_table(ts, paths.ispdata19, paths.ispdata24)
     PISP.ess_tables(ts, tv, PS, paths.ispdata24)
     PISP.der_tables(ts)
+    PISP.ev_der_tables(ts)
 
     return (
         txdata = txdata,
@@ -151,6 +152,7 @@ function populate_time_varying!(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISP
     PISP.ess_vpps(tc, ts, tv, paths.vpp_cap, paths.vpp_ene)
     PISP.ess_inflow_sched(ts, tv, tc, paths.ispdata24, SNOWY_GENS)
     PISP.der_pred_sched(ts, tv, paths.ispdata24)
+    PISP.ev_der_sched(tc, ts, tv, paths.ispdata24, paths.iasr23_ev_workbook)
 end
 
 """
