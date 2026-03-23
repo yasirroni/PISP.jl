@@ -156,7 +156,7 @@ module ISPdatabuilder
         outlook_core_path      = dirs.outlook_core
         outlook_auxiliary_path = dirs.outlook_aux
         mkpath(outlook_auxiliary_path)
-        file_list       = readdir(outlook_core_path)
+        file_list       = filter(f -> !startswith(f, "._"), readdir(outlook_core_path))
         all_capacities  = DataFrame[]
         for f in file_list
             if endswith(f, ".xlsx")
@@ -205,7 +205,7 @@ module ISPdatabuilder
         outlook_core_path      = dirs.outlook_core
         outlook_auxiliary_path = dirs.outlook_aux
         mkpath(outlook_auxiliary_path)
-        file_list            = readdir(outlook_core_path)
+        file_list            = filter(f -> !startswith(f, "._"), readdir(outlook_core_path))
         storage_energy_dfs   = DataFrame[]
         storage_capacity_dfs = DataFrame[]
         for f in file_list
@@ -301,7 +301,10 @@ module ISPdatabuilder
         verbose::Bool = false,
     )
         tech_dir = isdir(joinpath(traces_root, tech)) ? joinpath(traces_root, tech) : traces_root
-        file_names = readdir(joinpath(tech_dir, "$(tech)_2011"))
+        # This is not a hardcoding error. The 2011 trace is used as the reference for the 4006 trace (only to get filenames)
+        # So we list files from that directory to determine which traces to process. 
+        # The function will then look for the corresponding files in each year's directory.
+        file_names = filter(f -> !startswith(f, "._"), readdir(joinpath(tech_dir, "$(tech)_2011"))) 
         cleaned_file_names = replace.(file_names, "_RefYear2011.csv" => "")
         output_dir = joinpath(tech_dir, "$(tech)_4006")
         mkpath(output_dir)

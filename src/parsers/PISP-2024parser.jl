@@ -16,6 +16,13 @@ function bus_table(ts::PISPtimeStatic)
     end
 end
 
+# Select daily trace rows whose Year/Month/Day fall inside the requested window.
+function select_trace_date_window(df::DataFrame, dstart::DateTime, dend::DateTime)
+    trace_dates = Date.(df.Year, df.Month, df.Day)
+    mask = (trace_dates .>= Date(dstart)) .& (trace_dates .<= Date(dend))
+    df[mask, :]
+end
+
 """
     line_table(ts, tv, ispdata24)
 
@@ -1064,21 +1071,7 @@ function gen_pmax_distpv(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVar
 
             dstart = probs[p,:dstart]
             dend = probs[p,:dend]
-            yr = Dates.year(dstart)
-            ds = Dates.day(dstart)
-            de = Dates.day(dend)
-            ms = Dates.month(dstart)
-            me = Dates.month(dend)
-
-            df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .| (df[!,:Month] .<= me)) ),:]
-
-            if ms == me
-                df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-            elseif me == ms + 1
-                df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-            else 
-                df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-            end
+            df2 = select_trace_date_window(df, dstart, dend)
 
             data = vec(permutedims(Tables.matrix(df2[:,4:end])))
             data2 = round.([ (data[2*i-1]+data[2*i])/2 for i in 1:Int64(length(data)/2) ], digits=4)
@@ -1145,21 +1138,7 @@ function dem_load_sched(tc::PISPtimeConfig, tv::PISPtimeVarying, profilespath::S
 
             dstart = probs[p,:dstart]
             dend   = probs[p,:dend]
-            yr     = Dates.year(dstart)
-            ds     = Dates.day(dstart)
-            de     = Dates.day(dend)
-            ms     = Dates.month(dstart)
-            me     = Dates.month(dend)
-
-            df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .| (df[!,:Month] .<= me)) ),:]
-
-            if ms == me
-                df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-            elseif me == ms + 1
-                df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-            else 
-                df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-            end
+            df2 = select_trace_date_window(df, dstart, dend)
 
             data = vec(permutedims(Tables.matrix(df2[:,4:end])))
             data2 = [ (data[2*i-1]+data[2*i])/2 for i in 1:Int64(length(data)/2) ]
@@ -1232,10 +1211,7 @@ function gen_pmax_solar(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVary
         dstart = probs[p,:dstart]
         dend = probs[p,:dend]
         yr = Dates.year(dstart)
-        ds = Dates.day(dstart)
-        de = Dates.day(dend)
         ms = Dates.month(dstart)
-        me = Dates.month(dend)
         # outlookfile = string(outlookdata,"/Auxiliary/2024 ISP - ",sc," - Core_REZCAP.xlsx")
         outlookfile = normpath(outlookdata, "..", "Auxiliary", "2024 ISP - $(sc) - Core_REZCAP.xlsx")
 
@@ -1277,7 +1253,7 @@ function gen_pmax_solar(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVary
                     if k in keys(name_ex)
                         file = name_ex[k]
                     else
-                        for f in readdir(foldertech)
+                        for f in filter(f -> !startswith(f, "._"), readdir(foldertech))
                             if f[1:3] != "REZ" && occursin(split(k," ")[1],f)
                                 push!(auxf,f)
                                 push!(auxk,k)
@@ -1289,16 +1265,7 @@ function gen_pmax_solar(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVary
 
                     df = CSV.File(string(foldertech,file)) |> DataFrame
 
-                    df1 = DataFrame()
-                    df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .& (df[!,:Month] .<= me)) ),:] #select data for the year and problems 
-
-                    if ms == me
-                        df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                    elseif me == ms + 1
-                        df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                    else 
-                        df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-                    end
+                    df2 = select_trace_date_window(df, dstart, dend)
                     dataexi = dataexi .+ vec(permutedims(Tables.matrix(df2[:,4:end]))) * EXIST_SOLAR[r,10]
                     exi_cap += EXIST_SOLAR[r,10] # EXISTING CAPACITY FROM WINTER RATING
                 end
@@ -1314,24 +1281,16 @@ function gen_pmax_solar(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVary
             rezcap = 0
             tch_ = "Utility solar"
 
-            if dstart > DateTime(2024,7,1,0,0,0)
-                instcap = TECH_CAP[(TECH_CAP[!,:Scenario] .== sc) .& (TECH_CAP[!,:Subregion] .== st) .& (TECH_CAP[!,:Technology] .== tch_) .& (year.(TECH_CAP[!,:date]) .== y), 7][1]
-                # future capacity profile (average of REZ profiles in the area)
-                for f in readdir(foldertech)
-                    sub = split(f,['_','.'])
-                    if "REZ" in sub && "SAT" in sub && sub[2] in REZs
-                        df = CSV.File(string(foldertech,f)) |> DataFrame
-                        df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .& (df[!,:Month] .<= me)) ),:]
-
-                        if ms == me
-                            df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                        elseif me == ms + 1
-                            df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                        else 
-                            df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-                        end
-                        datanew = datanew .+ vec(permutedims(Tables.matrix(df2[:,4:end])))
-                        naux += 1
+                if dstart > DateTime(2024,7,1,0,0,0)
+                    instcap = TECH_CAP[(TECH_CAP[!,:Scenario] .== sc) .& (TECH_CAP[!,:Subregion] .== st) .& (TECH_CAP[!,:Technology] .== tch_) .& (year.(TECH_CAP[!,:date]) .== y), 7][1]
+                    # future capacity profile (average of REZ profiles in the area)
+                    for f in filter(f -> !startswith(f, "._"), readdir(foldertech))
+                        sub = split(f,['_','.'])
+                        if "REZ" in sub && "SAT" in sub && sub[2] in REZs
+                            df = CSV.File(string(foldertech,f)) |> DataFrame
+                            df2 = select_trace_date_window(df, dstart, dend)
+                            datanew = datanew .+ vec(permutedims(Tables.matrix(df2[:,4:end])))
+                            naux += 1
 
                         #check if specific REZ capacity is available
                         if nrow(SOLARAUX) > 0
@@ -1428,10 +1387,7 @@ function gen_pmax_wind(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVaryi
         dstart = probs[p,:dstart]
         dend = probs[p,:dend]
         yr = Dates.year(dstart)
-        ds = Dates.day(dstart)
-        de = Dates.day(dend)
         ms = Dates.month(dstart)
-        me = Dates.month(dend)
         # outlookfile = string(outlookdata,"/Auxiliary/2024 ISP - ",sc," - Core_REZCAP.xlsx")
         # normpath outlook data going one level above
         outlookfile = normpath(outlookdata, "..", "Auxiliary", "2024 ISP - $(sc) - Core_REZCAP.xlsx")
@@ -1471,7 +1427,7 @@ function gen_pmax_wind(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVaryi
                     if k in keys(name_ex_weather_year)
                         file = name_ex_weather_year[k]
                     else
-                        for f in readdir(foldertech)
+                        for f in filter(f -> !startswith(f, "._"), readdir(foldertech))
                             if f[1:3] != "REZ" && occursin(split(k," ")[1],f)
                                 push!(auxf,f)
                                 push!(auxk,k)
@@ -1485,16 +1441,7 @@ function gen_pmax_wind(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVaryi
 
                     df = CSV.File(string(foldertech,file)) |> DataFrame
 
-                    df1 = DataFrame()
-                    df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .& (df[!,:Month] .<= me)) ),:] #select data for the year and problems 
-
-                    if ms == me
-                        df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                    elseif me == ms + 1
-                        df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                    else 
-                        df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-                    end
+                    df2 = select_trace_date_window(df, dstart, dend)
                     dataexi = dataexi .+ vec(permutedims(Tables.matrix(df2[:,4:end]))) * EXIST_WIND[r,7]
                     exi_cap += EXIST_WIND[r,7] # EXISTING CAPACITY FROM WINTER RATING
                 end
@@ -1513,19 +1460,11 @@ function gen_pmax_wind(tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVaryi
             if dstart > DateTime(2024,7,1,0,0,0)
                 instcap = TECH_CAP[(TECH_CAP[!,:Scenario] .== sc) .& (TECH_CAP[!,:Subregion] .== st) .& (TECH_CAP[!,:Technology] .== tch_) .& (year.(TECH_CAP[!,:date]) .== y), 7][1]
                 # future capacity profile (average of REZ profiles in the area)
-                for f in readdir(foldertech)
+                for f in filter(f -> !startswith(f, "._"), readdir(foldertech))
                     sub = split(f,['_','.'])
                     if sub[1] in REZs && "WH" in sub#f[1] == st[1]
                         df = CSV.File(string(foldertech,f)) |> DataFrame
-                        df1 = df[((df[!,:Year] .== yr) .& ((df[!,:Month] .>= ms) .& (df[!,:Month] .<= me)) ),:]
-
-                        if ms == me
-                            df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .& ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                        elseif me == ms + 1
-                            df2 = df1[ ( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .>= ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .<= de)) ) ,:]
-                        else 
-                            df2 = df1[ .!( ((df1[!,:Month] .== ms) .& (df1[!,:Day] .< ds)) .| ((df1[!,:Month] .== me) .& (df1[!,:Day] .> de)) ) ,:]
-                        end
+                        df2 = select_trace_date_window(df, dstart, dend)
                         datanew = datanew .+ vec(permutedims(Tables.matrix(df2[:,4:end])))
                         naux += 1
 

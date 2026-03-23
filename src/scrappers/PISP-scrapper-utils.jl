@@ -151,7 +151,7 @@ module PISPScrapperUtils
         isdir(abs_src) || error("Source directory not found: $(abs_src)")
         mkpath(abs_dest_root)
 
-        zip_files = filter(f -> endswith(lowercase(f), ".zip"),
+        zip_files = filter(f -> !startswith(basename(f), "._") && endswith(lowercase(f), ".zip"),
                         sort(readdir(abs_src; join = true)))
         isempty(zip_files) && return String[]
 
