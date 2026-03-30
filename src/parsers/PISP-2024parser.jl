@@ -306,7 +306,7 @@ function generator_table(ts::PISPtimeStatic, ispdata19::String, ispdata24::Strin
     # ============================================ #
     # ============== Generator data ============== #
     # ============================================ #
-    mkdir(".tmp")
+    isdir(".tmp") || mkdir(".tmp")
     bust = ts.bus
     # areat = PSO.gettable(socketSYS, "Area")
 
