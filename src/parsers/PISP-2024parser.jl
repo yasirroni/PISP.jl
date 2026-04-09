@@ -795,7 +795,7 @@ function generator_table(ts::PISPtimeStatic, ispdata19::String, ispdata24::Strin
     select!(merged, Not(:id))
     ts.gen = merged
     XLSX.writetable(".tmp/GENERATORS_FULL.xlsx", Tables.columntable(merged); sheetname="GENERATORS", overwrite=true)
-    rm(".tmp"; recursive=true)
+    # rm(".tmp"; recursive=true) # TODO force remove 
     return SYNC4, GENERATORS, PS
 end
 
@@ -1861,7 +1861,7 @@ function gen_inflow_sched(ts::PISPtimeStatic, tv::PISPtimeVarying, tc::PISPtimeC
                     id_gen   = fill(row.id_gen, n_hours),
                     scenario = fill(sce_label, n_hours),
                     date     = base_dates,
-                    value    = scaled / row.n, # Divide by number of units to get per-unit inflow (assuming identical units in each generator entry)
+                    value    = scaled, # TODO Scale by number of units to get per-unit inflow (assuming identical units in each generator entry)
                 ))
             end
         end
@@ -1902,7 +1902,7 @@ function gen_inflow_sched(ts::PISPtimeStatic, tv::PISPtimeVarying, tc::PISPtimeC
                         id_gen   = fill(row.id_gen, nrow(df_energy_hourly)),
                         scenario = fill(sce_label, nrow(df_energy_hourly)),
                         date     = df_energy_hourly.date,
-                        value    = scaled_limits/row.n, # Divide by number of units to get per-unit inflow (assuming identical units in each generator entry)
+                        value    = scaled_limits, # TODO Scale by number of units to get per-unit inflow (assuming identical units in each generator entry)
                     ))
                 end
             end
@@ -1958,7 +1958,7 @@ function gen_inflow_sched(ts::PISPtimeStatic, tv::PISPtimeVarying, tc::PISPtimeC
                         id_gen   = fill(id_gen, n_hourly),
                         scenario = fill(sce_label, n_hourly),
                         date     = hourly_dates,
-                        value    = scaled_inflows/group_entries.n, # Divide by number of units to get per-unit inflow (assuming identical units in each generator entry)
+                        value    = scaled_inflows, # TODO Scale by number of units to get per-unit inflow (assuming identical units in each generator entry)
                     ))
                 end
             end
@@ -2027,7 +2027,7 @@ function ess_inflow_sched(ts::PISPtimeStatic, tv::PISPtimeVarying, tc::PISPtimeC
             id_ess   = fill(id_tumut, n_hourly),
             scenario = fill(sce_label, n_hourly),
             date     = hourly_snowy.date,
-            value    = scaled_inflows/tumut_entry.n,
+            value    = scaled_inflows, # TODO Scale by number of units to get per-unit inflow (assuming identical units in each generator entry)
         ))
     end
 
