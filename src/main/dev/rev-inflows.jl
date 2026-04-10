@@ -1,12 +1,12 @@
-downloadpath::AbstractString = normpath(@__DIR__, "../../", "data-download"),
-poe = 10,
-reftrace = 4006,
-years = [2025],
-output_name::AbstractString = "out", # Output folder name
-output_root::Union{Nothing,AbstractString} = nothing,
-write_csv::Bool = true,
-write_arrow::Bool = true,
-download_from_AEMO::Bool = true,
+downloadpath = normpath(@__DIR__, "../../", "data-download")
+poe = 10
+reftrace = 4006
+years = [2025]
+output_name = "out", # Output folder name
+output_root = nothing,
+write_csv = true,
+write_arrow = true,
+download_from_AEMO = true,
 scenarios::AbstractVector{<:Int64} = keys(PISP.ID2SCE),
 
     if any(y -> y < 2025 || y > 2050, years)
