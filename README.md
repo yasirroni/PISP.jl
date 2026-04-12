@@ -68,14 +68,14 @@ Below, an overview of each of the databases the parser produces is given.
 >   - `pred`: Maximum load reduction capacity (MW)
 > - ESS_emax_sched: `value` emax (MWh) starting at a given `date`. Match with column `emax` from ESS
 >   - `emax`: Maximum storage energy (MWh).
-> - ESS_inflow_sched: approximate energy inflow (MWh), for hydro storages at a given `date`. 
+> - ESS_inflow_sched: approximate energy inflow (MWh), for one unit `n` (ESS.n column) of each hydro storage at a given `date`. 
 > - ESS_lmax_sched: `value` lmax (MW) starting at a given `date`. Match with column `lmax` from ESS
 >   - `lmax`: Maximum storage charge input (MW) *[as a load]*.
 > - ESS_n_sched: `value` n (p.u.) starting at a given `date`. Match with column `n` from Generator
 >   - `n`: Maximum number of online units
 > - ESS_pmax_sched: `value` pmax (MW) starting at a given `date`. Match with column `pmax` from ESS
 >   - `pmax`: Maximum storage discharge output (MW).
-> - Generator_inflow_sched: approximate energy inflow (MWh), for hydro generators at a given `date`. 
+> - Generator_inflow_sched: approximate energy inflow (MWh), for one unit `n` (Generators.n column) of each hydro generator at a given `date`. 
 > - Generator_pmax_sched: `value` pmax (MW) at a given `date`. Match with column `pmax` from Generator
 >   - `pmax`: Maximum generator output (MW).
 > - Generator_n_sched: `value` n (p.u.) starting at a given `date`. Match with column `n` from Generator
