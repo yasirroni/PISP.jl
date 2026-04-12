@@ -28,7 +28,32 @@ tc, ts, tv = PISP.initialise_time_structures()
 PISP.fill_problem_table_year(tc, year, sce=scenarios)
 static_params = PISP.populate_time_static!(ts, tv, data_paths; refyear = reftrace, poe = poe)
 @info "Populating time-varying data from ISP 2024 - POE $(poe) - reference weather trace $(reftrace) - planning year $(year) ..."
-PISP.populate_time_varying!(tc, ts, tv, data_paths, static_params; refyear = reftrace, poe = poe)
+# PISP.populate_time_varying!(tc, ts, tv, data_paths, static_params; refyear = reftrace, poe = poe)
+
+# tc::PISPtimeConfig, ts::PISPtimeStatic, tv::PISPtimeVarying,
+paths = data_paths 
+static_artifacts = static_params
+refyear = reftrace
+# poe=10
+
+txdata           = static_artifacts.txdata
+generator_tables = static_artifacts.generator_tables
+
+PISP.dem_load_sched(tc, tv, paths.profiledata; refyear=refyear, poe=poe)
+PISP.line_sched_table(tc, tv, txdata)
+PISP.gen_n_sched_table(tv, generator_tables.SYNC4, generator_tables.GENERATORS)
+PISP.gen_retirements(ts, tv)
+PISP.gen_pmax_distpv(tc, ts, tv, paths.profiledata; refyear=refyear, poe=poe)
+PISP.gen_pmax_solar(tc, ts, tv, paths.ispdata24, paths.outlookdata, paths.outlookAEMO, paths.profiledata; refyear=refyear)
+PISP.gen_pmax_wind(tc, ts, tv, paths.ispdata24, paths.outlookdata, paths.outlookAEMO, paths.profiledata; refyear=refyear)
+SNOWY_GENS = PISP.gen_inflow_sched(ts, tv, tc, paths.ispdata24, paths.ispmodel)
+
+PISP.ess_vpps(tc, ts, tv, paths.vpp_cap, paths.vpp_ene)
+PISP.ess_inflow_sched(ts, tv, tc, paths.ispdata24, SNOWY_GENS)
+PISP.der_pred_sched(ts, tv, paths.ispdata24)
+PISP.ev_der_sched(tc, ts, tv, paths.ispdata24, paths.iasr23_ev_workbook)
+
+
 
 PISP.write_time_data(ts, tv;
     csv_static_path    = "$(base_name)/csv",
