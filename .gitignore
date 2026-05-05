@@ -25,3 +25,7 @@ test-*/
 *.zip
 data/
 *.DS_Store
+
+CLAUDE*
+AGENTS*
+.claude/
