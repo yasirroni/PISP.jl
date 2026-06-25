@@ -1,7 +1,7 @@
 # ParseISP.jl: Julia parser of the Integrated System Plan
 [![Build Status](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
-**PISP** (short for *Julia Parser of the Integrated System Plan*) is an open-source toolkit for parsing and generating structured datasets of the East Coast Australian Power System for power system studies. 
+**ParseISP** (short for *Julia Parser of the Integrated System Plan*) is an open-source toolkit for parsing and generating structured datasets of the East Coast Australian Power System for power system studies. 
 
 The data parsing functionalities are built on publicly available information from the Integrated System Plan (ISP) released by the Australian Energy Market Operator (AEMO) for the Australian National Electricity Market (NEM).
 
@@ -9,20 +9,26 @@ The data parsing functionalities are built on publicly available information fro
 > The current release is fully functional and has been extensively tested; however, bugs or other issues may still arise. We would greatly appreciate any feedback or bug reports submitted via https://github.com/ARPST-UniMelb/ParseISP.jl/issues 
 
 ## Core function
-Dataset construction in PISP is performed through a single high-level function, `build_ISP24_datasets`. Two usage examples are shown below.
+Dataset construction in ParseISP is performed through the release-dispatched high-level function `build_datasets(release; kwargs...)`. Supported release adapters are `ISP2024()` and `ISP2026()`.
+
+Compatibility wrappers remain available:
+
+- `build_ISP24_datasets(; kwargs...)` calls `build_datasets(ISP2024(); kwargs...)`.
+- `build_ISP26_datasets(; kwargs...)` calls `build_datasets(ISP2026(); kwargs...)`.
 
 ## ISP2026 note
-Final 2026 acquisition is exposed through `PISP.download_isp26_source_files(downloadpath; kwargs...)`. It downloads only final 2026 ISP artefacts published by AEMO on 25 June 2026: the Inputs and Assumptions workbook, generation/storage outlook, ISP model, and solar/wind trace archives.
+Final 2026 acquisition is exposed through `ParseISP.download_isp26_source_files(downloadpath; kwargs...)`. It downloads only final 2026 ISP artefacts published by AEMO on 25 June 2026: the Inputs and Assumptions workbook, generation/storage outlook, ISP model, and solar/wind trace archives.
 
-Final 2026 dataset construction is exposed through `PISP.build_ISP26_datasets(...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
+Final 2026 dataset construction is exposed through `ParseISP.build_datasets(ParseISP.ISP2026(); ...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
 
 ```julia
-using PISP
+using ParseISP
 
-PISP.build_ISP26_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+ParseISP.build_datasets(
+    ParseISP.ISP2026(),
+    downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
     years        = [2026],
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
 )
@@ -30,19 +36,20 @@ PISP.build_ISP26_datasets(
 
 **By planning year** (original mode):
 ```julia
-using PISP
+using ParseISP
 
 # Set some of the input parameters (see all parameters below)
 reference_trace = 4006         # Reference weather trace. 4006 is the one of the Optimal Development Path (ODP) of the ISP
 poe             = 10           # Probability of exceedance (POE) for demand
 target_years    = [2030, 2031] # Planning years for which to generate datasets
 
-PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+ParseISP.build_datasets(
+    ParseISP.ISP2024(),
+    downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
     poe          = poe,
     reftrace     = reference_trace,
     years        = target_years,
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
@@ -51,22 +58,23 @@ PISP.build_ISP24_datasets(
 
 **By arbitrary date range** (new `drange` mode):
 ```julia
-using PISP
+using ParseISP
 
 # Build datasets for specific date windows instead of full calendar years
-PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+ParseISP.build_datasets(
+    ParseISP.ISP2024(),
+    downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
     poe          = 10,
     reftrace     = 4006,
     drange       = [("01-01-2030", "31-03-2030"), ("01-07-2031", "30-09-2031")],
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
     )
 ```
 
-## Optional parameters for PISP.build_ISP24_datasets()
+## Optional parameters for ParseISP.build_datasets(ParseISP.ISP2024())
 There are multiple parameters that can be adjusted when generating the dataset from the public 2024 Integrated System Plan (ISP) datafiles:
 | Parameter           | Default       | Description                                                                                                                        |
 | ------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -255,9 +263,9 @@ Below, an overview of each of the databases the parser produces is given.
 | `n`      | Maximum number of units online (p.u.)| 
 
 
-## Data sources of PISP
+## Data sources of ParseISP
 > [!IMPORTANT] 
-> All the datasets that PISP generates are based on publicly available data from AEMO. 
+> All the datasets that ParseISP generates are based on publicly available data from AEMO. 
 >
 > All files are obtained from: https://www.aemo.com.au/energy-systems/major-publications/integrated-system-plan-isp/2024-integrated-system-plan-isp
 > - 2024 Integrated System Plan **Inputs and Assumptions workbook**

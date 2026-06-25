@@ -4,7 +4,9 @@ using Dates
 using HTTP
 using XLSX
 using Tables
-using PISP
+using ParseISP
+
+struct ISP2099 <: ParseISP.ISPRelease end
 
 function write_line_invoptions_fixture(path::AbstractString; sheetname::AbstractString = "flow path augmentation options", layout::Symbol = :isp2026, option_name::AbstractString = "Mini Option", buspair::AbstractString = "CQ to NQ")
     if layout == :isp2026
@@ -81,6 +83,69 @@ function write_full_outlook_workbook(path::AbstractString)
     return path
 end
 
+@testset "release interface" begin
+    @test ParseISP.release_year(ParseISP.ISP2024()) == 2024
+    @test ParseISP.release_year(ParseISP.ISP2026()) == 2026
+    @test ParseISP.release_name(ParseISP.ISP2026()) == "ISP2026"
+    @test collect(values(ParseISP.scenario_id_labels(ParseISP.ISP2026()))) == ["Slower Growth", "Step Change", "Accelerated Transition"]
+    @test ParseISP.demand_scenario_labels(ParseISP.ISP2026())["Slower Growth"] == "SLOWER_GROWTH"
+    @test ParseISP.hydro_scenario_labels(ParseISP.ISP2026())["Accelerated Transition"] == "Flat"
+    @test hasmethod(ParseISP.build_datasets, Tuple{ParseISP.ISP2024})
+    @test hasmethod(ParseISP.build_datasets, Tuple{ParseISP.ISP2026})
+
+    missing_period_err = try
+        ParseISP.build_datasets(ParseISP.ISP2024(); download_from_AEMO = false)
+        nothing
+    catch caught
+        caught
+    end
+    @test missing_period_err isa ArgumentError
+    @test occursin("At least one of `years` or `drange`", sprint(showerror, missing_period_err))
+
+    mktempdir() do dir
+        paths = ParseISP.default_data_paths(ParseISP.ISP2026(), dir)
+        @test paths.inputs_workbook == normpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        @test paths.outlook_generation_storage_zip == normpath(dir, "2026-isp-generation-and-storage-outlook.zip")
+        @test paths.capacity_outlook_workbook == normpath(dir, "Auxiliary", "CapacityOutlook2026_Condensed.xlsx")
+        @test paths.storage_capacity_outlook_workbook == normpath(dir, "Auxiliary", "StorageCapacityOutlook_2026_ISP.xlsx")
+        @test paths.storage_energy_outlook_workbook == normpath(dir, "Auxiliary", "StorageEnergyOutlook_2026_ISP.xlsx")
+        @test isempty(intersect(keys(paths), (:ispdata24, :ispdata26, :ispdata19, :iasr23_ev_workbook, :outlookdata, :outlookAEMO)))
+
+        legacy_paths = ParseISP.legacy_data_paths(ParseISP.ISP2026(), paths)
+        @test legacy_paths.ispdata26 == paths.inputs_workbook
+        @test legacy_paths.ispdata24 == paths.inputs_workbook
+    end
+
+    err = try
+        ParseISP.source_targets(ISP2099())
+        nothing
+    catch caught
+        caught
+    end
+    @test err isa ArgumentError
+    @test occursin("source_targets", sprint(showerror, err))
+end
+
+@testset "release source targets" begin
+    @test [target.key for target in ParseISP.source_targets(ParseISP.ISP2024())] ==
+        [:isp24_inputs, :iasr23_ev_workbook, :isp19_inputs_v13, :isp24_model, :isp24_outlook]
+    @test [target.key for target in ParseISP.source_targets(ParseISP.ISP2026())] ==
+        [:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces]
+end
+
+@testset "release layout" begin
+    srcroot = dirname(pathof(ParseISP))
+    @test !isdir(joinpath(srcroot, "parameters"))
+    @test !isdir(joinpath(srcroot, "parsers"))
+    @test !isdir(joinpath(srcroot, "scrappers"))
+    @test isfile(joinpath(srcroot, "releases", "isp2024", "parameters", "general.jl"))
+    @test isfile(joinpath(srcroot, "releases", "isp2024", "parameters", "release_methods.jl"))
+    @test isfile(joinpath(srcroot, "releases", "common", "parser_primitives.jl"))
+    @test isfile(joinpath(srcroot, "releases", "isp2026", "parameters.jl"))
+    @test isfile(joinpath(srcroot, "releases", "isp2026", "parsers", "core.jl"))
+    @test isfile(joinpath(srcroot, "releases", "common", "file_downloader.jl"))
+end
+
 @testset "extract_all_zips ignores AppleDouble files" begin
     zip_cmd = Sys.which("zip")
     unzip_cmd = Sys.which("unzip")
@@ -101,7 +166,7 @@ end
             end
             write(joinpath(src_dir, "._archive.zip"), "appledouble metadata")
 
-            extracted_paths = PISP.PISPScrapperUtils.extract_all_zips(src_dir, dest_dir; skip_existing = false)
+            extracted_paths = ParseISP.ParseISPScrapperUtils.extract_all_zips(src_dir, dest_dir; skip_existing = false)
 
             @test extracted_paths == [normpath(dest_dir)]
             @test isfile(joinpath(dest_dir, "payload.txt"))
@@ -120,10 +185,12 @@ end
                 joinpath(options.outdir, target.subdir, target.filename) for target in targets]
         end
 
-        result = PISP.download_isp26_source_files(dir; download_targets_fn = fake_download)
+        result = ParseISP.download_isp26_source_files(dir; download_targets_fn = fake_download)
 
         @test seen_keys == [:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces]
         @test result.targets.automatic == (:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces)
+        @test result.paths.ispdata26 == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        @test result.release_paths.inputs_workbook == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
         @test result.downloaded.ispdata26 == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
         @test result.downloaded.outlook_generation_storage == joinpath(dir, "2026-isp-generation-and-storage-outlook.zip")
         @test result.downloaded.ispmodel_zip == joinpath(dir, "2026-isp-model.zip")
@@ -135,8 +202,8 @@ end
 
 @testset "AEMO Cloudflare download detection" begin
     response = HTTP.Response(403, ["server" => "cloudflare", "cf-mitigated" => "challenge"], Vector{UInt8}("challenge"))
-    @test PISP.PISPScrapperUtils._looks_like_cloudflare_challenge(response)
-    err = PISP.PISPScrapperUtils.DownloadBlockedError("https://www.aemo.com.au/file.zip", 403, "Cloudflare challenge or access policy")
+    @test ParseISP.ParseISPScrapperUtils._looks_like_cloudflare_challenge(response)
+    err = ParseISP.ParseISPScrapperUtils.DownloadBlockedError("https://www.aemo.com.au/file.zip", 403, "Cloudflare challenge or access policy")
     @test occursin("interactive browser session", sprint(showerror, err))
 end
 
@@ -145,13 +212,13 @@ end
         workbook = joinpath(dir, "flow.xlsx")
         write_line_invoptions_fixture(workbook)
 
-        raw = PISP.read_isp2026_line_invoptions_raw(workbook)
+        raw = ParseISP.read_isp2026_line_invoptions_raw(workbook)
         @test raw[1, 4] == "Mini Option"
         @test nrow(raw) >= 1
 
-        tc, ts, tv = PISP.initialise_time_structures()
-        PISP.bus_table(ts)
-        PISP.line_invoptions(ts, workbook)
+        tc, ts, tv = ParseISP.initialise_time_structures()
+        ParseISP.bus_table(ts)
+        ParseISP.line_invoptions(ts, workbook)
         @test nrow(ts.line) == 1
         @test ts.line[1, :name] == "Mini Option"
         @test ts.line[1, :capacity] == 1100.0
@@ -160,7 +227,7 @@ end
     mktempdir() do dir
         workbook = joinpath(dir, "dr" * "aft-2026-isp-inputs-and-assumptions-workbook.xlsx")
         write_line_invoptions_fixture(workbook)
-        @test_throws ArgumentError PISP.read_isp2026_line_invoptions_raw(workbook)
+        @test_throws ArgumentError ParseISP.read_isp2026_line_invoptions_raw(workbook)
     end
 end
 
@@ -168,18 +235,18 @@ end
     mktempdir() do dir
         workbook = joinpath(dir, "flow.xlsx")
         write_line_invoptions_fixture(workbook; buspair = "WNV to NQ")
-        raw = PISP.read_isp2026_line_invoptions_raw(workbook)
+        raw = ParseISP.read_isp2026_line_invoptions_raw(workbook)
 
-        report = PISP.validate_isp2026_line_invoptions(raw)
+        report = ParseISP.validate_isp2026_line_invoptions(raw)
         @test report.layout == :isp2026
-        @test PISP.has_blockers(report)
+        @test ParseISP.has_blockers(report)
         @test any(f -> f.code == :unknown_bus_label, report.findings)
 
-        fixed = PISP.fix_isp2026_line_invoptions(raw, report)
+        fixed = ParseISP.fix_isp2026_line_invoptions(raw, report)
         @test nrow(fixed.canonical) == 1
         @test fixed.canonical[1, :name] == "Mini Option"
         @test fixed.canonical[1, :busA] == "VIC"
-        @test fixed.canonical[1, :idbusA] == PISP._ispdata_bus_id("VIC")
+        @test fixed.canonical[1, :idbusA] == ParseISP._ispdata_bus_id("VIC")
         @test fixed.canonical[1, :active] == 1
         @test fixed.canonical[1, :invcost] == 12345.0
     end
@@ -188,14 +255,14 @@ end
         mktempdir() do dir
             workbook = joinpath(dir, "flow_$(alias).xlsx")
             write_line_invoptions_fixture(workbook; buspair = "$(alias) to NQ")
-            raw = PISP.read_isp2026_line_invoptions_raw(workbook)
+            raw = ParseISP.read_isp2026_line_invoptions_raw(workbook)
 
-            report = PISP.validate_isp2026_line_invoptions(raw)
+            report = ParseISP.validate_isp2026_line_invoptions(raw)
             @test any(f -> f.code == :unknown_bus_label, report.findings)
 
-            fixed = PISP.fix_isp2026_line_invoptions(raw, report)
+            fixed = ParseISP.fix_isp2026_line_invoptions(raw, report)
             @test fixed.canonical[1, :busA] == "VIC"
-            @test fixed.canonical[1, :idbusA] == PISP._ispdata_bus_id("VIC")
+            @test fixed.canonical[1, :idbusA] == ParseISP._ispdata_bus_id("VIC")
         end
     end
 end
@@ -204,22 +271,22 @@ end
     mktempdir() do dir
         workbook = joinpath(dir, "bad_flow.xlsx")
         write_line_invoptions_fixture(workbook; buspair = "ABC to NQ")
-        raw = PISP.read_isp2026_line_invoptions_raw(workbook)
+        raw = ParseISP.read_isp2026_line_invoptions_raw(workbook)
 
-        report = PISP.validate_isp2026_line_invoptions(raw)
-        @test PISP.has_blockers(report)
+        report = ParseISP.validate_isp2026_line_invoptions(raw)
+        @test ParseISP.has_blockers(report)
         @test any(f -> f.code == :unknown_bus_label, report.findings)
-        @test_throws ErrorException PISP.fix_isp2026_line_invoptions(raw, report)
-        @test_throws ErrorException PISP.require_clean_validation!(report)
-        tc, ts, tv = PISP.initialise_time_structures()
-        PISP.bus_table(ts)
-        @test_throws ErrorException PISP.line_invoptions(ts, workbook)
+        @test_throws ErrorException ParseISP.fix_isp2026_line_invoptions(raw, report)
+        @test_throws ErrorException ParseISP.require_clean_validation!(report)
+        tc, ts, tv = ParseISP.initialise_time_structures()
+        ParseISP.bus_table(ts)
+        @test_throws ErrorException ParseISP.line_invoptions(ts, workbook)
     end
 end
 
 @testset "ISP2026 outlook ZIP" begin
     mktempdir() do dir
-        cores = joinpath(dir, "Cores")
+        cores = joinpath(dir, "Core scenarios")
         sens = joinpath(dir, "Sensitivities")
         mkpath(cores)
         mkpath(sens)
@@ -227,18 +294,18 @@ end
         core_wb = write_outlook_workbook(joinpath(cores, "2026 ISP - Accelerated Transition - Core.xlsx"))
         sens_wb = write_outlook_workbook(joinpath(sens, "2026 ISP - Accelerated Transition - Sensitivity - High Case.xlsx"))
         zip_path = joinpath(dir, "2026-isp-generation-and-storage-outlook.zip")
-        run(Cmd(`zip -qr $zip_path Cores Sensitivities`; dir = dir))
+        run(Cmd(Cmd(["zip", "-qr", zip_path, "Core scenarios", "Sensitivities"]); dir = dir))
 
-        entries = PISP.read_isp2026_outlook_entries(zip_path)
+        entries = ParseISP.read_isp2026_outlook_entries(zip_path)
         @test any(endswith.(entries, ".xlsx"))
 
-        validation = PISP.validate_isp2026_outlook_entries(entries)
+        validation = ParseISP.validate_isp2026_outlook_entries(entries)
         @test isempty(filter(f -> f.severity == :blocker, validation.findings))
 
-        preview = PISP.read_isp2026_outlook_workbook(zip_path, "Cores/2026 ISP - Accelerated Transition - Core.xlsx", "Capacity", "A3:F12")
+        preview = ParseISP.read_isp2026_outlook_workbook(zip_path, "Core scenarios/2026 ISP - Accelerated Transition - Core.xlsx", "Capacity", "A3:F12")
         @test preview[1, :Technology] == "Black coal"
 
-        inspection = PISP.inspect_isp26_generation_storage_outlook(zip_path; parse_tables = true, preview_range = "A3:F12")
+        inspection = ParseISP.inspect_isp26_generation_storage_outlook(zip_path; parse_tables = true, preview_range = "A3:F12")
         @test length(inspection.core_entries) == 1
         @test length(inspection.sensitivity_entries) == 1
         @test inspection.core_workbooks[1].scenario == "Accelerated Transition"
@@ -250,21 +317,21 @@ end
 
 @testset "ISP2026 outlook preparation" begin
     mktempdir() do dir
-        cores = joinpath(dir, "Cores")
+        cores = joinpath(dir, "Core scenarios")
         mkpath(cores)
         write_full_outlook_workbook(joinpath(cores, "2026 ISP - Accelerated Transition - Core.xlsx"))
         zip_path = joinpath(dir, "2026-isp-generation-and-storage-outlook.zip")
-        run(Cmd(`zip -qr $zip_path Cores`; dir = dir))
+        run(Cmd(Cmd(["zip", "-qr", zip_path, "Core scenarios"]); dir = dir))
 
-        result = PISP.prepare_isp26_outlook_aux(zip_path;
+        result = ParseISP.prepare_isp26_outlook_aux(zip_path;
             data_root = dir,
             scenario_map = Dict("Accelerated Transition" => "Step Change"))
 
         @test length(result.installed_core_workbooks) == 1
-        @test isfile(joinpath(dir, "Auxiliary", "CapacityOutlook2024_Condensed.xlsx"))
-        @test isfile(joinpath(dir, "Auxiliary", "StorageCapacityOutlook_2024_ISP.xlsx"))
-        @test isfile(joinpath(dir, "Auxiliary", "StorageEnergyOutlook_2024_ISP.xlsx"))
-        @test isfile(joinpath(dir, "Auxiliary", "2024 ISP - Step Change - Core_REZCAP.xlsx"))
+        @test isfile(joinpath(dir, "Auxiliary", "CapacityOutlook2026_Condensed.xlsx"))
+        @test isfile(joinpath(dir, "Auxiliary", "StorageCapacityOutlook_2026_ISP.xlsx"))
+        @test isfile(joinpath(dir, "Auxiliary", "StorageEnergyOutlook_2026_ISP.xlsx"))
+        @test isfile(joinpath(dir, "Auxiliary", "2026 ISP - Step Change - Core_REZCAP.xlsx"))
         @test result.capacity_outlook.condensed[1, :Scenario] == "Step Change"
         @test result.capacity_outlook.condensed[1, :date] == Date("2025-07-01")
         @test result.storage_outlook.capacity[1, :Scenario] == "Step Change"
@@ -272,9 +339,27 @@ end
 end
 
 @testset "ISP2026 dataset entrypoint validation" begin
-    @test isdefined(PISP, :build_ISP26_datasets)
+    @test isdefined(ParseISP, :build_ISP26_datasets)
+    @test isdefined(ParseISP, :build_datasets)
     mktempdir() do dir
-        @test_throws ArgumentError PISP.build_ISP26_datasets(
+        missing_sources_err = try
+            ParseISP.build_datasets(
+                ParseISP.ISP2026(),
+                downloadpath = dir,
+                years = [2026],
+                download_from_AEMO = false,
+                prepare_outlook = false,
+                build_traces = false,
+                write_csv = false,
+                write_arrow = false,
+            )
+            nothing
+        catch caught
+            caught
+        end
+        @test missing_sources_err isa ArgumentError
+        @test occursin("Missing required ISP2026 input file", sprint(showerror, missing_sources_err))
+        @test_throws ArgumentError ParseISP.build_ISP26_datasets(
             downloadpath = dir,
             years = [2026],
             download_from_AEMO = false,

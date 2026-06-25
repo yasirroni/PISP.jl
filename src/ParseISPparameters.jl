@@ -1,0 +1,8 @@
+include("releases/isp2024/parameters/general.jl")
+include("releases/isp2024/parameters/retirements.jl")
+include("releases/isp2024/parameters/ess.jl")
+include("releases/isp2024/parameters/gens.jl")
+include("releases/isp2024/parameters/hydro.jl")
+include("releases/isp2024/parameters/buildout2024ISP.jl")
+include("releases/isp2024/parameters/release_methods.jl")
+include("releases/isp2026/parameters.jl")

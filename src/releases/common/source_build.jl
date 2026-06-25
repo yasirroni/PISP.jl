@@ -1,0 +1,788 @@
+module ISPdatabuilder
+
+    using ParseISP
+    using ParseISP.ISPTraceDownloader
+    using ParseISP.ISPFileDownloader
+    using ParseISP.ParseISPScrapperUtils
+    using XLSX
+    using DataFrames
+    using DataFrames: Not
+    using Dates
+    using Dates: Date, DateFormat
+    using Tables
+    using CSV
+
+    export DATE_RANGES_REFYEARS,
+        default_data_root,
+        download_isp_assets,
+        download_isp26_source_files,
+        inspect_isp26_generation_storage_outlook,
+        prepare_isp26_outlook_aux,
+        extract_downloads,
+        build_capacity_outlook_aux,
+        build_storage_outlook_aux,
+        build_rez_capacity_aux,
+        generate_refyear4006_traces,
+        generate_refyear4006_demand_traces,
+        prepare_isp26_trace_inputs,
+        build_refyear4006_traces,
+        build_pipeline
+
+    const DEFAULT_DATA_ROOT = normpath(@__DIR__, "..", "..", "..", "data-download")
+
+    default_data_root() = DEFAULT_DATA_ROOT
+    # Ranges to build the 4006 trace 
+    # The 4006 trace is based on the ISP model published by AEMO 
+    # https://aemo.com.au/-/media/files/major-publications/isp/2024/supporting-materials/2024-isp-plexos-model-instructions.pdf?la=en
+    const DATE_RANGES_REFYEARS = [
+        (Date("2024-07-01"), Date("2025-06-30"), 2019),
+        (Date("2025-07-01"), Date("2026-06-30"), 2020),
+        (Date("2026-07-01"), Date("2027-06-30"), 2021),
+        (Date("2027-07-01"), Date("2028-06-30"), 2022),
+        (Date("2028-07-01"), Date("2029-06-30"), 2023),
+        (Date("2029-07-01"), Date("2030-06-30"), 2015),
+        (Date("2030-07-01"), Date("2031-06-30"), 2011),
+        (Date("2031-07-01"), Date("2032-06-30"), 2012),
+        (Date("2032-07-01"), Date("2033-06-30"), 2013),
+        (Date("2033-07-01"), Date("2034-06-30"), 2014),
+        (Date("2034-07-01"), Date("2035-06-30"), 2015),
+        (Date("2035-07-01"), Date("2036-06-30"), 2016),
+        (Date("2036-07-01"), Date("2037-06-30"), 2017),
+        (Date("2037-07-01"), Date("2038-06-30"), 2018),
+        (Date("2038-07-01"), Date("2039-06-30"), 2019),
+        (Date("2039-07-01"), Date("2040-06-30"), 2020),
+        (Date("2040-07-01"), Date("2041-06-30"), 2021),
+        (Date("2041-07-01"), Date("2042-06-30"), 2022),
+        (Date("2042-07-01"), Date("2043-06-30"), 2023),
+        (Date("2043-07-01"), Date("2044-06-30"), 2015),
+        (Date("2044-07-01"), Date("2045-06-30"), 2011),
+        (Date("2045-07-01"), Date("2046-06-30"), 2012),
+        (Date("2046-07-01"), Date("2047-06-30"), 2013),
+        (Date("2047-07-01"), Date("2048-06-30"), 2014),
+        (Date("2048-07-01"), Date("2049-06-30"), 2015),
+        (Date("2049-07-01"), Date("2050-06-30"), 2016),
+        (Date("2050-07-01"), Date("2051-06-30"), 2017),
+        (Date("2051-07-01"), Date("2052-06-30"), 2018),
+    ]
+
+    function data_dirs(data_root::AbstractString = DEFAULT_DATA_ROOT)
+        root = normpath(data_root)
+        return (root = root,
+                zip_root = normpath(root, "zip"),
+                trace_zip_root = normpath(root, "zip", "Traces"),
+                files_dest = root,
+                traces_dest = normpath(root, "Traces"),
+                outlook_core = normpath(root, "Core"),
+                outlook_aux = normpath(root, "Auxiliary"))
+    end
+
+    function maybe_throttle(throttle_seconds::Union{Nothing,Real})
+        throttle_seconds !== nothing && return throttle_seconds
+        throttle_env = get(ENV, "ISP_DOWNLOAD_THROTTLE", "")
+        return isempty(throttle_env) ? nothing : parse(Float64, throttle_env)
+    end
+
+    """
+        download_isp_assets(; data_root, confirm_overwrite, skip_existing, throttle_seconds)
+
+    Download ISP reference files and traces to the expected directory layout under `data_root`.
+    Returns a named tuple with the downloaded paths and the options used.
+    """
+    function download_isp_assets(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+                                confirm_overwrite::Bool = true,
+                                skip_existing::Bool = true,
+                                throttle_seconds::Union{Nothing,Real} = nothing)
+        dirs = data_dirs(data_root)
+        traces_options = FileDownloadOptions(outdir = dirs.trace_zip_root,
+                            confirm_overwrite = confirm_overwrite,
+                            skip_existing = skip_existing,
+                            throttle_seconds = maybe_throttle(throttle_seconds))
+        files_options = FileDownloadOptions(outdir = dirs.root,
+                            confirm_overwrite = confirm_overwrite,
+                            skip_existing = skip_existing)
+        files_options_zip = FileDownloadOptions(outdir = dirs.zip_root,
+                            confirm_overwrite = confirm_overwrite,
+                            skip_existing = skip_existing)
+
+        isp24_inputs_path      = download_isp24_inputs_workbook(options = files_options)
+        iasr23_ev_workbook_path = download_iasr23_ev_workbook(options = files_options)
+        isp19_inputs_path      = download_isp19_inputs_workbook(options = files_options)
+        isp24_model_path       = download_isp24_model_archive(options   = files_options_zip)
+        isp24_outlook_path     = download_isp24_outlook(options         = files_options_zip)
+        downloaded_traces      = download_isp24_traces(options = traces_options)
+
+        downloaded_files = [
+            isp24_inputs_path,
+            iasr23_ev_workbook_path,
+            isp24_model_path,
+            isp24_outlook_path,
+            isp19_inputs_path,
+        ]
+
+        @info("Downloaded $(length(downloaded_files)) ISP reference files to $(files_options.outdir)")
+        @info("Downloaded $(length(downloaded_traces)) ISP trace files to $(traces_options.outdir)")
+
+        return (files = downloaded_files,
+                iasr23_ev_workbook = iasr23_ev_workbook_path,
+                traces = downloaded_traces,
+                options = (files = files_options,
+                           zip_files = files_options_zip,
+                           trace = traces_options),
+                dirs = dirs)
+    end
+
+    """
+        download_isp26_source_files(downloadpath; kwargs...)
+
+    Download final 2026 ISP source files using the existing ISP file target
+    registry.
+
+    The optional `download_targets_fn` keyword makes the entrypoint easy to test
+    without network access.
+    """
+    function download_isp26_source_files(downloadpath::AbstractString = DEFAULT_DATA_ROOT;
+                                        confirm_overwrite::Bool = true,
+                                        skip_existing::Bool = true,
+                                        throttle_seconds::Union{Nothing,Real} = nothing,
+                                        download_targets_fn::Function = download_isp_files)
+        return ParseISP.download_source_files(ParseISP.ISP2026(), downloadpath;
+            confirm_overwrite = confirm_overwrite,
+            skip_existing = skip_existing,
+            throttle_seconds = throttle_seconds,
+            download_targets_fn = download_targets_fn)
+    end
+
+    function _inspect_isp26_outlook_entry(entry::AbstractString)
+        filename = splitpath(entry)[end]
+        parts = split(filename, " - ")
+        scenario = length(parts) >= 2 ? strip(parts[2]) : ""
+        kind = ParseISP._isp2026_is_core_outlook_entry(entry) ? :core : :sensitivity
+        variant = kind == :sensitivity && length(parts) >= 3 ?
+            strip(replace(join(parts[3:end], " - "), r"\.xlsx$" => "")) :
+            ""
+        return (entry = entry,
+                filename = filename,
+                kind = kind,
+                scenario = scenario,
+                variant = variant)
+    end
+
+    """
+        inspect_isp26_generation_storage_outlook(zip_path; parse_tables=false, preview_range="A3:AG40")
+
+    Inspect the final 2026 generation/storage outlook archive in place. The helper
+    classifies the core and sensitivity workbook entries and, when
+    `parse_tables` is enabled, reads a small preview table from the core workbooks
+    without permanently extracting the archive.
+    """
+    function inspect_isp26_generation_storage_outlook(zip_path::AbstractString;
+            parse_tables::Bool = false,
+            preview_range::AbstractString = "A3:AG40")
+        ParseISP._reject_nonfinal_isp2026_path(zip_path)
+        entries = ParseISP.read_isp2026_outlook_entries(zip_path)
+        validation = ParseISP.validate_isp2026_outlook_entries(entries)
+        blockers = filter(f -> f.severity == :blocker, validation.findings)
+        isempty(blockers) || error(join(map(f -> "$(f.code): $(f.message)", blockers), "\n"))
+
+        workbook_entries = validation.workbook_entries
+        core_entries = validation.core_entries
+        sensitivity_entries = validation.sensitivity_entries
+
+        core_workbooks = map(core_entries) do entry
+            meta = _inspect_isp26_outlook_entry(entry)
+            if !parse_tables
+                return meta
+            end
+
+            bytes = read(`unzip -p $zip_path $entry`)
+            workbook = XLSX.readxlsx(IOBuffer(bytes))
+            sheetnames = XLSX.sheetnames(workbook)
+            capacity = "Capacity" in sheetnames ?
+                ParseISP.read_xlsx_with_header(IOBuffer(bytes), "Capacity", preview_range) : DataFrame()
+            storage_capacity = "Storage Capacity" in sheetnames ?
+                ParseISP.read_xlsx_with_header(IOBuffer(bytes), "Storage Capacity", preview_range) : DataFrame()
+            storage_energy = "Storage Energy" in sheetnames ?
+                ParseISP.read_xlsx_with_header(IOBuffer(bytes), "Storage Energy", preview_range) : DataFrame()
+            rez_capacity = "REZ Generation Capacity" in sheetnames ?
+                ParseISP.read_xlsx_with_header(IOBuffer(bytes), "REZ Generation Capacity", preview_range) : DataFrame()
+
+            return merge(meta, (
+                sheetnames = sheetnames,
+                capacity = capacity,
+                storage_capacity = storage_capacity,
+                storage_energy = storage_energy,
+                rez_capacity = rez_capacity,
+            ))
+        end
+
+        return (
+            zip_path = zip_path,
+            entries = entries,
+            workbook_entries = workbook_entries,
+            core_entries = core_entries,
+            sensitivity_entries = sensitivity_entries,
+            core_scenarios = unique(map(entry -> _inspect_isp26_outlook_entry(entry).scenario, core_entries)),
+            core_workbooks = core_workbooks,
+            sensitivity_workbooks = map(_inspect_isp26_outlook_entry, sensitivity_entries),
+            validation = validation,
+        )
+    end
+
+    function _safe_zip_entry_filename(entry::AbstractString)
+        filename = splitpath(entry)[end]
+        isempty(filename) && error("Invalid archive entry without a filename: $(entry)")
+        occursin("/", filename) && error("Invalid archive entry filename: $(entry)")
+        return filename
+    end
+
+    """
+        prepare_isp26_outlook_aux(zip_path; data_root, scenario_map)
+
+    Install final 2026 generation/storage outlook workbooks from the ZIP
+    into the standard `Core/` directory and rebuild the auxiliary outlook files
+    expected by the existing dataset parser. `scenario_map` may rename final
+    2026 scenario labels to the three model scenario labels used by ParseISP.
+    """
+    function prepare_isp26_outlook_aux(zip_path::AbstractString;
+            data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}())
+        ParseISP._reject_nonfinal_isp2026_path(zip_path)
+        inspection = inspect_isp26_generation_storage_outlook(zip_path; parse_tables = false)
+        dirs = data_dirs(data_root)
+        mkpath(dirs.outlook_core)
+
+        installed = String[]
+        for entry in inspection.core_entries
+            filename = _safe_zip_entry_filename(entry)
+            dest = normpath(dirs.outlook_core, filename)
+            bytes = read(`unzip -p $zip_path $entry`)
+            open(dest, "w") do io
+                write(io, bytes)
+            end
+            push!(installed, dest)
+        end
+
+        capacity = build_capacity_outlook_aux(; data_root = data_root, scenario_map = scenario_map, release = ParseISP.ISP2026())
+        storage = build_storage_outlook_aux(; data_root = data_root, scenario_map = scenario_map, release = ParseISP.ISP2026())
+        rez_aux = build_rez_capacity_aux(; data_root = data_root, scenario_map = scenario_map, release = ParseISP.ISP2026())
+
+        return (inspection = inspection,
+                installed_core_workbooks = installed,
+                capacity_outlook = capacity,
+                storage_outlook = storage,
+                rez_capacity = rez_aux,
+                dirs = dirs)
+    end
+
+    """
+        extract_downloads(; data_root, overwrite, quiet)
+
+    Extract every zip found under `data_root/zip` into the standard structure. Returns
+    the extraction destinations along with the directory layout used.
+    """
+    function extract_downloads(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+                            overwrite::Bool = true,
+                            quiet::Bool = true)
+        dirs = data_dirs(data_root)
+
+        @info "Extracting ISP files" src = dirs.zip_root dest = dirs.files_dest
+        file_dirs = extract_all_zips(dirs.zip_root, dirs.files_dest; overwrite = overwrite, quiet = quiet)
+        @info "Finished extracting $(length(file_dirs)) ISP files"
+
+        @info "Extracting trace files" src = dirs.trace_zip_root dest = dirs.traces_dest
+        trace_dirs = extract_all_zips(dirs.trace_zip_root, dirs.traces_dest; overwrite = overwrite, quiet = quiet)
+        @info "Finished extracting $(length(trace_dirs)) trace files"
+
+        return (file_dirs = file_dirs,
+                trace_dirs = trace_dirs,
+                dirs = dirs)
+    end
+
+    _scenario_label(name::AbstractString, scenario_map) = get(scenario_map, String(name), String(name))
+
+    function _outlook_core_entries(outlook_core_path::AbstractString)
+        return filter(readdir(outlook_core_path)) do f
+            !startswith(f, "._") && endswith(lowercase(f), ".xlsx")
+        end
+    end
+
+    function _outlook_year_columns(df::DataFrame)
+        return filter(names(df)) do col
+            col_str = String(col)
+            occursin(r"^\d{4}-\d{2}$", col_str) || occursin(r"^\d{4}-\d{2}-\d{2}$", col_str)
+        end
+    end
+
+    function build_capacity_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}(),
+            release::ParseISP.ISPRelease = ParseISP.ISP2024())
+        dirs = data_dirs(data_root)
+        outlook_core_path      = dirs.outlook_core
+        outlook_auxiliary_path = dirs.outlook_aux
+        release_year = ParseISP.release_year(release)
+        mkpath(outlook_auxiliary_path)
+        file_list       = _outlook_core_entries(outlook_core_path)
+        all_capacities  = DataFrame[]
+        for f in file_list
+            file_path       = normpath(outlook_core_path, f)
+            parts           = split(f, " - ")
+            scenario_full   = length(parts) >= 2 ? _scenario_label(strip(parts[2]), scenario_map) : ""
+            capacity_df     = ParseISP.read_xlsx_with_header(file_path, "Capacity", "A3:AG5000")
+            insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
+            capacity_df     = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
+            push!(all_capacities, capacity_df)
+        end
+        combined_capacity_df = isempty(all_capacities) ? DataFrame() : vcat(all_capacities...; cols = :union)
+        combined_xlsx_path   = normpath(outlook_auxiliary_path, "CapacityOutlook_$(release_year)_ISP.xlsx")
+        XLSX.writetable(combined_xlsx_path, Tables.columntable(combined_capacity_df); sheetname="CapacityOutlook_$(release_year)_ISP", overwrite=true)
+
+        df_outlook = copy(combined_capacity_df)
+
+        year_cols = _outlook_year_columns(df_outlook)
+        for col in year_cols
+            col_str = String(col)
+            if occursin(r"^\d{4}-\d{2}$", col_str)
+                first_year = strip(split(col_str, '-')[1])
+                new_date = Date(parse(Int, first_year), 7, 1)
+                rename!(df_outlook, col => Symbol(Dates.format(new_date, DateFormat("yyyy-mm-dd"))))
+            end
+        end
+
+        value_vars      = _outlook_year_columns(df_outlook)
+        df_melted       = stack(df_outlook, value_vars; variable_name = :date, value_name = :value)
+        df_melted.date  = Date.(string.(df_melted.date), DateFormat("yyyy-mm-dd"))
+        sort!(df_melted, [:Scenario, :Subregion, :Technology, :date])
+        df_melted = filter(:CDP => ==("CDP14"), df_melted)
+        sort!(df_melted, [:Scenario, :Subregion, :Technology, :date])
+        output_melted_path = normpath(outlook_auxiliary_path, "CapacityOutlook$(release_year)_Condensed.xlsx")
+        XLSX.writetable(output_melted_path, Tables.columntable(df_melted); sheetname="CapacityOutlook", overwrite=true)
+
+        return (combined_path = combined_xlsx_path,
+                condensed_path = output_melted_path,
+                combined = combined_capacity_df,
+                condensed = df_melted)
+    end
+
+    function build_storage_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}(),
+            release::ParseISP.ISPRelease = ParseISP.ISP2024())
+        dirs = data_dirs(data_root)
+        outlook_core_path      = dirs.outlook_core
+        outlook_auxiliary_path = dirs.outlook_aux
+        release_year = ParseISP.release_year(release)
+        mkpath(outlook_auxiliary_path)
+        file_list            = _outlook_core_entries(outlook_core_path)
+        storage_energy_dfs   = DataFrame[]
+        storage_capacity_dfs = DataFrame[]
+        for f in file_list
+            file_path     = normpath(outlook_core_path, f)
+            parts         = split(f, " - ")
+            scenario_full = length(parts) >= 2 ? _scenario_label(strip(parts[2]), scenario_map) : ""
+
+            energy_df = ParseISP.read_xlsx_with_header(file_path, "Storage Energy", "A3:AG5000")
+            insertcols!(energy_df, 2, :Scenario => fill(scenario_full, nrow(energy_df)))
+            energy_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), energy_df)
+            push!(storage_energy_dfs, energy_df)
+
+            capacity_df = ParseISP.read_xlsx_with_header(file_path, "Storage Capacity", "A3:AG5000")
+            insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
+            capacity_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
+            push!(storage_capacity_dfs, capacity_df)
+        end
+
+        combined_energy_df   = isempty(storage_energy_dfs) ? DataFrame() : vcat(storage_energy_dfs...; cols = :union)
+        combined_capacity_df = isempty(storage_capacity_dfs) ? DataFrame() : vcat(storage_capacity_dfs...; cols = :union)
+
+        storage_energy_path   = normpath(outlook_auxiliary_path, "StorageEnergyOutlook_$(release_year)_ISP.xlsx")
+        storage_capacity_path = normpath(outlook_auxiliary_path, "StorageCapacityOutlook_$(release_year)_ISP.xlsx")
+        scenario_labels = collect(keys(ParseISP.scenario_definitions(release)))
+
+        energy_sheets = Pair{String,Any}[]
+        capacity_sheets = Pair{String,Any}[]
+        for sc in scenario_labels
+            sc_label = String(sc)
+            sc_rows_energy = filter(:Scenario => ==(sc_label), combined_energy_df)
+            sc_rows_capacity = filter(:Scenario => ==(sc_label), combined_capacity_df)
+
+            push!(energy_sheets, sc_label => Tables.columntable(sc_rows_energy))
+            push!(capacity_sheets, sc_label => Tables.columntable(sc_rows_capacity))
+        end
+
+        if isempty(energy_sheets)
+            XLSX.writetable(storage_energy_path, Tables.columntable(combined_energy_df); sheetname="StorageEnergyOutlook_$(release_year)_ISP", overwrite=true)
+        else
+            XLSX.writetable(storage_energy_path, energy_sheets; overwrite=true)
+        end
+
+        if isempty(capacity_sheets)
+            XLSX.writetable(storage_capacity_path, Tables.columntable(combined_capacity_df); sheetname="StorageCapacityOutlook_$(release_year)_ISP", overwrite=true)
+        else
+            XLSX.writetable(storage_capacity_path, capacity_sheets; overwrite=true)
+        end
+
+        return (energy_path = storage_energy_path,
+                capacity_path = storage_capacity_path,
+                energy = combined_energy_df,
+                capacity = combined_capacity_df)
+    end
+
+    function read_rez_capacity(path::AbstractString)
+        return ParseISP.read_xlsx_with_header(path, "REZ Generation Capacity", "A3:AG5000")
+    end
+
+    function build_rez_capacity_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}(),
+            release::ParseISP.ISPRelease = ParseISP.ISP2024())
+        dirs = data_dirs(data_root)
+        outlook_core_path      = dirs.outlook_core
+        outlook_auxiliary_path = dirs.outlook_aux
+        release_year = ParseISP.release_year(release)
+        mkpath(outlook_auxiliary_path)
+        rez_files = _outlook_core_entries(outlook_core_path)
+
+        outputs = String[]
+        for fname in rez_files
+            src = normpath(outlook_core_path, fname)
+            df = read_rez_capacity(src)
+            parts = split(fname, " - ")
+            dest_name = if length(parts) >= 2
+                mapped_scenario = _scenario_label(strip(parts[2]), scenario_map)
+                "$(release_year) ISP - $(mapped_scenario) - Core_REZCAP.xlsx"
+            else
+                replace(fname, ".xlsx" => "_REZCAP.xlsx")
+            end
+            dest = normpath(outlook_auxiliary_path, dest_name)
+            XLSX.writetable(dest, Tables.columntable(df); sheetname = "REZ Generation Capacity", overwrite = true)
+            push!(outputs, dest)
+        end
+        return outputs
+    end
+
+    function process_traces(path::AbstractString)
+        df = CSV.read(path, DataFrame)
+        df.date = Date.(df.Year, df.Month, df.Day)
+        return df
+    end
+
+    function generate_refyear4006_traces(
+        tech::AbstractString;
+        traces_root::AbstractString = data_dirs().traces_dest,
+        years = 2011:2023,
+        verbose::Bool = false,
+    )
+        tech_dir = isdir(joinpath(traces_root, tech)) ? joinpath(traces_root, tech) : traces_root
+        # This is not a hardcoding error. The 2011 trace is used as the reference for the 4006 trace (only to get filenames)
+        # So we list files from that directory to determine which traces to process. 
+        # The function will then look for the corresponding files in each year's directory.
+        file_names = filter(f -> !startswith(f, "._"), readdir(joinpath(tech_dir, "$(tech)_2011"))) 
+        cleaned_file_names = replace.(file_names, "_RefYear2011.csv" => "")
+        output_dir = joinpath(tech_dir, "$(tech)_4006")
+        mkpath(output_dir)
+
+        output_paths = String[]
+        for cleaned_file_name in cleaned_file_names
+            output_path = joinpath(output_dir, "$(cleaned_file_name)_RefYear4006.csv")
+            if isfile(output_path)
+                verbose && @info "Skipping existing 4006 trace" path = output_path
+                push!(output_paths, output_path)
+                continue
+            end
+
+            verbose && @info cleaned_file_name
+            tech_traces = Dict(year => process_traces(joinpath(tech_dir, "$(tech)_$(year)", "$(cleaned_file_name)_RefYear$(year).csv")) for year in years)
+            filtered_frames = DataFrame[]
+            for (start_date, end_date, ref_year) in DATE_RANGES_REFYEARS
+                df = tech_traces[ref_year]
+                mask = (df.date .>= start_date) .& (df.date .<= end_date)
+                push!(filtered_frames, df[mask, :])
+            end
+            df_out = vcat(filtered_frames...; cols = :union)
+            if "date" in names(df_out)
+                select!(df_out, Not("date"))
+            end
+            CSV.write(output_path, df_out)
+            push!(output_paths, output_path)
+        end
+
+        return output_paths
+    end
+
+    function generate_refyear4006_demand_traces(
+        tech::AbstractString;
+        traces_root::AbstractString = data_dirs().traces_dest,
+        region::AbstractString = "",
+        scenario::AbstractString = "",
+        years = 2011:2023,
+        poe::Real = 10,
+        release::ParseISP.ISPRelease = ParseISP.ISP2024(),
+        verbose::Bool = false,
+    )
+        poe_int  = Int(poe)
+        tech_dir = isdir(joinpath(traces_root, tech)) ? joinpath(traces_root, tech) : traces_root
+        base_dir = joinpath(tech_dir, "$(tech)_$(region)_$(scenario)")
+        demand_labels = ParseISP.demand_scenario_labels(release)
+        base_name(y) = "$(region)_RefYear_$(y)_$(demand_labels[scenario])_POE$(poe_int)"
+
+        output_dir = joinpath(tech_dir, "$(tech)_$(region)_$(scenario)")
+        mkpath(output_dir)
+
+        dem_types    = ("OPSO_MODELLING_PVLITE", "PV_TOT")
+        output_paths = String[]
+
+        for dt in dem_types
+            output_path = joinpath(output_dir, "$(region)_RefYear_4006_$(demand_labels[scenario])_POE$(poe_int)_$(dt).csv")
+            if isfile(output_path)
+                verbose && @info "Skipping existing 4006 demand trace" path = output_path
+                push!(output_paths, output_path)
+                continue
+            end
+
+            tech_traces = Dict{Int,DataFrame}(y => process_traces(joinpath(base_dir, "$(base_name(y))_$(dt).csv")) for y in years)
+            filtered_frames = DataFrame[]
+            for (start_date, end_date, ref_year) in DATE_RANGES_REFYEARS
+                df   = tech_traces[ref_year]
+                mask = (df.date .>= start_date) .& (df.date .<= end_date)
+                push!(filtered_frames, @view df[mask, :])
+            end
+            df_out = vcat(filtered_frames...; cols = :union)
+            select!(df_out, Not("date"))
+            CSV.write(output_path, df_out)
+            push!(output_paths, output_path)
+        end
+
+        return output_paths
+    end
+
+    function _copy_file_if_needed(src::AbstractString, dest::AbstractString; overwrite::Bool = false)
+        isfile(src) || error("Required source file not found: $(src)")
+        mkpath(dirname(dest))
+        if isfile(dest) && !overwrite
+            return dest
+        end
+        cp(src, dest; force = overwrite)
+        return dest
+    end
+
+    function _copy_refyear_trace_dir(src_dir::AbstractString, dest_dir::AbstractString;
+            source_token::AbstractString = "RefYear5000",
+            target_token::AbstractString = "RefYear4006",
+            overwrite::Bool = false)
+        isdir(src_dir) || error("Required trace source directory not found: $(src_dir)")
+        mkpath(dest_dir)
+
+        outputs = String[]
+        for src in sort(readdir(src_dir; join = true))
+            fname = basename(src)
+            startswith(fname, "._") && continue
+            endswith(lowercase(fname), ".csv") || continue
+            occursin(source_token, fname) || continue
+            dest = joinpath(dest_dir, replace(fname, source_token => target_token))
+            push!(outputs, _copy_file_if_needed(src, dest; overwrite = overwrite))
+        end
+        return outputs
+    end
+
+    function _find_isp26_trace_source(traces_root::AbstractString, tech::AbstractString)
+        title_tech = uppercasefirst(tech)
+        candidates = (
+            joinpath(traces_root, "2026 ISP $(title_tech) traces", tech),
+            joinpath(traces_root, tech),
+        )
+        for candidate in candidates
+            isdir(candidate) && return candidate
+        end
+        error("Could not find final ISP2026 $(tech) trace directory under $(traces_root)")
+    end
+
+    const ISP2026_TRACE_REGION_ALIASES = Dict(
+        "VIC" => ("MEL", "SEV", "WNV"),
+    )
+
+    function _aggregate_trace_files(files::Vector{String}, dest::AbstractString; overwrite::Bool = false)
+        isempty(files) && error("No source files found for $(dest)")
+        if isfile(dest) && !overwrite
+            return dest
+        end
+
+        frames = CSV.read.(files, Ref(DataFrame))
+        out = select(frames[1], 1:3)
+        for col in names(frames[1])[4:end]
+            values = zeros(Float64, nrow(out))
+            for df in frames
+                values .+= Float64.(df[!, col])
+            end
+            out[!, col] = values
+        end
+        mkpath(dirname(dest))
+        CSV.write(dest, out)
+        return dest
+    end
+
+    function _isp26_region_source_files(src_dir::AbstractString, region::AbstractString,
+            suffix::AbstractString; area_prefix::Bool = false)
+        direct_prefix = area_prefix ? "$(region)_Area" : "$(region)_"
+        direct = filter(sort(readdir(src_dir; join = true))) do f
+            fname = basename(f)
+            startswith(fname, direct_prefix) && endswith(fname, suffix)
+        end
+        !isempty(direct) && return direct
+
+        alias_regions = get(ISP2026_TRACE_REGION_ALIASES, String(region), ())
+        files = String[]
+        for alias in alias_regions
+            alias_prefix = area_prefix ? "$(alias)_Area" : "$(alias)_"
+            append!(files, filter(sort(readdir(src_dir; join = true))) do f
+                fname = basename(f)
+                startswith(fname, alias_prefix) && endswith(fname, suffix)
+            end)
+        end
+        return files
+    end
+
+    function prepare_isp26_trace_inputs(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            refyear::Integer = 4006,
+            poe::Real = 10,
+            overwrite::Bool = false,
+            quiet::Bool = true)
+        release = ParseISP.ISP2026()
+        paths = ParseISP.default_data_paths(release, data_root)
+        dirs = data_dirs(data_root)
+        source_refyear = 5000
+        poe_int = Int(poe)
+        target_token = "RefYear$(refyear)"
+
+        if !isdir(paths.isp_model_dir)
+            extract_zip(paths.isp_model_zip, data_root; overwrite = overwrite, quiet = quiet)
+        end
+        model_dir = paths.isp_model_dir
+
+        solar_source = _find_isp26_trace_source(dirs.traces_dest, "solar")
+        wind_source = _find_isp26_trace_source(dirs.traces_dest, "wind")
+        solar = _copy_refyear_trace_dir(solar_source, joinpath(dirs.traces_dest, "solar_$(refyear)");
+            source_token = "RefYear$(source_refyear)",
+            target_token = target_token,
+            overwrite = overwrite)
+        wind = _copy_refyear_trace_dir(wind_source, joinpath(dirs.traces_dest, "wind_$(refyear)");
+            source_token = "RefYear$(source_refyear)",
+            target_token = target_token,
+            overwrite = overwrite)
+
+        demand_outputs = Dict{Tuple{String,String},Vector{String}}()
+        demand_labels = ParseISP.demand_scenario_labels(release)
+        for (scenario, demand_label) in demand_labels
+            scenario_model_dir = joinpath(model_dir, "2026 ISP $(scenario)", "Traces")
+            demand_dir = joinpath(scenario_model_dir, "demand")
+            rooftop_dir = joinpath(scenario_model_dir, "rooftop PV")
+            isdir(demand_dir) || error("Required ISP2026 demand trace directory not found: $(demand_dir)")
+            isdir(rooftop_dir) || error("Required ISP2026 rooftop PV trace directory not found: $(rooftop_dir)")
+
+            for region in keys(ParseISP.NEMBUSNAME)
+                region_str = String(region)
+                dest_dir = joinpath(dirs.traces_dest, "demand_$(region_str)_$(scenario)")
+                mkpath(dest_dir)
+
+                demand_dest = joinpath(dest_dir, "$(region_str)_RefYear_$(refyear)_$(demand_label)_POE$(poe_int)_OPSO_MODELLING_PVLITE.csv")
+                demand_suffix = "_RefYear_$(source_refyear)_$(demand_label)_POE$(poe_int)_OPSO_MODELLING_PVLITE.csv"
+                demand_files = _isp26_region_source_files(demand_dir, region_str, demand_suffix)
+                outputs = if length(demand_files) == 1 && startswith(basename(demand_files[1]), "$(region_str)_")
+                    [_copy_file_if_needed(demand_files[1], demand_dest; overwrite = overwrite)]
+                else
+                    [_aggregate_trace_files(demand_files, demand_dest; overwrite = overwrite)]
+                end
+
+                pv_suffix = "_RefYear_$(source_refyear)_$(demand_label)_POE$(poe_int)_PV_TOT.csv"
+                pv_files = _isp26_region_source_files(rooftop_dir, region_str, pv_suffix; area_prefix = true)
+                pv_dest = joinpath(dest_dir, "$(region_str)_RefYear_$(refyear)_$(demand_label)_POE$(poe_int)_PV_TOT.csv")
+                push!(outputs, _aggregate_trace_files(pv_files, pv_dest; overwrite = overwrite))
+                demand_outputs[(region_str, String(scenario))] = outputs
+            end
+        end
+
+        return (
+            model_dir = model_dir,
+            solar = solar,
+            wind = wind,
+            demand = demand_outputs,
+            traces_root = dirs.traces_dest,
+        )
+    end
+
+    function build_refyear4006_traces(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+                                    years = 2011:2023,
+                                    poe::Real = 10.0,
+                                    release::ParseISP.ISPRelease = ParseISP.ISP2024(),
+                                    verbose::Bool = false)
+        if release isa ParseISP.ISP2026
+            return prepare_isp26_trace_inputs(;
+                data_root = data_root,
+                refyear = 4006,
+                poe = poe,
+                overwrite = false,
+                quiet = !verbose)
+        end
+
+        dirs = data_dirs(data_root)
+        solar_4006_paths = generate_refyear4006_traces("solar"; traces_root = dirs.traces_dest, years = years, verbose = verbose)
+        wind_4006_paths  = generate_refyear4006_traces("wind"; traces_root = dirs.traces_dest, years = years, verbose = verbose)
+
+        demand_outputs = Dict{Tuple{String,String},Vector{String}}()
+        for region in keys(ParseISP.NEMBUSNAME)
+            region_str = String(region)
+            for scenario in keys(ParseISP.demand_scenario_labels(release))
+                scenario_str = String(scenario)
+                demand_outputs[(region_str, scenario_str)] =
+                    generate_refyear4006_demand_traces("demand"; traces_root = dirs.traces_dest,
+                                                    region = region_str, scenario = scenario_str,
+                                                    years = years, poe = poe, release = release, verbose = verbose)
+            end
+        end
+
+        return (solar = solar_4006_paths,
+                wind = wind_4006_paths,
+                demand = demand_outputs,
+                traces_root = dirs.traces_dest)
+    end
+
+    """
+        build_pipeline(; kwargs...)
+
+    Convenience wrapper that runs the full ISP data preparation pipeline:
+    download assets, extract archives, build auxiliary outlook files, and
+    assemble 4006 reference-year traces.
+    """
+    function build_pipeline(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+                        confirm_overwrite::Bool = true,
+                        skip_existing::Bool = true,
+                        throttle_seconds::Union{Nothing,Real} = nothing,
+                        overwrite_extracts::Bool = true,
+                        quiet_extracts::Bool = true,
+                        download_files::Bool = true,
+                        build_traces::Bool = true,
+                        poe::Real = 10.0,
+                        years = 2011:2023,
+                        verbose_traces::Bool = false)
+        downloads = download_files ?
+            download_isp_assets(; data_root = data_root,
+                            confirm_overwrite = confirm_overwrite,
+                            skip_existing = skip_existing,
+                            throttle_seconds = throttle_seconds) :
+            nothing
+        extraction = extract_downloads(; data_root = data_root,
+                                    overwrite = overwrite_extracts,
+                                    quiet = quiet_extracts)
+        capacity   = build_capacity_outlook_aux(; data_root = data_root)
+        storage    = build_storage_outlook_aux(; data_root = data_root)
+        rez_aux    = build_rez_capacity_aux(; data_root = data_root)
+        traces_4006 = build_traces ?
+            build_refyear4006_traces(; data_root = data_root, years = years, poe = poe, verbose = verbose_traces) :
+            nothing
+
+        return (downloads = downloads,
+                extraction = extraction,
+                capacity_outlook = capacity,
+                storage_outlook = storage,
+                rez_capacity = rez_aux,
+                traces_4006 = traces_4006);
+    end
+
+end
