@@ -5,11 +5,12 @@ Translate textual lead-time classes from the ISP spreadsheets into the number of
 years (e.g. "Long" => 8 years).
 """
 function lead2year(str)
-        if str == "Long" return 8
-        elseif str == "Short" return 2
-        elseif str == "Medium" return 4
-        elseif str == "" return 4
-        else return 4 end
+        s = lowercase(strip(string(str)))
+        startswith(s, "long") && return 8
+        startswith(s, "short") && return 2
+        startswith(s, "medium") && return 4
+        isempty(s) && return 4
+        return 4
 end
 
 """
@@ -18,7 +19,12 @@ end
 Coerce a textual flow entry (often containing commas or NA) into a `Float64`
 value so that line limits can be manipulated numerically.
 """
-flow2num(str) = str == "NA" ? 0.0 : parse(Float64,replace(str, "," => ""))
+function flow2num(str)
+    s = lowercase(strip(string(str)))
+    (isempty(s) || s == "na" || s == "missing" || s == "x") && return 0.0
+    parsed = tryparse(Float64, replace(split(string(str), ['(', '\n'])[1], "," => ""))
+    return parsed === nothing ? 0.0 : parsed
+end
 
 """
     inv2num(str)
@@ -27,7 +33,26 @@ Convert investment cost strings that may contain descriptive text or two-part
 values into a single numeric estimate. Non-network placeholders are mapped to a
 large value (9999.0) to highlight missing cost data.
 """
-inv2num(str) = str[1] == "Non-network option costs to be provided by interested parties" || str[1] == "Anticipated project." ? 9999.0 : (length(str)<6 ? parse(Float64,replace(str[1], "," => "")) : parse(Float64,replace(str[1], "," => "")) + parse(Float64,replace(str[3], "," => "")))
+function inv2num(str)
+    isempty(str) && return 9999.0
+    first = strip(string(str[1]))
+    normalized = lowercase(first)
+    if isempty(normalized) || normalized in ("missing", "x")
+        return 9999.0
+    end
+    if first == "Non-network option costs to be provided by interested parties" || first == "Anticipated project."
+        return 9999.0
+    end
+
+    first_num = tryparse(Float64, replace(first, "," => ""))
+    first_num === nothing && return 9999.0
+    length(str) < 6 && return first_num
+
+    second = strip(string(str[3]))
+    second_num = tryparse(Float64, replace(second, "," => ""))
+    second_num === nothing && return first_num
+    return first_num + second_num
+end
 
 """
     fiscal_year(year)

@@ -9,6 +9,7 @@ module ISPFileDownloader
     export ISPFileTarget,
         FileDownloadOptions,
         isp_file_targets,
+        isp2026_source_metadata,
         download_isp_files,
         download_all_isp_files,
         download_isp24_inputs_workbook,
@@ -16,7 +17,8 @@ module ISPFileDownloader
         download_isp24_model_archive,
         download_isp24_generation_storage_archive,
         download_isp24_outlook,
-        download_isp19_inputs_workbook
+        download_isp19_inputs_workbook,
+        download_isp26_inputs_workbook
 
     const DEFAULT_FILES_OUTDIR = "scrapped/ISP_reference_files"
 
@@ -71,13 +73,76 @@ module ISPFileDownloader
                       filename = "2024-isp-generation-and-storage-outlook.zip",
                       subdir = ""),
         ISPFileTarget(:isp19_inputs_v13,
-                      "2019 input and assumptions workbook v1.3",
-                      "https://www.aemo.com.au/-/media/files/electricity/nem/planning_and_forecasting/inputs-assumptions-methodologies/2019/2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx?rev=b6fb3a0d7bd849eea781e99f8c89544a&sc_lang=en";
-                      filename = "2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx",
-                      subdir = "")
+                       "2019 input and assumptions workbook v1.3",
+                       "https://www.aemo.com.au/-/media/files/electricity/nem/planning_and_forecasting/inputs-assumptions-methodologies/2019/2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx?rev=b6fb3a0d7bd849eea781e99f8c89544a&sc_lang=en";
+                       filename = "2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx",
+                       subdir = ""),
+        ISPFileTarget(:isp26_inputs,
+                      "2026 ISP Inputs and Assumptions workbook",
+                      "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-inputs-and-assumptions-workbook.xlsm?rev=de6f5853cd5e4d5cbb06bc90bdf0e378&sc_lang=en";
+                      filename = "2026-isp-inputs-and-assumptions-workbook.xlsm",
+                      subdir = ""),
+        ISPFileTarget(:isp26_outlook,
+                      "2026 ISP generation and storage outlook",
+                      "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-generation-and-storage-outlook.zip?rev=b64eda28a46b4d3eb3e4b3cbafea3f84&sc_lang=en";
+                      filename = "2026-isp-generation-and-storage-outlook.zip",
+                      subdir = ""),
+        ISPFileTarget(:isp26_model,
+                      "2026 ISP Model",
+                      "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-model.zip?rev=78bfcf05ad414a8f9ba01f6a7c329fc2&sc_lang=en";
+                      filename = "2026-isp-model.zip",
+                      subdir = ""),
+        ISPFileTarget(:isp26_solar_traces,
+                      "2026 ISP Solar traces",
+                      "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-solar-traces.zip?rev=3ad06155b7b94628bc77b90efe94588e&sc_lang=en";
+                      filename = "2026-isp-solar-traces.zip",
+                      subdir = "zip/Traces"),
+        ISPFileTarget(:isp26_wind_traces,
+                      "2026 ISP Wind traces",
+                      "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-wind-traces.zip?rev=73674cd5bc6b4b7fbbc7d0e68ee0bc7c&sc_lang=en";
+                      filename = "2026-isp-wind-traces.zip",
+                      subdir = "zip/Traces")
     ]
 
     const ISP_FILE_LOOKUP = Dict(target.key => target for target in ISP_FILE_TARGETS)
+
+    const ISP2026_SOURCE_METADATA = [
+        (key = :isp26_inputs,
+         title = "2026 ISP Inputs and Assumptions workbook",
+         url = "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-inputs-and-assumptions-workbook.xlsm?rev=de6f5853cd5e4d5cbb06bc90bdf0e378&sc_lang=en",
+         filename = "2026-isp-inputs-and-assumptions-workbook.xlsm",
+         status = :downloadable,
+         local_path = "2026-isp-inputs-and-assumptions-workbook.xlsm",
+         note = "Authoritative final 2026 ISP input workbook."),
+        (key = :isp26_outlook,
+         title = "2026 ISP generation and storage outlook",
+         url = "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-generation-and-storage-outlook.zip?rev=b64eda28a46b4d3eb3e4b3cbafea3f84&sc_lang=en",
+         filename = "2026-isp-generation-and-storage-outlook.zip",
+         status = :downloadable,
+         local_path = "2026-isp-generation-and-storage-outlook.zip",
+         note = "Authoritative final 2026 ISP generation and storage outlook."),
+        (key = :isp26_model,
+         title = "2026 ISP Model",
+         url = "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-model.zip?rev=78bfcf05ad414a8f9ba01f6a7c329fc2&sc_lang=en",
+         filename = "2026-isp-model.zip",
+         status = :downloadable,
+         local_path = "2026-isp-model.zip",
+         note = "Authoritative final 2026 ISP model archive."),
+        (key = :isp26_solar_traces,
+         title = "2026 ISP Solar traces",
+         url = "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-solar-traces.zip?rev=3ad06155b7b94628bc77b90efe94588e&sc_lang=en",
+         filename = "2026-isp-solar-traces.zip",
+         status = :downloadable,
+         local_path = "zip/Traces/2026-isp-solar-traces.zip",
+         note = "Authoritative final 2026 ISP solar traces."),
+        (key = :isp26_wind_traces,
+         title = "2026 ISP Wind traces",
+         url = "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-wind-traces.zip?rev=73674cd5bc6b4b7fbbc7d0e68ee0bc7c&sc_lang=en",
+         filename = "2026-isp-wind-traces.zip",
+         status = :downloadable,
+         local_path = "zip/Traces/2026-isp-wind-traces.zip",
+         note = "Authoritative final 2026 ISP wind traces."),
+    ]
 
     isp_file_targets() = copy(ISP_FILE_TARGETS)
 
@@ -102,6 +167,11 @@ module ISPFileDownloader
 
     download_isp19_inputs_workbook(; options::FileDownloadOptions = default_file_download_options()) =
         download_single_target(:isp19_inputs_v13; options = options)
+
+    download_isp26_inputs_workbook(; options::FileDownloadOptions = default_file_download_options()) =
+        download_single_target(:isp26_inputs; options = options)
+
+    isp2026_source_metadata() = copy(ISP2026_SOURCE_METADATA)
 
     function download_isp_files(targets::AbstractVector{ISPFileTarget};
                                 options::FileDownloadOptions = default_file_download_options(),
@@ -149,7 +219,9 @@ module ISPFileDownloader
                 download_file(target.url, dest; headers = options.file_headers)
                 println("  ✅ Done\n")
             catch err
-                @warn "  ❌ Failed to download $(target.url)" exception = err
+                isfile(dest) && rm(dest; force = true)
+                println("  ❌ Failed\n")
+                error("Failed to download $(target.title) from $(target.url) to $(dest).\n$(sprint(showerror, err))")
             end
 
             options.throttle_seconds === nothing || sleep(options.throttle_seconds)
@@ -164,6 +236,20 @@ module ISPFileDownloader
         target = get_target(key)
         paths = download_isp_files([target]; options = options)
         return isempty(paths) ? "" : paths[1]
+    end
+
+    function download_file_target(title::AbstractString, url::AbstractString, filename::AbstractString;
+                                  options::FileDownloadOptions = default_file_download_options())
+        dest_dir = target_outdir(ISPFileTarget(:tmp, title, url; filename = filename, subdir = ""), options.outdir)
+        mkpath(dest_dir)
+        dest = joinpath(dest_dir, filename)
+        try
+            download_file(url, dest; headers = options.file_headers)
+        catch err
+            isfile(dest) && rm(dest; force = true)
+            error("Failed to download $(title) from $(url) to $(dest).\n$(sprint(showerror, err))")
+        end
+        return dest
     end
 
     function get_target(key::Symbol)

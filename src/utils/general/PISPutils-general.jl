@@ -25,6 +25,43 @@ function default_data_paths(;filepath=@__DIR__)
 end
 
 """
+    default_data_paths_2026(; filepath = @__DIR__)
+
+Return the final 2026 ISP input paths. These point only to artefacts published
+with the final 2026 ISP on 25 June 2026.
+"""
+function default_data_paths_2026(; filepath=@__DIR__)
+    return (
+        ispdata26                 = normpath(filepath, "2026-isp-inputs-and-assumptions-workbook.xlsm"),
+        outlook_generation_storage = normpath(filepath, "2026-isp-generation-and-storage-outlook.zip"),
+        ispmodel_zip              = normpath(filepath, "2026-isp-model.zip"),
+        solar_traces_zip          = normpath(filepath, "zip/Traces/2026-isp-solar-traces.zip"),
+        wind_traces_zip           = normpath(filepath, "zip/Traces/2026-isp-wind-traces.zip"),
+        ispmodel                  = normpath(filepath, "2026 ISP Model"),
+        ispdata24                 = normpath(filepath, "2026-isp-inputs-and-assumptions-workbook.xlsm"),
+        ispdata19                 = normpath(filepath, "2026-isp-inputs-and-assumptions-workbook.xlsm"),
+        iasr23_ev_workbook        = normpath(filepath, "2026-isp-inputs-and-assumptions-workbook.xlsm"),
+        profiledata               = normpath(filepath, "Traces/"),
+        outlookdata               = normpath(filepath, "Core"),
+        outlookAEMO               = normpath(filepath, "Auxiliary/CapacityOutlook2024_Condensed.xlsx"),
+        vpp_cap                   = normpath(filepath, "Auxiliary/StorageCapacityOutlook_2024_ISP.xlsx"),
+        vpp_ene                   = normpath(filepath, "Auxiliary/StorageEnergyOutlook_2024_ISP.xlsx"),
+    )
+end
+
+function _require_existing_files(paths::NamedTuple, keys)
+    missing = Pair{Symbol,String}[]
+    for key in keys
+        path = getfield(paths, key)
+        PISP._reject_nonfinal_isp2026_path(path)
+        isfile(path) || push!(missing, key => path)
+    end
+    isempty(missing) && return nothing
+    message = join(["$(key): $(path)" for (key, path) in missing], "\n")
+    throw(ArgumentError("Missing required ISP2026 input file(s):\n$(message)"))
+end
+
+"""
     fill_problem_table_year(tc, year; sce = keys(PISP.ID2SCE))
 
 Populate `tc.problem` with half-year blocks for each scenario in `sce`. For the
@@ -173,7 +210,7 @@ function build_ISP24_datasets(;
     write_csv::Bool = true,
     write_arrow::Bool = true,
     download_from_AEMO::Bool = true,
-    scenarios::AbstractVector{<:Int64} = keys(PISP.ID2SCE),
+    scenarios::AbstractVector{<:Int64} = collect(keys(PISP.ID2SCE)),
     write_traces::Bool = true,
     check_exist_trace::Bool = false,
     buildout_filepath::Union{Nothing,AbstractString} = nothing,
@@ -241,6 +278,95 @@ function build_ISP24_datasets(;
             arrow_varying_path = "$(base_name)/arrow/schedule-$(tag)",
             write_static       = true,
             write_varying      = !skip_traces,
+            output_root        = output_root,
+            write_csv          = write_csv,
+            write_arrow        = write_arrow,
+        )
+    end
+end
+
+"""
+    build_ISP26_datasets(; kwargs...)
+
+Build datasets from the final 2026 ISP inputs using the same output contract as
+`build_ISP24_datasets`. This path is intentionally final-2026-only: preliminary
+artefacts, 2024 ISP model files, and 2019 workbooks are not valid inputs.
+"""
+function build_ISP26_datasets(;
+    downloadpath::AbstractString = normpath(@__DIR__, "../../", "data-download"),
+    poe::Integer = 10,
+    reftrace::Integer = 4006,
+    years::Union{Nothing,AbstractVector{<:Integer}} = nothing,
+    drange::Union{Nothing,AbstractVector} = nothing,
+    output_name::AbstractString = "out-isp2026",
+    output_root::Union{Nothing,AbstractString} = nothing,
+    write_csv::Bool = true,
+    write_arrow::Bool = true,
+    download_from_AEMO::Bool = true,
+    prepare_outlook::Bool = true,
+    prepare_supporting_assets::Bool = download_from_AEMO,
+    build_traces::Bool = true,
+    scenario_map = Dict{String,String}(),
+    scenarios::AbstractVector{<:Int64} = collect(keys(PISP.ID2SCE)),
+)
+    if years !== nothing && drange !== nothing
+        throw(ArgumentError("Only one of `years` or `drange` may be specified, not both."))
+    end
+    if years === nothing && drange === nothing
+        throw(ArgumentError("At least one of `years` or `drange` must be specified."))
+    end
+    if years !== nothing && any(y -> y < 2025 || y > 2050, years)
+        throw(ArgumentError("Years must be between 2025 and 2050 (got $(years))."))
+    end
+
+    data_paths = PISP.default_data_paths_2026(filepath = downloadpath)
+
+    if download_from_AEMO
+        PISP.download_isp26_source_files(downloadpath; skip_existing = true)
+    end
+
+    if prepare_supporting_assets
+        PISP.extract_downloads(data_root = downloadpath, overwrite = false, quiet = true)
+    end
+
+    _require_existing_files(data_paths, (:ispdata26, :outlook_generation_storage, :ispmodel_zip, :solar_traces_zip, :wind_traces_zip))
+
+    if prepare_outlook
+        _require_existing_files(data_paths, (:outlook_generation_storage,))
+        PISP.prepare_isp26_outlook_aux(data_paths.outlook_generation_storage;
+            data_root = downloadpath,
+            scenario_map = scenario_map)
+    end
+
+    base_name = "$(output_name)-ref$(reftrace)-poe$(poe)"
+    items = years !== nothing ? years : drange
+    mode  = years !== nothing ? :year : :drange
+
+    for item in items
+        tc, ts, tv = PISP.initialise_time_structures()
+
+        if mode === :year
+            fill_problem_table_year(tc, item, sce = scenarios)
+            tag = string(item)
+        else
+            (raw_start, raw_end) = item
+            ds = _to_datetime(raw_start, :start)
+            de = _to_datetime(raw_end, :end)
+            fill_problem_table_drange(tc, ds, de, sce = scenarios)
+            tag = "$(Dates.format(ds, "ddmmyyyy"))-$(Dates.format(de, "ddmmyyyy"))"
+        end
+
+        static_params = PISP.populate_time_static!(ts, tv, data_paths; refyear = reftrace, poe = poe)
+        @info "Populating time-varying data from final ISP 2026 - POE $(poe) - reference weather trace $(reftrace) - schedule $(tag) ..."
+        PISP.populate_time_varying!(tc, ts, tv, data_paths, static_params; refyear = reftrace, poe = poe)
+
+        PISP.write_time_data(ts, tv;
+            csv_static_path    = "$(base_name)/csv",
+            csv_varying_path   = "$(base_name)/csv/schedule-$(tag)",
+            arrow_static_path  = "$(base_name)/arrow",
+            arrow_varying_path = "$(base_name)/arrow/schedule-$(tag)",
+            write_static       = true,
+            write_varying      = true,
             output_root        = output_root,
             write_csv          = write_csv,
             write_arrow        = write_arrow,

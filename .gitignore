@@ -25,7 +25,10 @@ test-*/
 *.zip
 data/
 *.DS_Store
-
 CLAUDE*
 AGENTS*
 .claude/
+audit-output/
+AI_TEST_LOG.md
+REPRODUCTION_TASKS.md
+ISP_DATA_PIPELINE_ARCHITECTURE.md

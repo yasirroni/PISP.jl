@@ -15,6 +15,9 @@ module ISPdatabuilder
     export DATE_RANGES_REFYEARS,
         default_data_root,
         download_isp_assets,
+        download_isp26_source_files,
+        inspect_isp26_generation_storage_outlook,
+        prepare_isp26_outlook_aux,
         extract_downloads,
         build_capacity_outlook_aux,
         build_storage_outlook_aux,
@@ -128,6 +131,168 @@ module ISPdatabuilder
     end
 
     """
+        download_isp26_source_files(downloadpath; kwargs...)
+
+    Download final 2026 ISP source files using the existing ISP file target
+    registry.
+
+    The optional `download_targets_fn` keyword makes the entrypoint easy to test
+    without network access.
+    """
+    function download_isp26_source_files(downloadpath::AbstractString = DEFAULT_DATA_ROOT;
+                                        confirm_overwrite::Bool = true,
+                                        skip_existing::Bool = true,
+                                        throttle_seconds::Union{Nothing,Real} = nothing,
+                                        download_targets_fn::Function = download_isp_files)
+        dirs = data_dirs(downloadpath)
+        files_options = FileDownloadOptions(outdir = dirs.root,
+                                confirm_overwrite = confirm_overwrite,
+                                skip_existing = skip_existing,
+                                throttle_seconds = maybe_throttle(throttle_seconds))
+        automatic_targets = [PISP.ISPFileDownloader.get_target(:isp26_inputs),
+                             PISP.ISPFileDownloader.get_target(:isp26_outlook),
+                             PISP.ISPFileDownloader.get_target(:isp26_model),
+                             PISP.ISPFileDownloader.get_target(:isp26_solar_traces),
+                             PISP.ISPFileDownloader.get_target(:isp26_wind_traces)]
+        downloaded_paths = download_targets_fn(automatic_targets; options = files_options)
+        paths = PISP.default_data_paths_2026(filepath = downloadpath)
+
+        return (paths = paths,
+                downloaded = (ispdata26 = downloaded_paths[1],
+                              outlook_generation_storage = downloaded_paths[2],
+                              ispmodel_zip = downloaded_paths[3],
+                              solar_traces_zip = downloaded_paths[4],
+                              wind_traces_zip = downloaded_paths[5]),
+                targets = (automatic = (:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces),),
+                outlook = isfile(paths.outlook_generation_storage) ?
+                    inspect_isp26_generation_storage_outlook(paths.outlook_generation_storage; parse_tables = false) :
+                    nothing,
+                metadata = isp2026_source_metadata())
+    end
+
+    function _inspect_isp26_outlook_entry(entry::AbstractString)
+        filename = splitpath(entry)[end]
+        parts = split(filename, " - ")
+        scenario = length(parts) >= 2 ? strip(parts[2]) : ""
+        kind = startswith(entry, "Cores/") ? :core : :sensitivity
+        variant = kind == :sensitivity && length(parts) >= 3 ?
+            strip(replace(join(parts[3:end], " - "), r"\.xlsx$" => "")) :
+            ""
+        return (entry = entry,
+                filename = filename,
+                kind = kind,
+                scenario = scenario,
+                variant = variant)
+    end
+
+    """
+        inspect_isp26_generation_storage_outlook(zip_path; parse_tables=false, preview_range="A3:AG40")
+
+    Inspect the final 2026 generation/storage outlook archive in place. The helper
+    classifies the `Cores/` and `Sensitivities/` workbook entries and, when
+    `parse_tables` is enabled, reads a small preview table from the core workbooks
+    without permanently extracting the archive.
+    """
+    function inspect_isp26_generation_storage_outlook(zip_path::AbstractString;
+            parse_tables::Bool = false,
+            preview_range::AbstractString = "A3:AG40")
+        PISP._reject_nonfinal_isp2026_path(zip_path)
+        entries = PISP.read_isp2026_outlook_entries(zip_path)
+        validation = PISP.validate_isp2026_outlook_entries(entries)
+        blockers = filter(f -> f.severity == :blocker, validation.findings)
+        isempty(blockers) || error(join(map(f -> "$(f.code): $(f.message)", blockers), "\n"))
+
+        workbook_entries = validation.workbook_entries
+        core_entries = validation.core_entries
+        sensitivity_entries = validation.sensitivity_entries
+
+        core_workbooks = map(core_entries) do entry
+            meta = _inspect_isp26_outlook_entry(entry)
+            if !parse_tables
+                return meta
+            end
+
+            bytes = read(`unzip -p $zip_path $entry`)
+            workbook = XLSX.readxlsx(IOBuffer(bytes))
+            sheetnames = XLSX.sheetnames(workbook)
+            capacity = "Capacity" in sheetnames ?
+                PISP.read_xlsx_with_header(IOBuffer(bytes), "Capacity", preview_range) : DataFrame()
+            storage_capacity = "Storage Capacity" in sheetnames ?
+                PISP.read_xlsx_with_header(IOBuffer(bytes), "Storage Capacity", preview_range) : DataFrame()
+            storage_energy = "Storage Energy" in sheetnames ?
+                PISP.read_xlsx_with_header(IOBuffer(bytes), "Storage Energy", preview_range) : DataFrame()
+            rez_capacity = "REZ Generation Capacity" in sheetnames ?
+                PISP.read_xlsx_with_header(IOBuffer(bytes), "REZ Generation Capacity", preview_range) : DataFrame()
+
+            return merge(meta, (
+                sheetnames = sheetnames,
+                capacity = capacity,
+                storage_capacity = storage_capacity,
+                storage_energy = storage_energy,
+                rez_capacity = rez_capacity,
+            ))
+        end
+
+        return (
+            zip_path = zip_path,
+            entries = entries,
+            workbook_entries = workbook_entries,
+            core_entries = core_entries,
+            sensitivity_entries = sensitivity_entries,
+            core_scenarios = unique(map(entry -> _inspect_isp26_outlook_entry(entry).scenario, core_entries)),
+            core_workbooks = core_workbooks,
+            sensitivity_workbooks = map(_inspect_isp26_outlook_entry, sensitivity_entries),
+            validation = validation,
+        )
+    end
+
+    function _safe_zip_entry_filename(entry::AbstractString)
+        filename = splitpath(entry)[end]
+        isempty(filename) && error("Invalid archive entry without a filename: $(entry)")
+        occursin("/", filename) && error("Invalid archive entry filename: $(entry)")
+        return filename
+    end
+
+    """
+        prepare_isp26_outlook_aux(zip_path; data_root, scenario_map)
+
+    Install final 2026 generation/storage outlook workbooks from the ZIP
+    into the standard `Core/` directory and rebuild the auxiliary outlook files
+    expected by the existing dataset parser. `scenario_map` may rename final
+    2026 scenario labels to the three model scenario labels used by PISP.
+    """
+    function prepare_isp26_outlook_aux(zip_path::AbstractString;
+            data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}())
+        PISP._reject_nonfinal_isp2026_path(zip_path)
+        inspection = inspect_isp26_generation_storage_outlook(zip_path; parse_tables = false)
+        dirs = data_dirs(data_root)
+        mkpath(dirs.outlook_core)
+
+        installed = String[]
+        for entry in inspection.core_entries
+            filename = _safe_zip_entry_filename(entry)
+            dest = normpath(dirs.outlook_core, filename)
+            bytes = read(`unzip -p $zip_path $entry`)
+            open(dest, "w") do io
+                write(io, bytes)
+            end
+            push!(installed, dest)
+        end
+
+        capacity = build_capacity_outlook_aux(; data_root = data_root, scenario_map = scenario_map)
+        storage = build_storage_outlook_aux(; data_root = data_root, scenario_map = scenario_map)
+        rez_aux = build_rez_capacity_aux(; data_root = data_root, scenario_map = scenario_map)
+
+        return (inspection = inspection,
+                installed_core_workbooks = installed,
+                capacity_outlook = capacity,
+                storage_outlook = storage,
+                rez_capacity = rez_aux,
+                dirs = dirs)
+    end
+
+    """
         extract_downloads(; data_root, overwrite, quiet)
 
     Extract every zip found under `data_root/zip` into the standard structure. Returns
@@ -151,23 +316,37 @@ module ISPdatabuilder
                 dirs = dirs)
     end
 
-    function build_capacity_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT)
+    _scenario_label(name::AbstractString, scenario_map) = get(scenario_map, String(name), String(name))
+
+    function _outlook_core_entries(outlook_core_path::AbstractString)
+        return filter(readdir(outlook_core_path)) do f
+            !startswith(f, "._") && endswith(lowercase(f), ".xlsx")
+        end
+    end
+
+    function _outlook_year_columns(df::DataFrame)
+        return filter(names(df)) do col
+            col_str = String(col)
+            occursin(r"^\d{4}-\d{2}$", col_str) || occursin(r"^\d{4}-\d{2}-\d{2}$", col_str)
+        end
+    end
+
+    function build_capacity_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}())
         dirs = data_dirs(data_root)
         outlook_core_path      = dirs.outlook_core
         outlook_auxiliary_path = dirs.outlook_aux
         mkpath(outlook_auxiliary_path)
-        file_list       = filter(f -> !startswith(f, "._"), readdir(outlook_core_path))
+        file_list       = _outlook_core_entries(outlook_core_path)
         all_capacities  = DataFrame[]
         for f in file_list
-            if endswith(f, ".xlsx")
-                file_path       = normpath(outlook_core_path, f)
-                parts           = split(f, " - ")
-                scenario_full   = length(parts) >= 2 ? strip(parts[2]) : ""
-                capacity_df     = PISP.read_xlsx_with_header(file_path, "Capacity", "A3:AG5000")
-                insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
-                capacity_df     = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
-                push!(all_capacities, capacity_df)
-            end
+            file_path       = normpath(outlook_core_path, f)
+            parts           = split(f, " - ")
+            scenario_full   = length(parts) >= 2 ? _scenario_label(strip(parts[2]), scenario_map) : ""
+            capacity_df     = PISP.read_xlsx_with_header(file_path, "Capacity", "A3:AG5000")
+            insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
+            capacity_df     = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
+            push!(all_capacities, capacity_df)
         end
         combined_capacity_df = isempty(all_capacities) ? DataFrame() : vcat(all_capacities...; cols = :union)
         combined_xlsx_path   = normpath(outlook_auxiliary_path, "CapacityOutlook_2024_ISP.xlsx")
@@ -175,17 +354,17 @@ module ISPdatabuilder
 
         df_outlook = copy(combined_capacity_df)
 
-        col_names = names(df_outlook)
-        for col in col_names[6:end]
+        year_cols = _outlook_year_columns(df_outlook)
+        for col in year_cols
             col_str = String(col)
-            if occursin("-", col_str)
+            if occursin(r"^\d{4}-\d{2}$", col_str)
                 first_year = strip(split(col_str, '-')[1])
                 new_date = Date(parse(Int, first_year), 7, 1)
                 rename!(df_outlook, col => Symbol(Dates.format(new_date, DateFormat("yyyy-mm-dd"))))
             end
         end
 
-        value_vars      = names(df_outlook)[6:end]
+        value_vars      = _outlook_year_columns(df_outlook)
         df_melted       = stack(df_outlook, value_vars; variable_name = :date, value_name = :value)
         df_melted.date  = Date.(string.(df_melted.date), DateFormat("yyyy-mm-dd"))
         sort!(df_melted, [:Scenario, :Subregion, :Technology, :date])
@@ -200,30 +379,29 @@ module ISPdatabuilder
                 condensed = df_melted)
     end
 
-    function build_storage_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT)
+    function build_storage_outlook_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}())
         dirs = data_dirs(data_root)
         outlook_core_path      = dirs.outlook_core
         outlook_auxiliary_path = dirs.outlook_aux
         mkpath(outlook_auxiliary_path)
-        file_list            = filter(f -> !startswith(f, "._"), readdir(outlook_core_path))
+        file_list            = _outlook_core_entries(outlook_core_path)
         storage_energy_dfs   = DataFrame[]
         storage_capacity_dfs = DataFrame[]
         for f in file_list
-            if endswith(f, ".xlsx")
-                file_path     = normpath(outlook_core_path, f)
-                parts         = split(f, " - ")
-                scenario_full = length(parts) >= 2 ? strip(parts[2]) : ""
+            file_path     = normpath(outlook_core_path, f)
+            parts         = split(f, " - ")
+            scenario_full = length(parts) >= 2 ? _scenario_label(strip(parts[2]), scenario_map) : ""
 
-                energy_df = PISP.read_xlsx_with_header(file_path, "Storage Energy", "A3:AG5000")
-                insertcols!(energy_df, 2, :Scenario => fill(scenario_full, nrow(energy_df)))
-                energy_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), energy_df)
-                push!(storage_energy_dfs, energy_df)
+            energy_df = PISP.read_xlsx_with_header(file_path, "Storage Energy", "A3:AG5000")
+            insertcols!(energy_df, 2, :Scenario => fill(scenario_full, nrow(energy_df)))
+            energy_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), energy_df)
+            push!(storage_energy_dfs, energy_df)
 
-                capacity_df = PISP.read_xlsx_with_header(file_path, "Storage Capacity", "A3:AG5000")
-                insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
-                capacity_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
-                push!(storage_capacity_dfs, capacity_df)
-            end
+            capacity_df = PISP.read_xlsx_with_header(file_path, "Storage Capacity", "A3:AG5000")
+            insertcols!(capacity_df, 2, :Scenario => fill(scenario_full, nrow(capacity_df)))
+            capacity_df = filter(row -> any(x -> x isa Number && !ismissing(x), row), capacity_df)
+            push!(storage_capacity_dfs, capacity_df)
         end
 
         combined_energy_df   = isempty(storage_energy_dfs) ? DataFrame() : vcat(storage_energy_dfs...; cols = :union)
@@ -266,22 +444,26 @@ module ISPdatabuilder
         return PISP.read_xlsx_with_header(path, "REZ Generation Capacity", "A3:AG5000")
     end
 
-    function build_rez_capacity_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT)
+    function build_rez_capacity_aux(; data_root::AbstractString = DEFAULT_DATA_ROOT,
+            scenario_map = Dict{String,String}())
         dirs = data_dirs(data_root)
         outlook_core_path      = dirs.outlook_core
         outlook_auxiliary_path = dirs.outlook_aux
         mkpath(outlook_auxiliary_path)
-        rez_files = [
-            "2024 ISP - Green Energy Exports - Core.xlsx",
-            "2024 ISP - Progressive Change - Core.xlsx",
-            "2024 ISP - Step Change - Core.xlsx",
-        ]
+        rez_files = _outlook_core_entries(outlook_core_path)
 
         outputs = String[]
         for fname in rez_files
-            src   = normpath(outlook_core_path, fname)
-            df    = read_rez_capacity(src)
-            dest  = normpath(outlook_auxiliary_path, replace(fname, ".xlsx" => "_REZCAP.xlsx"))
+            src = normpath(outlook_core_path, fname)
+            df = read_rez_capacity(src)
+            parts = split(fname, " - ")
+            dest_name = if length(parts) >= 2
+                mapped_scenario = _scenario_label(strip(parts[2]), scenario_map)
+                "2024 ISP - $(mapped_scenario) - Core_REZCAP.xlsx"
+            else
+                replace(fname, ".xlsx" => "_REZCAP.xlsx")
+            end
+            dest = normpath(outlook_auxiliary_path, dest_name)
             XLSX.writetable(dest, Tables.columntable(df); sheetname = "REZ Generation Capacity", overwrite = true)
             push!(outputs, dest)
         end

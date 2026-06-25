@@ -1,15 +1,32 @@
-# PISP.jl: Julia parser of the Integrated System Plan
-[![Build Status](https://github.com/ARPST-UniMelb/PISP.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ARPST-UniMelb/PISP.jl/actions/workflows/CI.yml?query=branch%3Amain)
+# ParseISP.jl: Julia parser of the Integrated System Plan
+[![Build Status](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 **PISP** (short for *Julia Parser of the Integrated System Plan*) is an open-source toolkit for parsing and generating structured datasets of the East Coast Australian Power System for power system studies. 
 
 The data parsing functionalities are built on publicly available information from the Integrated System Plan (ISP) released by the Australian Energy Market Operator (AEMO) for the Australian National Electricity Market (NEM).
 
 > [!CAUTION]
-> The current release is fully functional and has been extensively tested; however, bugs or other issues may still arise. We would greatly appreciate any feedback or bug reports submitted via https://github.com/ARPST-UniMelb/PISP.jl/issues 
+> The current release is fully functional and has been extensively tested; however, bugs or other issues may still arise. We would greatly appreciate any feedback or bug reports submitted via https://github.com/ARPST-UniMelb/ParseISP.jl/issues 
 
 ## Core function
 Dataset construction in PISP is performed through a single high-level function, `build_ISP24_datasets`. Two usage examples are shown below.
+
+## ISP2026 note
+Final 2026 acquisition is exposed through `PISP.download_isp26_source_files(downloadpath; kwargs...)`. It downloads only final 2026 ISP artefacts published by AEMO on 25 June 2026: the Inputs and Assumptions workbook, generation/storage outlook, ISP model, and solar/wind trace archives.
+
+Final 2026 dataset construction is exposed through `PISP.build_ISP26_datasets(...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
+
+```julia
+using PISP
+
+PISP.build_ISP26_datasets(
+    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+    years        = [2026],
+    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    write_csv    = true,
+    write_arrow  = false,
+)
+```
 
 **By planning year** (original mode):
 ```julia

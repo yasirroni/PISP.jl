@@ -45,7 +45,7 @@ function ev_is_blank_row(row)
 end
 
 function ev_read_non_empty_rows(workbook_path::AbstractString, sheet_name::AbstractString, range_ref::AbstractString)
-    raw_sheet = XLSX.readdata(workbook_path, sheet_name, range_ref)
+    raw_sheet = XLSX.readdata(workbook_path, PISP.resolve_sheet_name(workbook_path, sheet_name), range_ref)
     return [collect(raw_sheet[row_index, :]) for row_index in axes(raw_sheet, 1) if !ev_is_blank_row(raw_sheet[row_index, :])]
 end
 

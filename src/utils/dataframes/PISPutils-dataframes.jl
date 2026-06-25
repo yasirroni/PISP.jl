@@ -25,13 +25,29 @@ function parseif(list)
     return list
 end
 
+function resolve_sheet_name(filepath::AbstractString, requested_sheet::AbstractString)
+    return XLSX.openxlsx(filepath) do workbook
+        sheetnames = XLSX.sheetnames(workbook)
+        exact_match = findfirst(==(requested_sheet), sheetnames)
+        exact_match !== nothing && return sheetnames[exact_match]
+
+        normalized = lowercase(strip(requested_sheet))
+        matches = filter(name -> lowercase(strip(name)) == normalized, sheetnames)
+
+        isempty(matches) && error("Sheet `$(requested_sheet)` was not found in `$(filepath)`.")
+        length(matches) > 1 && error("Sheet `$(requested_sheet)` matched multiple sheets in `$(filepath)`: $(join(matches, ", ")).")
+
+        return first(matches)
+    end
+end
+
 function read_xlsx_with_header(filepath::AbstractString,
                                sheetname::AbstractString,
                                range::AbstractString;
                                makeunique::Bool=true)
 
     # Read the raw range
-    rawdata = XLSX.readdata(filepath, sheetname, range)
+    rawdata = XLSX.readdata(filepath, resolve_sheet_name(filepath, sheetname), range)
 
     # Extract and clean header row
     raw_header = rawdata[1, :]
@@ -52,6 +68,24 @@ function read_xlsx_with_header(filepath::AbstractString,
 
     # Build DataFrame
     return DataFrame(rows, colnames; makeunique=makeunique)
+end
+
+function read_xlsx_with_header(source::IO,
+                               sheetname::AbstractString,
+                               range::AbstractString;
+                               makeunique::Bool=true)
+    path, io = mktemp()
+    try
+        write(io, read(source))
+        close(io)
+        return read_xlsx_with_header(path, sheetname, range; makeunique=makeunique)
+    finally
+        try
+            close(io)
+        catch
+        end
+        isfile(path) && rm(path; force=true)
+    end
 end
 
 """
@@ -77,6 +111,4 @@ function schema_to_dataframe(schema::OrderedDict{String,String})
     end
     return DataFrame(cols, names)
 end
-
-
 

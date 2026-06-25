@@ -5,6 +5,7 @@ module PISPScrapperUtils
 
     export DEFAULT_FILE_HEADERS,
         FileDownloadOptions,
+        DownloadBlockedError,
         download_file,
         interactive_overwrite_prompt,
         prompt_skip_existing,
@@ -28,6 +29,20 @@ module PISPScrapperUtils
         file_headers::Vector{Pair{String,String}}
     end
 
+    struct DownloadBlockedError <: Exception
+        url::String
+        status::Int
+        reason::String
+    end
+
+    function Base.showerror(io::IO, err::DownloadBlockedError)
+        print(io,
+            "Download blocked for $(err.url) (HTTP $(err.status)): $(err.reason). ",
+            "AEMO may require an interactive browser session for this file; ",
+            "download it from the official 2026 ISP page and place it at the path printed by the downloader."
+        )
+    end
+
     function FileDownloadOptions(; outdir::AbstractString,
                                 confirm_overwrite::Bool = true,
                                 skip_existing::Bool = false,
@@ -39,16 +54,32 @@ module PISPScrapperUtils
 
     function download_file(url::AbstractString, dest::AbstractString;
                             headers::Vector{Pair{String,String}} = DEFAULT_FILE_HEADERS)
-        resp = HTTP.get(url; headers = headers)
+        resp = HTTP.get(url; headers = headers, status_exception = false)
         if resp.status == 200
             open(dest, "w") do io
                 write(io, resp.body)
             end
             return dest
         end
+
+        if _looks_like_cloudflare_challenge(resp)
+            throw(DownloadBlockedError(String(url), resp.status, "Cloudflare challenge or access policy"))
+        end
+
         @warn "HTTP.get failed with status $(resp.status); trying Downloads.download" url
         Downloads.download(url, dest)
         return dest
+    end
+
+    function _looks_like_cloudflare_challenge(resp)
+        resp.status == 403 || return false
+        header_text = lowercase(join(["$(k): $(v)" for (k, v) in resp.headers], "\n"))
+        body_text = lowercase(String(resp.body))
+        return occursin("cloudflare", header_text) ||
+            occursin("cf-mitigated", header_text) ||
+            occursin("challenge", header_text) ||
+            occursin("cloudflare", body_text) ||
+            occursin("challenge", body_text)
     end
 
     function interactive_overwrite_prompt(path::AbstractString)

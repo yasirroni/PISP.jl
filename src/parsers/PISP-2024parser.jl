@@ -225,60 +225,22 @@ end
 """
     line_invoptions(ts, ispdata24)
 
-Parse the "Flow Path Augmentation options" sheet to derive candidate network
-investments considered in the 2024 ISP. Each option is normalised into the `ts.line` table with indicative
-ratings, and activation flags.
-
-# Arguments
-- `ts::PISPtimeStatic`: Receives the appended candidate-line metadata.
-- `ispdata24::String`: Path to the ISP workbook containing augmentation data.
+Parse the flow-path augmentation options sheet and append candidate lines to the
+static line table.
 """
 function line_invoptions(ts::PISPtimeStatic, ispdata24::String)
-    bust = ts.bus
-    maxidlin = isempty(ts.line) ? 0 : maximum(ts.line.id_lin)
-    DATALININV = PISP.read_xlsx_with_header(ispdata24, "Flow Path Augmentation options", "B11:N94")
-    skip = ["Option Name",""]
-    df = DataFrame(Option = String[], Direction = String[], Forward = Float64[], Reverse = Float64[], Cost = Float64[], LeadYears = Float64[])
+    raw = PISP.read_isp2026_line_invoptions_raw(ispdata24)
+    report = PISP.validate_isp2026_line_invoptions(raw)
 
-    Results = DataFrame(name = String[], busA = String[], busB = String[], idbusA = Int64[], idbusB = Int64[],fwd = Float64[], rev = Float64[], invcost = Float64[], lead = Float64[])
-    bn1 = ""; bn2 = "";
-    # Loop over every possible candidate line
-    for a in 1:nrow(DATALININV)
-        #Just select the options that are not MISSING or not are in SKIP (i.e, only real options)
-        if ismissing(DATALININV[a, 4]) || DATALININV[a, 4] in skip continue end
-        # Bus FROM -> TO of candidates.
-        if !ismissing(DATALININV[a, 6]) 
-            bn1 = split(string(DATALININV[a, 6]),[' '])[1]
-            bn2 = split(string(DATALININV[a, 6]),[' '])[3]
-        end
-        
-        # Modified the input data sheet for Augmentation options, project energyconnect goes from SNSW to SA
-        aux = [split(string(DATALININV[a,4]),['(','\n'])[1],
-            bn1,                                                                     # BUS_FROM_NAME
-                bn2,                                                                 # BUS_TO_NAME
-                bust[bust[!, :name] .== bn1,:id_bus][1],                                 # BUS_FROM_ID
-                bust[bust[!, :name] .== bn2,:id_bus][1],                                 # BUS_TO_ID
-                PISP.flow2num(split(string(DATALININV[a, 7]),    ['(','\n'])[1]),    # FWD POWER
-                PISP.flow2num(split(string(DATALININV[a, 8]),    ['(','\n'])[1]),    # REV POWER
-                PISP.inv2num(split(string(DATALININV[a, 9]),     ['(','\n'])),       # INDICATIVE_COST_ESTIMATE
-                PISP.lead2year(split(string(DATALININV[a, 13]),  ['(','\n'])[1])]    # LEAD TIME
-        push!(Results, aux)
+    canonical = if report.layout == :isp2026
+        PISP.fix_isp2026_line_invoptions(raw, report).canonical
+    else
+        PISP.require_clean_validation!(report)
+        PISP.canonicalize_line_invoptions(raw, report)
     end
 
-    #MODIFY INVESTMENT OPTIONS COST (The issue was resolved in function inv2num)
-    factive(x) = x in ["SQ-CQ Option 3", "NNSW–SQ Option 3"] ?  0 : 1 # Non-network options deactivated, no investment cost info
-    idx = 0
-    for a in 1:nrow(Results)
-        maxidlin+=1
-        idx+=1
-        # Element to add to table LINE
-        linename = string(strip(Results[a,1]))
-        invname = "NL_$(Results[a,4])$(Results[a,5])_INV$(idx)"
-
-        vline = [maxidlin, linename, invname, "DC", max(Results[a,6],Results[a,7]), Results[a,4], Results[a,5], factive(Results[a,1]), factive(Results[a,1]), 0.01, 0.1, Results[a,7], Results[a,6], 0, 1, 220, 1, "", "", 1, 1, 0]
-
-        push!(ts.line, vline)
-    end
+    PISP.build_line_invoptions_from_canonical!(ts, canonical)
+    return ts
 end
 
 """
