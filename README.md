@@ -16,16 +16,16 @@ Compatibility wrappers remain available:
 - `build_ISP24_datasets(; kwargs...)` calls `build_datasets(ISP2024(); kwargs...)`.
 - `build_ISP26_datasets(; kwargs...)` calls `build_datasets(ISP2026(); kwargs...)`.
 
-## ISP2026 note
-Final 2026 acquisition is exposed through `ParseISP.download_isp26_source_files(downloadpath; kwargs...)`. It downloads the final 2026 ISP artefacts published by AEMO on 25 June 2026: the Inputs and Assumptions workbook, generation/storage outlook, ISP model, and solar/wind trace archives. It also downloads the AEMO 2025 IASR EV workbook referenced by the final 2026 ISP Inputs and Assumptions workbook.
+## Release guides
+For release-specific examples and setup notes, see:
 
-Final 2026 dataset construction is exposed through `ParseISP.build_datasets(ParseISP.ISP2026(); ...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
+- [ISP2026 tutorial](docs/isp2026.md)
+- [ISP2024 examples](docs/isp2024.md)
 
-EV schedule construction requires the AEMO 2025 IASR EV workbook because the final 2026 ISP `Battery & Plug-in EVs` sheet points to that workbook for more detailed EV assumptions. The downloader saves it in `downloadpath` as `aemo-2025-iasr-ev-workbook.xlsx`; `build_datasets(ParseISP.ISP2026(); ...)` validates that it is present before parsing. If AEMO blocks programmatic download access, download that workbook in a browser from the official AEMO link and place it at the same path.
+## ISP2026 quick start
+ISP2026 dataset construction is exposed through `ParseISP.build_datasets(ParseISP.ISP2026(); ...)`. The downloader, `ParseISP.download_isp26_source_files(downloadpath; kwargs...)`, obtains the 2026 ISP input artefacts and the AEMO 2025 IASR EV workbook referenced by the 2026 Inputs and Assumptions workbook.
 
-For ISP2026, `years = [Y]` means the financial year from `Y-07-01` through `Y+1-06-30`. The supported range is `2026:2050`, which maps to FY2026-27 through FY2050-51. `years = [2025]` is rejected because FY2025-26 requires `2025-07-01` through `2026-06-30`, and the final ISP2026 demand, rooftop PV, VRE, and hydro trace sources begin on `2026-07-01`. `years = [2051]` is also rejected because the required trace sources end on `2051-06-30`.
-
-For `years = [2050]`, trace-based schedules use the available FY2050-51 traces. The final 2026 VPP outlook workbooks only provide columns through `2049-50`, so the ISP2026 parser carries the `2049-50` VPP outlook value forward for the FY2050-51 schedule.
+For ISP2026, `years = [Y]` means the financial year from `Y-07-01` through `Y+1-06-30`. Supported values are `2026:2050`, mapping to FY2026-27 through FY2050-51.
 
 ```julia
 using ParseISP
@@ -40,81 +40,30 @@ ParseISP.build_datasets(
 )
 ```
 
-**By planning year** (original mode):
-```julia
-using ParseISP
+## Optional parameters for ParseISP.build_datasets
+`build_datasets(release; kwargs...)` accepts the following keyword arguments. One of `years` or `drange` must be supplied.
 
-# Set some of the input parameters (see all parameters below)
-reference_trace = 4006         # Reference weather trace. 4006 is the one of the Optimal Development Path (ODP) of the ISP
-poe             = 10           # Probability of exceedance (POE) for demand
-target_years    = [2030, 2031] # Planning years for which to generate datasets
-
-ParseISP.build_datasets(
-    ParseISP.ISP2024(),
-    downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
-    poe          = poe,
-    reftrace     = reference_trace,
-    years        = target_years,
-    output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
-    write_csv    = true,
-    write_arrow  = false,
-    scenarios    = [1,2,3]
-    )
-```
-
-**By arbitrary date range** (new `drange` mode):
-```julia
-using ParseISP
-
-# Build datasets for specific date windows instead of full calendar years
-ParseISP.build_datasets(
-    ParseISP.ISP2024(),
-    downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
-    poe          = 10,
-    reftrace     = 4006,
-    drange       = [("01-01-2030", "31-03-2030"), ("01-07-2031", "30-09-2031")],
-    output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
-    write_csv    = true,
-    write_arrow  = false,
-    scenarios    = [1,2,3]
-    )
-```
-
-## Optional parameters for ParseISP.build_datasets(ParseISP.ISP2024())
-There are multiple parameters that can be adjusted when generating the dataset from the public 2024 Integrated System Plan (ISP) datafiles:
-| Parameter           | Default       | Description                                                                                                                        |
-| ------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-|`downloadpath`|"../../data-download"| Path where all files from AEMO's website will be downloaded and extracted
-|`download_from_AEMO`|true| Whether to download files from AEMO's website
-|`poe`|10| Probability of exceedance (POE) for demand: 10% or 50%
-|`reftrace`|4006| Reference weather year trace: select among 2011 - 2023 or 4006 (trace for the Optimal Development Path, ODP from the 2024 ISP)
-|`years`|nothing| Planning years for which to build the time-varying schedules: select among 2025 - 2050. Mutually exclusive with `drange`. Defaults to `[2025]` when neither `years` nor `drange` is provided.
-|`drange`|nothing| Alternative to `years`. An array of 2-tuples `(start, end)` where each element may be a `Date`, `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One dataset is generated per tuple per scenario. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`.
-|`output_name`|"out"| Output folder name
-|`output_root`|nothing| Output folder path
-|`write_csv`|true| Whether to write CSV (.csv) files
-|`write_arrow`|true| Whether to write Arrow (.arrow) files
-|`scenarios`|[1,2,3]|Scenarios to include in the output: 1 for `Progressive Change`, 2 for `Step Change`, 3 for `Green Energy Exports`, from the 2024 ISP
-
-## Optional parameters for ParseISP.build_datasets(ParseISP.ISP2026())
-There are multiple parameters that can be adjusted when generating the dataset from the public final 2026 Integrated System Plan (ISP) datafiles:
-| Parameter           | Default       | Description                                                                                                                        |
-| ------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-|`downloadpath`|"../../data-download"| Path where the final 2026 ISP files are downloaded, extracted, and prepared
-|`download_from_AEMO`|true| Whether to download final 2026 ISP files from AEMO before building
-|`poe`|10| Probability of exceedance (POE) for demand: 10% or 50%
-|`reftrace`|4006| Reference weather trace ID to use when preparing ISP2026 traces
-|`years`|nothing| Financial-year start years for which to build the time-varying schedules. Supported values are 2026 - 2050, mapping to FY2026-27 through FY2050-51. Mutually exclusive with `drange`.
-|`drange`|nothing| Alternative to `years`. An array of 2-tuples `(start, end)` where each element may be a `Date`, `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One dataset is generated per tuple per scenario. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`.
-|`output_name`|"out-isp2026"| Output folder name
-|`output_root`|nothing| Output folder path
-|`write_csv`|true| Whether to write CSV (.csv) files
-|`write_arrow`|true| Whether to write Arrow (.arrow) files
-|`prepare_outlook`|true| Whether to prepare generation, storage, and REZ outlook auxiliary workbooks from the final 2026 ISP outlook ZIP
-|`prepare_supporting_assets`|`download_from_AEMO`| Whether to extract downloaded final 2026 ISP archives and prepare local supporting files before parsing
-|`build_traces`|true| Whether to prepare demand, rooftop PV, VRE, hydro, and other trace inputs before parsing
-|`scenario_map`|empty dictionary| Optional scenario-name overrides used when preparing final 2026 ISP outlook support assets
-|`scenarios`|[1,2,3]|Scenarios to include in the output: 1 for `Slower Growth`, 2 for `Step Change`, 3 for `Accelerated Transition`, from the final 2026 ISP
+| Parameter | Default | Available for | Description |
+| --- | --- | --- | --- |
+| `downloadpath` | `"../../data-download"` | ISP2024, ISP2026 | Path where AEMO source files are downloaded, extracted, and prepared. |
+| `download_from_AEMO` | `true` | ISP2024, ISP2026 | Whether to download source files from AEMO before building. |
+| `poe` | `10` | ISP2024, ISP2026 | Probability of exceedance for demand: `10` or `50`. |
+| `reftrace` | `4006` | ISP2024, ISP2026 | Reference weather trace. ISP2024 supports `2011:2023` or `4006`; ISP2026 uses the trace ID when preparing the 2026 trace inputs. |
+| `years` | `nothing` | ISP2024, ISP2026 | Full-period schedules to build. ISP2024 accepts calendar/planning years `2025:2050`; ISP2026 accepts financial-year start years `2026:2050`. Mutually exclusive with `drange`. |
+| `drange` | `nothing` | ISP2024, ISP2026 | Alternative to `years`. Array of `(start, end)` tuples using `Date`, `DateTime`, or strings in `"DD-MM-YYYY"` format. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`. |
+| `output_name` | `"out"` / `"out-isp2026"` | ISP2024, ISP2026 | Output folder name prefix. The default is `"out"` for ISP2024 and `"out-isp2026"` for ISP2026. |
+| `output_root` | `nothing` | ISP2024, ISP2026 | Optional output folder root. |
+| `write_csv` | `true` | ISP2024, ISP2026 | Whether to write CSV files. |
+| `write_arrow` | `true` | ISP2024, ISP2026 | Whether to write Arrow files. |
+| `scenarios` | `[1,2,3]` | ISP2024, ISP2026 | Scenario IDs to include. ISP2024: `1` Progressive Change, `2` Step Change, `3` Green Energy Exports. ISP2026: `1` Slower Growth, `2` Step Change, `3` Accelerated Transition. |
+| `write_traces` | `true` | ISP2024 | Whether to compute and write time-varying trace outputs. |
+| `check_exist_trace` | `false` | ISP2024 | When `true`, skip trace computation for a schedule whose key trace outputs already exist. |
+| `buildout_filepath` | `nothing` | ISP2024 | Optional Excel workbook containing buildout schedules to apply after static tables are populated. |
+| `sc_buildouts` | empty dictionary | ISP2024 | Optional scenario-to-sheet mapping for `buildout_filepath`. |
+| `prepare_outlook` | `true` | ISP2026 | Whether to prepare generation, storage, and REZ outlook auxiliary workbooks from the 2026 ISP outlook ZIP. |
+| `prepare_supporting_assets` | `download_from_AEMO` | ISP2026 | Whether to extract downloaded 2026 ISP archives and prepare local supporting files before parsing. |
+| `build_traces` | `true` | ISP2026 | Whether to prepare demand, rooftop PV, VRE, hydro, and other trace inputs before parsing. |
+| `scenario_map` | empty dictionary | ISP2026 | Optional scenario-name overrides used when preparing 2026 ISP outlook support assets. |
 
 
 ## Description of dataset formatting

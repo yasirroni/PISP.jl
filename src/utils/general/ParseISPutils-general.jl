@@ -168,8 +168,8 @@ static/varying tables from the ISP inputs, and writes CSV/Arrow outputs under
 - `poe::Integer = 10`: Probability of exceedance for demand (e.g., 10 or 50).
 - `reftrace::Integer = 4006`: Reference weather trace ID (2011–2023 or 4006).
 - `years::Union{Nothing,AbstractVector{<:Integer}} = nothing`: Planning years to
-  build (must be within 2025–2050). Defaults to `[2025]` when neither `years`
-  nor `drange` is given. Mutually exclusive with `drange`.
+  build (must be within 2025–2050). Mutually exclusive with `drange`. One of
+  `years` or `drange` must be supplied.
 - `drange::Union{Nothing,AbstractVector} = nothing`: Alternative to `years`. An
   array of 2-tuples `(start, end)` where each element may be a `Date`,
   `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One problem entry
@@ -287,9 +287,8 @@ build_ISP24_datasets(; kwargs...) = build_datasets(ISP2024(); kwargs...)
 """
     build_ISP26_datasets(; kwargs...)
 
-Build datasets from the final 2026 ISP inputs using the same output contract as
-`build_ISP24_datasets`. This path is intentionally final-2026-only: preliminary
-artefacts, 2024 ISP model files, and 2019 workbooks are not valid inputs.
+Build datasets from the 2026 ISP inputs using the same output contract as
+`build_ISP24_datasets`.
 """
 function _build_ISP26_datasets_impl(;
     downloadpath::AbstractString = normpath(@__DIR__, "../../", "data-download"),

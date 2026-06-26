@@ -29,7 +29,9 @@ CLAUDE*
 AGENTS*
 .claude/
 audit-output/
-docs/
+docs/*
+!docs/isp2024.md
+!docs/isp2026.md
 AI_TEST_LOG.md
 REPRODUCTION_TASKS.md
 ISP_DATA_PIPELINE_ARCHITECTURE.md
