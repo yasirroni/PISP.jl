@@ -57,7 +57,7 @@ function legacy_data_paths(::ISP2026, paths::NamedTuple)
         ispmodel = paths.isp_model_dir,
         ispdata24 = paths.inputs_workbook,
         ispdata19 = paths.inputs_workbook,
-        iasr23_ev_workbook = paths.inputs_workbook,
+        iasr23_ev_workbook = paths.ev_inputs_workbook,
         profiledata = paths.trace_dir,
         outlookdata = paths.core_outlook_dir,
         outlookAEMO = paths.capacity_outlook_workbook,

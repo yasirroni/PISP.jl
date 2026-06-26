@@ -329,7 +329,7 @@ function _build_ISP26_datasets_impl(;
         ParseISP.extract_downloads(data_root = downloadpath, overwrite = false, quiet = true)
     end
 
-    _require_existing_files(data_paths, (:inputs_workbook, :outlook_generation_storage_zip, :isp_model_zip, :solar_traces_zip, :wind_traces_zip))
+    _require_existing_files(data_paths, (:inputs_workbook, :ev_inputs_workbook, :outlook_generation_storage_zip, :isp_model_zip, :solar_traces_zip, :wind_traces_zip))
 
     if prepare_outlook
         _require_existing_files(data_paths, (:outlook_generation_storage_zip,))

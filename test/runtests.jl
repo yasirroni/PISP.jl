@@ -105,6 +105,7 @@ end
     mktempdir() do dir
         paths = ParseISP.default_data_paths(ParseISP.ISP2026(), dir)
         @test paths.inputs_workbook == normpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        @test paths.ev_inputs_workbook == normpath(dir, "aemo-2025-iasr-ev-workbook.xlsx")
         @test paths.outlook_generation_storage_zip == normpath(dir, "2026-isp-generation-and-storage-outlook.zip")
         @test paths.capacity_outlook_workbook == normpath(dir, "Auxiliary", "CapacityOutlook2026_Condensed.xlsx")
         @test paths.storage_capacity_outlook_workbook == normpath(dir, "Auxiliary", "StorageCapacityOutlook_2026_ISP.xlsx")
@@ -114,6 +115,11 @@ end
         legacy_paths = ParseISP.legacy_data_paths(ParseISP.ISP2026(), paths)
         @test legacy_paths.ispdata26 == paths.inputs_workbook
         @test legacy_paths.ispdata24 == paths.inputs_workbook
+        @test legacy_paths.iasr23_ev_workbook == paths.ev_inputs_workbook
+
+        validation = ParseISP.validate_sources(ParseISP.ISP2026(), paths)
+        @test !validation.ok
+        @test :ev_inputs_workbook in first.(validation.missing)
     end
 
     err = try
@@ -190,12 +196,15 @@ end
         @test seen_keys == [:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces]
         @test result.targets.automatic == (:isp26_inputs, :isp26_outlook, :isp26_model, :isp26_solar_traces, :isp26_wind_traces)
         @test result.paths.ispdata26 == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        @test result.paths.iasr23_ev_workbook == joinpath(dir, "aemo-2025-iasr-ev-workbook.xlsx")
         @test result.release_paths.inputs_workbook == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        @test result.release_paths.ev_inputs_workbook == joinpath(dir, "aemo-2025-iasr-ev-workbook.xlsx")
         @test result.downloaded.ispdata26 == joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
         @test result.downloaded.outlook_generation_storage == joinpath(dir, "2026-isp-generation-and-storage-outlook.zip")
         @test result.downloaded.ispmodel_zip == joinpath(dir, "2026-isp-model.zip")
         @test result.downloaded.solar_traces_zip == joinpath(dir, "zip", "Traces", "2026-isp-solar-traces.zip")
         @test result.downloaded.wind_traces_zip == joinpath(dir, "zip", "Traces", "2026-isp-wind-traces.zip")
+        @test any(source -> source.key == :isp26_ev_support && source.status == :required_local, result.metadata)
         @test result.outlook === nothing
     end
 end

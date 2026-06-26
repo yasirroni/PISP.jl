@@ -21,6 +21,8 @@ Final 2026 acquisition is exposed through `ParseISP.download_isp26_source_files(
 
 Final 2026 dataset construction is exposed through `ParseISP.build_datasets(ParseISP.ISP2026(); ...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
 
+EV schedule construction also requires the AEMO 2025 IASR EV workbook referenced by the final 2026 ISP Inputs and Assumptions workbook. Place it in `downloadpath` as `aemo-2025-iasr-ev-workbook.xlsx`; `build_datasets(ParseISP.ISP2026(); ...)` validates that it is present before parsing.
+
 ```julia
 using ParseISP
 

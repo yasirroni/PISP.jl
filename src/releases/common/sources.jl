@@ -93,6 +93,7 @@ end
 function validate_sources(::ISP2026, paths::NamedTuple)
     required_keys = (
         :inputs_workbook,
+        :ev_inputs_workbook,
         :outlook_generation_storage_zip,
         :isp_model_zip,
         :solar_traces_zip,
