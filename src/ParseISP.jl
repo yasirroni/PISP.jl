@@ -5,6 +5,7 @@ module ParseISP
     using XLSX
     using CSV
     using Arrow
+    using SHA
     export DataFrames
 
     include("releases/common/release.jl")
@@ -15,6 +16,7 @@ module ParseISP
     include("ParseISPparameters.jl")
     include("releases/isp2026/readers.jl")
     include("releases/isp2026/validation.jl")
+    include("releases/isp2026/reconciliation.jl")
     include("releases/isp2026/fixes.jl")
     include("releases/common/builders.jl")
     include("ParseISPparsers.jl")

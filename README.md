@@ -23,6 +23,8 @@ Final 2026 dataset construction is exposed through `ParseISP.build_datasets(Pars
 
 EV schedule construction also requires the AEMO 2025 IASR EV workbook referenced by the final 2026 ISP Inputs and Assumptions workbook. Place it in `downloadpath` as `aemo-2025-iasr-ev-workbook.xlsx`; `build_datasets(ParseISP.ISP2026(); ...)` validates that it is present before parsing.
 
+The final ISP2026 model traces available in the AEMO source archive cover planning years 2026 through 2050. `years = [2025]` is rejected on the ISP2026 path because the required demand, rooftop PV, VRE, and hydro trace files do not contain `2025-07-01` through `2026-06-30`.
+
 ```julia
 using ParseISP
 

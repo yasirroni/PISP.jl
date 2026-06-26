@@ -23,6 +23,28 @@ end
 const ISP2026_MISSING_TOKENS = Set(["", "na", "n/a", "missing", "x", "-"])
 const ISP2026_OUTLOOK_CORE_PREFIXES = ("Cores/", "Core scenarios/")
 const ISP2026_OUTLOOK_SENSITIVITY_PREFIXES = ("Sensitivities/",)
+const ISP2026_STATIC_PRIMARY_KEYS = Dict(
+    :bus => :id_bus,
+    :dem => :id_dem,
+    :ess => :id_ess,
+    :gen => :id_gen,
+    :line => :id_lin,
+    :der => :id_der,
+)
+const ISP2026_TIME_VARYING_KEY_COLUMNS = Dict(
+    :dem_load => :id_dem,
+    :ess_emax => :id_ess,
+    :ess_lmax => :id_ess,
+    :ess_n => :id_ess,
+    :ess_pmax => :id_ess,
+    :ess_inflow => :id_ess,
+    :gen_n => :id_gen,
+    :gen_pmax => :id_gen,
+    :gen_inflow => :id_gen,
+    :line_fwcap => :id_lin,
+    :line_rvcap => :id_lin,
+    :der_pred => :id_der,
+)
 
 _isp2026_is_core_outlook_entry(entry::AbstractString) =
     any(prefix -> startswith(entry, prefix), ISP2026_OUTLOOK_CORE_PREFIXES)
@@ -653,6 +675,82 @@ function validate_isp2026_outlook_entries(entries::AbstractVector{<:AbstractStri
             findings = findings)
 end
 
+function validate_time_static_primary_keys(ts::ParseISPtimeStatic;
+        source::AbstractString = "time-static tables",
+        max_findings::Int = 25)
+    findings = ISPDataFinding[]
+
+    for table_name in fieldnames(ParseISPtimeStatic)
+        haskey(ISP2026_STATIC_PRIMARY_KEYS, table_name) || continue
+        df = getfield(ts, table_name)
+        isempty(df) && continue
+        id_column = ISP2026_STATIC_PRIMARY_KEYS[table_name]
+
+        if !(String(id_column) in names(df))
+            _ispdata_addfinding!(findings, :blocker, :missing_column,
+                "Static table `$(table_name)` is missing primary key `$(id_column)`.",
+                field = string(table_name),
+                suggestion = "Check the static table schema before writing output.")
+            continue
+        end
+
+        counts = combine(groupby(df, id_column), nrow => :count)
+        duplicate_rows = filter(row -> row.count > 1, counts)
+        for row in Iterators.take(eachrow(duplicate_rows), max_findings)
+            _ispdata_addfinding!(findings, :blocker, :duplicate_primary_key,
+                "Static table `$(table_name)` has duplicate `$(id_column)` value `$(row[id_column])`.",
+                field = string(table_name),
+                suggestion = "Primary identifiers must be unique before output is written.")
+        end
+        if nrow(duplicate_rows) > max_findings
+            _ispdata_addfinding!(findings, :blocker, :duplicate_primary_key_summary,
+                "Static table `$(table_name)` has $(nrow(duplicate_rows)) duplicate primary-key values; first $(max_findings) are reported.",
+                field = string(table_name))
+        end
+    end
+
+    return ISPValidationReport(source, :primary_keys, findings)
+end
+
+function validate_time_varying_keys(tv::ParseISPtimeVarying;
+        source::AbstractString = "time-varying schedules",
+        max_findings::Int = 25)
+    findings = ISPDataFinding[]
+
+    for table_name in fieldnames(ParseISPtimeVarying)
+        haskey(ISP2026_TIME_VARYING_KEY_COLUMNS, table_name) || continue
+        df = getfield(tv, table_name)
+        isempty(df) && continue
+        id_column = ISP2026_TIME_VARYING_KEY_COLUMNS[table_name]
+        required = [String(id_column), "scenario", "date"]
+
+        missing_columns = setdiff(required, names(df))
+        if !isempty(missing_columns)
+            _ispdata_addfinding!(findings, :blocker, :missing_column,
+                "Schedule `$(table_name)` is missing key column(s): $(join(missing_columns, ", ")).",
+                field = string(table_name),
+                suggestion = "Check the time-varying table schema before writing output.")
+            continue
+        end
+
+        counts = combine(groupby(df, [id_column, :scenario, :date]), nrow => :count)
+        duplicate_rows = filter(row -> row.count > 1, counts)
+        for row in Iterators.take(eachrow(duplicate_rows), max_findings)
+            _ispdata_addfinding!(findings, :blocker, :duplicate_time_key,
+                "Schedule `$(table_name)` has duplicate key (`$(id_column)`=$(row[id_column]), scenario=$(row.scenario), date=$(row.date)).",
+                field = string(table_name),
+                suggestion = "Aggregate or remove duplicate schedule entries before writing output.")
+        end
+        if nrow(duplicate_rows) > max_findings
+            _ispdata_addfinding!(findings, :blocker, :duplicate_time_key_summary,
+                "Schedule `$(table_name)` has $(nrow(duplicate_rows)) duplicate keys; first $(max_findings) are reported.",
+                field = string(table_name))
+        end
+    end
+
+    return ISPValidationReport(source, :schedule_keys, findings)
+end
+
 has_blockers(report::ISPValidationReport) = any(f -> f.severity == :blocker, report.findings)
 
 function require_clean_validation!(report::ISPValidationReport)
@@ -660,4 +758,16 @@ function require_clean_validation!(report::ISPValidationReport)
     isempty(blockers) && return report
     messages = join(map(f -> "$(f.code): $(f.message)", blockers), "\n")
     error("Validation failed for $(report.source)\n$(messages)")
+end
+
+function require_unique_primary_keys!(ts::ParseISPtimeStatic; kwargs...)
+    report = validate_time_static_primary_keys(ts; kwargs...)
+    require_clean_validation!(report)
+    return report
+end
+
+function require_unique_time_varying_keys!(tv::ParseISPtimeVarying; kwargs...)
+    report = validate_time_varying_keys(tv; kwargs...)
+    require_clean_validation!(report)
+    return report
 end

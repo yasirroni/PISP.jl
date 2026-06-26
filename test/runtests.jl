@@ -359,6 +359,44 @@ end
     end
 end
 
+@testset "ISP2026 QA helpers" begin
+    tc, ts, tv = ParseISP.initialise_time_structures()
+    ParseISP.bus_table(ts)
+    push!(ts.bus, ts.bus[1, :])
+    static_report = ParseISP.validate_time_static_primary_keys(ts)
+    @test ParseISP.has_blockers(static_report)
+    @test any(f -> f.code == :duplicate_primary_key && f.field == "bus", static_report.findings)
+    @test_throws ErrorException ParseISP.require_unique_primary_keys!(ts)
+
+    push!(tv.der_pred, [1, 1, 1, DateTime(2026, 7, 1), 10.0])
+    push!(tv.der_pred, [2, 1, 1, DateTime(2026, 7, 1), 20.0])
+    varying_report = ParseISP.validate_time_varying_keys(tv)
+    @test ParseISP.has_blockers(varying_report)
+    @test any(f -> f.code == :duplicate_time_key && f.field == "der_pred", varying_report.findings)
+    @test_throws ErrorException ParseISP.require_unique_time_varying_keys!(tv)
+
+    mktempdir() do dir
+        inputs = joinpath(dir, "2026-isp-inputs-and-assumptions-workbook.xlsm")
+        write(inputs, "payload")
+        inventory = ParseISP.isp2026_source_inventory(dir)
+        inputs_row = inventory[inventory.key .== :isp26_inputs, :]
+        @test nrow(inputs_row) == 1
+        @test inputs_row.exists[1]
+        @test inputs_row.bytes[1] == 7
+        @test !ismissing(inputs_row.sha256[1])
+    end
+
+    der = DataFrame(id_der = [1, 2], name = ["DEM_SQ_DSP_BAND1", "DEM_SQ_EV"], tech = ["DSP", "EV"])
+    pred = DataFrame(id = [1, 2], id_der = [1, 2], scenario = [1, 1],
+        date = [DateTime(2026, 7, 1), DateTime(2026, 7, 1)], value = [10.0, 5.0])
+    summary = ParseISP.summarize_isp2026_der_pred_by_tech(der, pred)
+    @test Set(summary.tech) == Set(["DSP", "EV"])
+    @test summary.financial_year == ["2026-27", "2026-27"]
+
+    outlook = DataFrame(:bus => ["SQ"], Symbol("2026-27") => [1.0], Symbol("2049-50") => [2.0])
+    @test ParseISP._release_bus_value(outlook, "SQ", Symbol("2050-51"), ParseISP.ISP2026()) == 2.0
+end
+
 @testset "ISP2026 outlook ZIP" begin
     mktempdir() do dir
         cores = joinpath(dir, "Core scenarios")
@@ -416,6 +454,24 @@ end
 @testset "ISP2026 dataset entrypoint validation" begin
     @test isdefined(ParseISP, :build_ISP26_datasets)
     @test isdefined(ParseISP, :build_datasets)
+    unsupported_year_err = try
+        ParseISP.build_datasets(
+            ParseISP.ISP2026(),
+            downloadpath = "unused",
+            years = [2025],
+            download_from_AEMO = false,
+            prepare_outlook = false,
+            build_traces = false,
+            write_csv = false,
+            write_arrow = false,
+        )
+        nothing
+    catch caught
+        caught
+    end
+    @test unsupported_year_err isa ArgumentError
+    @test occursin("2026 through 2050", sprint(showerror, unsupported_year_err))
+
     mktempdir() do dir
         missing_sources_err = try
             ParseISP.build_datasets(

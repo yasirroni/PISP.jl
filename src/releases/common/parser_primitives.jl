@@ -1807,10 +1807,19 @@ end
 
 function _release_bus_value(df::DataFrame, st::String, col::Symbol, release::ParseISP.ISPRelease)
     if release isa ParseISP.ISP2026
+        source_col = col
+        if !(String(source_col) in names(df))
+            requested_year = parse(Int, first(split(String(source_col), "-")))
+            year_columns = ParseISP._isp2026_year_columns(df)
+            candidates = filter(name -> parse(Int, first(split(name, "-"))) <= requested_year, year_columns)
+            isempty(candidates) && error("No ISP2026 outlook year column found at or before `$(source_col)`.")
+            source_col = Symbol(last(sort(candidates; by = name -> parse(Int, first(split(name, "-"))))))
+        end
+
         values = Float64[]
         for row in eachrow(df)
             _isp2026_bus_code(row.bus) == st || continue
-            push!(values, _isp2026_number(row[col]))
+            push!(values, _isp2026_number(row[source_col]))
         end
         return sum(values)
     end

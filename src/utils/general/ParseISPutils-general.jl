@@ -315,8 +315,8 @@ function _build_ISP26_datasets_impl(;
     if years === nothing && drange === nothing
         throw(ArgumentError("At least one of `years` or `drange` must be specified."))
     end
-    if years !== nothing && any(y -> y < 2025 || y > 2050, years)
-        throw(ArgumentError("Years must be between 2025 and 2050 (got $(years))."))
+    if years !== nothing && any(y -> y < 2026 || y > 2050, years)
+        throw(ArgumentError("Final ISP2026 trace sources cover planning years 2026 through 2050. Years must be between 2026 and 2050 (got $(years))."))
     end
 
     data_paths = ParseISP.default_data_paths(release, downloadpath)
@@ -367,6 +367,8 @@ function _build_ISP26_datasets_impl(;
         static_params = ParseISP.populate_static!(release, ts, tv, data_paths; refyear = reftrace, poe = poe)
         @info "Populating time-varying data from final ISP 2026 - POE $(poe) - reference weather trace $(reftrace) - schedule $(tag) ..."
         ParseISP.populate_varying!(release, tc, ts, tv, data_paths, static_params; refyear = reftrace, poe = poe)
+        ParseISP.require_unique_primary_keys!(ts)
+        ParseISP.require_unique_time_varying_keys!(tv)
 
         ParseISP.write_time_data(ts, tv;
             csv_static_path    = "$(base_name)/csv",
