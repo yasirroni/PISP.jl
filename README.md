@@ -1,12 +1,12 @@
 # ParseISP.jl: Julia parser of the Integrated System Plan
-[![Build Status](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ARPST-UniMelb/ParseISP.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Build Status](https://github.com/airampg/ParseISP.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/airampg/ParseISP.jl/actions/workflows/CI.yml?query=branch%3Amain)
 
 **ParseISP** (short for *Julia Parser of the Integrated System Plan*) is an open-source toolkit for parsing and generating structured datasets of the East Coast Australian Power System for power system studies. 
 
 The data parsing functionalities are built on publicly available information from the Integrated System Plan (ISP) released by the Australian Energy Market Operator (AEMO) for the Australian National Electricity Market (NEM).
 
 > [!CAUTION]
-> The current release is fully functional and has been extensively tested; however, bugs or other issues may still arise. We would greatly appreciate any feedback or bug reports submitted via https://github.com/ARPST-UniMelb/ParseISP.jl/issues 
+> The current release is fully functional and has been extensively tested; however, bugs or other issues may still arise. We would greatly appreciate any feedback or bug reports submitted via https://github.com/airampg/ParseISP.jl/issues
 
 ## Core function
 Dataset construction in ParseISP is performed through the release-dispatched high-level function `build_datasets(release; kwargs...)`. Supported release adapters are `ISP2024()` and `ISP2026()`.
@@ -21,9 +21,11 @@ Final 2026 acquisition is exposed through `ParseISP.download_isp26_source_files(
 
 Final 2026 dataset construction is exposed through `ParseISP.build_datasets(ParseISP.ISP2026(); ...)`. Preliminary 2026 artefacts are intentionally not valid inputs for this path.
 
-EV schedule construction also requires the AEMO 2025 IASR EV workbook referenced by the final 2026 ISP Inputs and Assumptions workbook. Place it in `downloadpath` as `aemo-2025-iasr-ev-workbook.xlsx`; `build_datasets(ParseISP.ISP2026(); ...)` validates that it is present before parsing.
+EV schedule construction also requires the AEMO 2025 IASR EV workbook referenced by the final 2026 ISP Inputs and Assumptions workbook. Place it in `downloadpath` as `aemo-2025-iasr-ev-workbook.xlsx`; `build_datasets(ParseISP.ISP2026(); ...)` validates that it is present before parsing. This EV workbook is the only required local support file that is not downloaded by `download_isp26_source_files`.
 
-The final ISP2026 model traces available in the AEMO source archive cover planning years 2026 through 2050. `years = [2025]` is rejected on the ISP2026 path because the required demand, rooftop PV, VRE, and hydro trace files do not contain `2025-07-01` through `2026-06-30`.
+For ISP2026, `years = [Y]` means the financial year from `Y-07-01` through `Y+1-06-30`. The supported range is `2026:2050`, which maps to FY2026-27 through FY2050-51. `years = [2025]` is rejected because FY2025-26 requires `2025-07-01` through `2026-06-30`, and the final ISP2026 demand, rooftop PV, VRE, and hydro trace sources begin on `2026-07-01`. `years = [2051]` is also rejected because the required trace sources end on `2051-06-30`.
+
+For `years = [2050]`, trace-based schedules use the available FY2050-51 traces. The final 2026 VPP outlook workbooks only provide columns through `2049-50`, so the ISP2026 parser carries the `2049-50` VPP outlook value forward for the FY2050-51 schedule.
 
 ```julia
 using ParseISP
@@ -31,7 +33,7 @@ using ParseISP
 ParseISP.build_datasets(
     ParseISP.ISP2026(),
     downloadpath = joinpath(@__DIR__, "..", "data", "parseisp-downloads"),
-    years        = [2026],
+    years        = [2026], # FY2026-27
     output_root  = joinpath(@__DIR__, "..", "data", "parseisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
@@ -91,8 +93,28 @@ There are multiple parameters that can be adjusted when generating the dataset f
 |`output_name`|"out"| Output folder name
 |`output_root`|nothing| Output folder path
 |`write_csv`|true| Whether to write CSV (.csv) files
-|`write_arrow`|true|Whether to write Arrow (.arrow) files 
+|`write_arrow`|true| Whether to write Arrow (.arrow) files
 |`scenarios`|[1,2,3]|Scenarios to include in the output: 1 for `Progressive Change`, 2 for `Step Change`, 3 for `Green Energy Exports`, from the 2024 ISP
+
+## Optional parameters for ParseISP.build_datasets(ParseISP.ISP2026())
+There are multiple parameters that can be adjusted when generating the dataset from the public final 2026 Integrated System Plan (ISP) datafiles:
+| Parameter           | Default       | Description                                                                                                                        |
+| ------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+|`downloadpath`|"../../data-download"| Path where the final 2026 ISP files are downloaded, extracted, and prepared
+|`download_from_AEMO`|true| Whether to download final 2026 ISP files from AEMO before building
+|`poe`|10| Probability of exceedance (POE) for demand: 10% or 50%
+|`reftrace`|4006| Reference weather trace ID to use when preparing ISP2026 traces
+|`years`|nothing| Financial-year start years for which to build the time-varying schedules. Supported values are 2026 - 2050, mapping to FY2026-27 through FY2050-51. Mutually exclusive with `drange`.
+|`drange`|nothing| Alternative to `years`. An array of 2-tuples `(start, end)` where each element may be a `Date`, `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One dataset is generated per tuple per scenario. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`.
+|`output_name`|"out-isp2026"| Output folder name
+|`output_root`|nothing| Output folder path
+|`write_csv`|true| Whether to write CSV (.csv) files
+|`write_arrow`|true| Whether to write Arrow (.arrow) files
+|`prepare_outlook`|true| Whether to prepare generation, storage, and REZ outlook auxiliary workbooks from the final 2026 ISP outlook ZIP
+|`prepare_supporting_assets`|`download_from_AEMO`| Whether to extract downloaded final 2026 ISP archives and prepare local supporting files before parsing
+|`build_traces`|true| Whether to prepare demand, rooftop PV, VRE, hydro, and other trace inputs before parsing
+|`scenario_map`|empty dictionary| Optional scenario-name overrides used when preparing final 2026 ISP outlook support assets
+|`scenarios`|[1,2,3]|Scenarios to include in the output: 1 for `Slower Growth`, 2 for `Step Change`, 3 for `Accelerated Transition`, from the final 2026 ISP
 
 
 ## Description of dataset formatting
@@ -112,7 +134,7 @@ Below, an overview of each of the databases the parser produces is given.
 > [!IMPORTANT] 
 > **Schedule**: Time-varying parameters
 > - Demand_load_sched: `value` load (MW) at a given `date`. Match with column `load_` from Demand
-> - DER_pred_max_sched: `value` pred (MW) starting at a given `date`. Match with column `pred` from DER
+> - DER_pred_sched: `value` pred (MW) starting at a given `date`. Match with column `pred` from DER
 >   - `pred`: Maximum load reduction capacity (MW)
 > - ESS_emax_sched: `value` emax (MWh) starting at a given `date`. Match with column `emax` from ESS
 >   - `emax`: Maximum storage energy (MWh).
@@ -271,8 +293,16 @@ Below, an overview of each of the databases the parser produces is given.
 > [!IMPORTANT] 
 > All the datasets that ParseISP generates are based on publicly available data from AEMO. 
 >
-> All files are obtained from: https://www.aemo.com.au/energy-systems/major-publications/integrated-system-plan-isp/2024-integrated-system-plan-isp
+> 2024 ISP files are obtained from: https://www.aemo.com.au/energy-systems/major-publications/integrated-system-plan-isp/2024-integrated-system-plan-isp
 > - 2024 Integrated System Plan **Inputs and Assumptions workbook**
 > - 2024 Integrated System Plan **generation and storage outlook**
 > - 2024 Integrated System Plan **Model**
 > - 2024 Integrated System Plan **Demand & Variable Renewable Energy trace data**
+>
+> Final 2026 ISP files are obtained from AEMO final 2026 ISP supporting material and model artefacts:
+> - 2026 Integrated System Plan **Inputs and Assumptions workbook**
+> - 2026 Integrated System Plan **generation and storage outlook**
+> - 2026 Integrated System Plan **Model**
+> - 2026 Integrated System Plan **solar trace archive**
+> - 2026 Integrated System Plan **wind trace archive**
+> - 2025 IASR **EV workbook**, required as local support data because it is referenced by the final 2026 ISP workbook
