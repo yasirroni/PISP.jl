@@ -89,6 +89,9 @@ function ev_map_state_name_to_code(state_name::AbstractString)
     return state_code
 end
 
+ev_scenario_id_by_name(release::ParseISP.ISPRelease = ParseISP.ISP2024()) =
+    Dict(scenario_name => scenario_id for (scenario_name, scenario_id) in ParseISP.scenario_definitions(release))
+
 function ev_normalize_numbers_state_name(state_name::AbstractString)
     return strip(replace(state_name, r"\s*\(includes ACT\)$" => ""))
 end
@@ -176,8 +179,9 @@ function ev_build_bev_phev_profile_dataframe(workbook_path::AbstractString, shee
     )
 
     for row in non_empty_rows
-        if ev_is_state_header_row(row)
-            current_state = ev_map_state_name_to_code(ev_singleton_label(row))
+        if ev_is_singleton_label_row(row)
+            label = ev_singleton_label(row)
+            current_state = haskey(EV_2024_STATE_CODE_BY_NAME, label) ? ev_map_state_name_to_code(label) : nothing
             continue
         end
 
@@ -208,7 +212,8 @@ function ev_build_bev_phev_profile_dataframe(workbook_path::AbstractString, shee
     return ev_dataframe_from_columns(column_order, columns)
 end
 
-function ev_build_vehicle_numbers_dataframe(workbook_path::AbstractString, sheet_name::AbstractString)
+function ev_build_vehicle_numbers_dataframe(workbook_path::AbstractString, sheet_name::AbstractString;
+        scenario_id_by_name = EV_2024_SCENARIO_ID_BY_NAME)
     non_empty_rows = ev_read_non_empty_rows(workbook_path, sheet_name, "B:AZ")
 
     current_scenario = nothing
@@ -227,8 +232,8 @@ function ev_build_vehicle_numbers_dataframe(workbook_path::AbstractString, sheet
         if ev_is_singleton_label_row(row)
             label = ev_singleton_label(row)
 
-            if haskey(EV_2024_SCENARIO_ID_BY_NAME, label)
-                current_scenario = EV_2024_SCENARIO_ID_BY_NAME[label]
+            if haskey(scenario_id_by_name, label)
+                current_scenario = scenario_id_by_name[label]
                 current_state = nothing
                 continue
             end
@@ -236,8 +241,10 @@ function ev_build_vehicle_numbers_dataframe(workbook_path::AbstractString, sheet
             normalized_state_name = ev_normalize_numbers_state_name(label)
             if haskey(EV_2024_STATE_CODE_BY_NAME, normalized_state_name)
                 current_state = ev_map_state_name_to_code(normalized_state_name)
+                continue
             end
 
+            current_state = nothing
             continue
         end
 
@@ -278,7 +285,8 @@ function ev_melt_vehicle_numbers_dataframe(df::DataFrame, number_column::Symbol)
     return ev_melt_year_columns_dataframe(df, [:scenario, :state, :vehicle_type, :category], number_column)
 end
 
-function ev_build_bev_phev_charge_type_dataframe(workbook_path::AbstractString, sheet_name::AbstractString)
+function ev_build_bev_phev_charge_type_dataframe(workbook_path::AbstractString, sheet_name::AbstractString;
+        scenario_id_by_name = EV_2024_SCENARIO_ID_BY_NAME)
     non_empty_rows = ev_read_non_empty_rows(workbook_path, sheet_name, "B:BF")
 
     current_state = nothing
@@ -301,13 +309,17 @@ function ev_build_bev_phev_charge_type_dataframe(workbook_path::AbstractString, 
 
             if haskey(EV_2024_STATE_CODE_BY_NAME, normalized_state_name)
                 current_state = ev_map_state_name_to_code(normalized_state_name)
+                current_scenario = nothing
                 continue
             end
 
-            if haskey(EV_2024_SCENARIO_ID_BY_NAME, label)
-                current_scenario = EV_2024_SCENARIO_ID_BY_NAME[label]
+            if haskey(scenario_id_by_name, label)
+                current_scenario = scenario_id_by_name[label]
+                continue
             end
 
+            current_state = nothing
+            current_scenario = nothing
             continue
         end
 
@@ -343,7 +355,8 @@ function ev_build_bev_phev_charge_type_dataframe(workbook_path::AbstractString, 
     ])
 end
 
-function ev_build_subregional_demand_allocation_dataframe(workbook_path::AbstractString)
+function ev_build_subregional_demand_allocation_dataframe(workbook_path::AbstractString;
+        scenario_id_by_name = EV_2024_SCENARIO_ID_BY_NAME)
     non_empty_rows = ev_read_non_empty_rows(workbook_path, EV_2024_SUBREGIONAL_DEMAND_ALLOCATION_SHEET, "B127:AG182")
 
     current_scenario = nothing
@@ -360,8 +373,8 @@ function ev_build_subregional_demand_allocation_dataframe(workbook_path::Abstrac
     for row in non_empty_rows
         if ev_is_singleton_label_row(row)
             label = ev_singleton_label(row)
-            if haskey(EV_2024_SCENARIO_ID_BY_NAME, label)
-                current_scenario = EV_2024_SCENARIO_ID_BY_NAME[label]
+            if haskey(scenario_id_by_name, label)
+                current_scenario = scenario_id_by_name[label]
             end
             continue
         end
@@ -407,6 +420,64 @@ function ev_melt_subregional_demand_allocation_dataframe(df::DataFrame)
         row_filter = row ->
             !(row.state == row.subregion && row.share == 1.0 && row.state ∉ ("TAS", "VIC")),
     )
+end
+
+function ev_isp2026_canonical_subregion(subregion::AbstractString)
+    label = strip(String(subregion))
+    return get(ParseISP.ISP2026_SUBREGION_BUS_ALIASES, label, label)
+end
+
+function ev_build_isp2026_subregional_demand_allocation_dataframe(inputs_workbook::AbstractString, ts)
+    raw = ParseISP.read_xlsx_with_header(inputs_workbook, "Battery & Plug-in EVs", "B14:AG62")
+    report = ParseISP.validate_isp2026_ev_subregional_allocation(raw; source_file = inputs_workbook)
+    ParseISP.require_clean_validation!(report)
+
+    scenario_ids = ParseISP.scenario_definitions(ParseISP.ISP2026())
+    year_columns = ParseISP._isp2026_year_columns(raw)
+    bus_id_by_name = Dict(row.name => row.id_bus for row in eachrow(ts.bus))
+    rows = DataFrame(
+        state = String[],
+        subregion = String[],
+        scenario = Int[],
+        year = String[],
+        value = Float64[],
+        id_bus = Int[],
+    )
+
+    for row_number in 1:nrow(raw)
+        region = strip(string(raw[row_number, "Region"]))
+        isempty(region) && continue
+        region == "WEM" && continue
+
+        source_subregion = strip(string(raw[row_number, "Subregion"]))
+        bus_name = ev_isp2026_canonical_subregion(source_subregion)
+        haskey(bus_id_by_name, bus_name) || error("No matching bus found for ISP2026 EV subregion `$(source_subregion)` mapped to `$(bus_name)`.")
+
+        scenario_name = strip(string(raw[row_number, "Scenario"]))
+        haskey(scenario_ids, scenario_name) || continue
+
+        for year_column in year_columns
+            value = ParseISP.parse_isp2026_number(raw[row_number, year_column])
+            value === nothing && continue
+            push!(rows, (
+                region,
+                bus_name,
+                scenario_ids[scenario_name],
+                replace(String(year_column), "-" => "_"),
+                value,
+                bus_id_by_name[bus_name],
+            ))
+        end
+    end
+
+    isempty(rows) && return DataFrame(state = String[], subregion = String[], scenario = Int[], year = String[], share = Float64[], id_bus = Int[])
+
+    grouped = combine(groupby(rows, [:state, :subregion, :id_bus, :scenario, :year]), :value => sum => :value)
+    totals = combine(groupby(grouped, [:state, :scenario, :year]), :value => sum => :total)
+    allocated = leftjoin(grouped, totals; on = [:state, :scenario, :year])
+    allocated.share = [row.total == 0 ? 0.0 : row.value / row.total for row in eachrow(allocated)]
+
+    return allocated[:, [:state, :subregion, :scenario, :year, :share, :id_bus]]
 end
 
 function ev_assign_subregional_bus_ids!(subregional_df::DataFrame, ts)

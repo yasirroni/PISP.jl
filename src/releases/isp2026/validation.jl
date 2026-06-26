@@ -4,7 +4,15 @@ struct ISPDataFinding
     message::String
     row::Union{Nothing,Int}
     column::Union{Nothing,Int}
+    source_file::Union{Nothing,String}
+    sheet::Union{Nothing,String}
+    field::Union{Nothing,String}
+    suggestion::Union{Nothing,String}
 end
+
+ISPDataFinding(severity::Symbol, code::Symbol, message::String,
+    row::Union{Nothing,Int}, column::Union{Nothing,Int}) =
+    ISPDataFinding(severity, code, message, row, column, nothing, nothing, nothing, nothing)
 
 struct ISPValidationReport
     source::String
@@ -23,13 +31,44 @@ _isp2026_is_sensitivity_outlook_entry(entry::AbstractString) =
     any(prefix -> startswith(entry, prefix), ISP2026_OUTLOOK_SENSITIVITY_PREFIXES)
 
 function _ispdata_addfinding!(findings, severity::Symbol, code::Symbol, message::AbstractString;
-        row::Union{Nothing,Int} = nothing, column::Union{Nothing,Int} = nothing)
-    push!(findings, ISPDataFinding(severity, code, String(message), row, column))
+        row::Union{Nothing,Int} = nothing,
+        column::Union{Nothing,Int} = nothing,
+        source_file::Union{Nothing,AbstractString} = nothing,
+        sheet::Union{Nothing,AbstractString} = nothing,
+        field::Union{Nothing,AbstractString} = nothing,
+        suggestion::Union{Nothing,AbstractString} = nothing)
+    push!(findings, ISPDataFinding(
+        severity,
+        code,
+        String(message),
+        row,
+        column,
+        source_file === nothing ? nothing : String(source_file),
+        sheet === nothing ? nothing : String(sheet),
+        field === nothing ? nothing : String(field),
+        suggestion === nothing ? nothing : String(suggestion),
+    ))
 end
 
 function _ispdata_is_missing_token(cell)
     cell isa AbstractString || return false
     return lowercase(strip(cell)) in ISP2026_MISSING_TOKENS
+end
+
+function _isp2026_text_or_empty(cell)
+    (cell === missing || _ispdata_is_missing_token(cell)) && return ""
+    return strip(string(cell))
+end
+
+function _isp2026_dsp_nondata_row(region::AbstractString, band::AbstractString,
+        scenario::AbstractString, season::AbstractString)
+    fields = (region, band, scenario, season)
+    all(isempty, fields) && return true
+    if lowercase(region) == "region" && lowercase(band) == "price band" &&
+            lowercase(scenario) == "scenario" && lowercase(season) == "season"
+        return true
+    end
+    return region in ("Summer", "Winter") && isempty(band) && isempty(scenario) && isempty(season)
 end
 
 function _ispdata_tryparse_float(cell)
@@ -41,6 +80,362 @@ function _ispdata_tryparse_float(cell)
     m = match(r"^[-+]?\d+(?:\.\d+)?", text)
     m === nothing && return nothing
     return tryparse(Float64, m.match)
+end
+
+function parse_isp2026_number(cell; percent_as_fraction::Bool = false)
+    cell === missing && return nothing
+    cell isa Number && return Float64(cell)
+    _ispdata_is_missing_token(cell) && return nothing
+
+    text = strip(string(cell))
+    isempty(text) && return nothing
+    has_percent = occursin("%", text)
+    cleaned = replace(text, "," => "", "%" => "")
+    cleaned = split(cleaned, ['(', '[', '\n'])[1]
+    m = match(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?", cleaned)
+    m === nothing && return nothing
+
+    value = tryparse(Float64, m.match)
+    value === nothing && return nothing
+    return percent_as_fraction && has_percent ? value / 100.0 : value
+end
+
+function parse_isp2026_date(cell)
+    cell === missing && return nothing
+    cell isa DateTime && return cell
+    cell isa Date && return DateTime(cell)
+    if cell isa Number
+        return DateTime(Date(1899, 12, 30) + Day(round(Int, Float64(cell))))
+    end
+
+    text = strip(string(cell))
+    isempty(text) && return nothing
+    for fmt in (dateformat"yyyy-mm-dd", dateformat"dd/mm/yyyy", dateformat"d/mm/yyyy",
+            dateformat"dd-mm-yyyy", dateformat"d-mm-yyyy", dateformat"yyyy/mm/dd")
+        parsed = try
+            Date(text, fmt)
+        catch
+            nothing
+        end
+        parsed === nothing || return DateTime(parsed)
+    end
+
+    return try
+        DateTime(text)
+    catch
+        nothing
+    end
+end
+
+_isp2026_year_columns(df::DataFrame) =
+    filter(name -> occursin(r"^\d{4}(?:-\d{2})?$", String(name)), names(df))
+
+function _isp2026_require_columns!(findings, df::DataFrame, required::Vector{String};
+        source_file = nothing, sheet = nothing)
+    present = Set(names(df))
+    for column in required
+        column in present && continue
+        _ispdata_addfinding!(findings, :blocker, :missing_column,
+            "Missing required column `$(column)`.",
+            source_file = source_file,
+            sheet = sheet,
+            field = column,
+            suggestion = "Check the source range and header row.")
+    end
+end
+
+function _isp2026_validate_numeric_field!(findings, value, label::AbstractString;
+        row::Union{Nothing,Int} = nothing,
+        source_file = nothing,
+        sheet = nothing,
+        percent_as_fraction::Bool = false,
+        allow_missing::Bool = false)
+    if value === missing || _ispdata_is_missing_token(value)
+        severity = allow_missing ? :warning : :blocker
+        _ispdata_addfinding!(findings, severity, :missing_value_token,
+            "Missing value in `$(label)`.",
+            row = row,
+            source_file = source_file,
+            sheet = sheet,
+            field = label,
+            suggestion = "Confirm whether the source should be blank or parser-fillable.")
+        return nothing
+    end
+
+    parsed = parse_isp2026_number(value; percent_as_fraction = percent_as_fraction)
+    if parsed === nothing
+        _ispdata_addfinding!(findings, :blocker, :invalid_numeric_value,
+            "Cannot parse `$(label)` as a number.",
+            row = row,
+            source_file = source_file,
+            sheet = sheet,
+            field = label,
+            suggestion = "Use a numeric value, percentage, or documented missing token.")
+        return nothing
+    end
+
+    if value isa AbstractString
+        _ispdata_addfinding!(findings, :warning, :numeric_as_string,
+            "Numeric value stored as text in `$(label)`.",
+            row = row,
+            source_file = source_file,
+            sheet = sheet,
+            field = label,
+            suggestion = "Parser will normalize this value explicitly.")
+    end
+
+    return parsed
+end
+
+function validate_isp2026_dsp_table(raw::DataFrame;
+        source::AbstractString = "DSP",
+        source_file::Union{Nothing,AbstractString} = nothing,
+        sheet::AbstractString = "DSP")
+    findings = ISPDataFinding[]
+    required = ["Region", "Price band", "Scenario", "Season"]
+    _isp2026_require_columns!(findings, raw, required; source_file = source_file, sheet = sheet)
+    isempty(filter(f -> f.severity == :blocker, findings)) || return ISPValidationReport(source, :isp2026, findings)
+
+    year_columns = _isp2026_year_columns(raw)
+    isempty(year_columns) && _ispdata_addfinding!(findings, :blocker, :missing_year_columns,
+        "No financial-year or calendar-year columns found.",
+        source_file = source_file,
+        sheet = sheet,
+        suggestion = "Expected columns like `2026-27` or `2027`.")
+
+    allowed_regions = Set(["NSW", "QLD", "SA", "TAS", "VIC"])
+    allowed_scenarios = Set(keys(ParseISP.scenario_definitions(ParseISP.ISP2026())))
+    allowed_seasons = Set(["Summer", "Winter"])
+    allowed_bands = Set(["\$300-\$500", "\$500-\$7500", "\$7500+", "Reliability Response",
+        "Reliability Response in % of Peak Demand*"])
+    seen = Set{Tuple{String,String,String,String}}()
+
+    for row_number in 1:nrow(raw)
+        region = _isp2026_text_or_empty(raw[row_number, "Region"])
+        band = _isp2026_text_or_empty(raw[row_number, "Price band"])
+        scenario = _isp2026_text_or_empty(raw[row_number, "Scenario"])
+        season = _isp2026_text_or_empty(raw[row_number, "Season"])
+        _isp2026_dsp_nondata_row(region, band, scenario, season) && continue
+
+        region in allowed_regions || _ispdata_addfinding!(findings, :blocker, :unknown_region_label,
+            "Unknown DSP region `$(region)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Region",
+            suggestion = "Add an explicit region alias or reject the source row.")
+        scenario in allowed_scenarios || _ispdata_addfinding!(findings, :blocker, :unknown_scenario_label,
+            "Unknown DSP scenario `$(scenario)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Scenario",
+            suggestion = "Map the source scenario to an ISP2026 scenario id.")
+        season in allowed_seasons || _ispdata_addfinding!(findings, :blocker, :unknown_season_label,
+            "Unknown DSP season `$(season)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Season",
+            suggestion = "Expected `Summer` or `Winter`.")
+        band in allowed_bands || _ispdata_addfinding!(findings, :blocker, :unknown_price_band,
+            "Unknown DSP price band `$(band)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Price band",
+            suggestion = "Add a band mapping before consuming this row.")
+
+        key = (region, band, scenario, season)
+        if key in seen
+            _ispdata_addfinding!(findings, :blocker, :duplicate_key,
+                "Duplicate DSP row for $(join(key, " / ")).",
+                row = row_number,
+                source_file = source_file,
+                sheet = sheet,
+                suggestion = "Keep exactly one row per region, band, scenario, and season.")
+        else
+            push!(seen, key)
+        end
+
+        percent_row = occursin("%", band)
+        percent_row && _ispdata_addfinding!(findings, :info, :informational_percent_band,
+            "DSP percentage row is informational and will not be scheduled.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Price band")
+
+        for year_column in year_columns
+            parsed = _isp2026_validate_numeric_field!(findings, raw[row_number, year_column], year_column;
+                row = row_number,
+                source_file = source_file,
+                sheet = sheet,
+                percent_as_fraction = percent_row)
+            if parsed !== nothing && parsed < 0
+                _ispdata_addfinding!(findings, :blocker, :negative_numeric_value,
+                    "Negative DSP value in `$(year_column)`.",
+                    row = row_number,
+                    source_file = source_file,
+                    sheet = sheet,
+                    field = year_column,
+                    suggestion = "DSP availability should be non-negative.")
+            end
+        end
+    end
+
+    return ISPValidationReport(source, :isp2026, findings)
+end
+
+function validate_isp2026_ev_subregional_allocation(raw::DataFrame;
+        source::AbstractString = "Battery & Plug-in EVs energy allocation",
+        source_file::Union{Nothing,AbstractString} = nothing,
+        sheet::AbstractString = "Battery & Plug-in EVs")
+    findings = ISPDataFinding[]
+    required = ["Region", "Subregion", "Scenario"]
+    _isp2026_require_columns!(findings, raw, required; source_file = source_file, sheet = sheet)
+    isempty(filter(f -> f.severity == :blocker, findings)) || return ISPValidationReport(source, :isp2026, findings)
+
+    year_columns = _isp2026_year_columns(raw)
+    isempty(year_columns) && _ispdata_addfinding!(findings, :blocker, :missing_year_columns,
+        "No EV allocation year columns found.",
+        source_file = source_file,
+        sheet = sheet,
+        suggestion = "Expected columns like `2026-27`.")
+
+    allowed_regions = Set(["NSW", "QLD", "SA", "TAS", "VIC", "WEM"])
+    allowed_scenarios = Set(keys(ParseISP.scenario_definitions(ParseISP.ISP2026())))
+    allowed_subregions = Set(vcat(collect(keys(ParseISP.NEMBUSNAME)), ["MEL", "SEV", "WNV", "NSA", "WEM"]))
+    seen = Set{Tuple{String,String,String}}()
+
+    for row_number in 1:nrow(raw)
+        region = strip(string(raw[row_number, "Region"]))
+        isempty(region) && continue
+        subregion = strip(string(raw[row_number, "Subregion"]))
+        scenario = strip(string(raw[row_number, "Scenario"]))
+
+        region in allowed_regions || _ispdata_addfinding!(findings, :blocker, :unknown_region_label,
+            "Unknown EV region `$(region)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Region")
+        subregion in allowed_subregions || _ispdata_addfinding!(findings, :blocker, :unknown_subregion_label,
+            "Unknown EV subregion `$(subregion)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Subregion",
+            suggestion = "Add an explicit subregion-to-bus alias.")
+        scenario in allowed_scenarios || _ispdata_addfinding!(findings, :blocker, :unknown_scenario_label,
+            "Unknown EV scenario `$(scenario)`.",
+            row = row_number,
+            source_file = source_file,
+            sheet = sheet,
+            field = "Scenario")
+
+        key = (region, subregion, scenario)
+        if key in seen
+            _ispdata_addfinding!(findings, :blocker, :duplicate_key,
+                "Duplicate EV allocation row for $(join(key, " / ")).",
+                row = row_number,
+                source_file = source_file,
+                sheet = sheet)
+        else
+            push!(seen, key)
+        end
+
+        for year_column in year_columns
+            parsed = _isp2026_validate_numeric_field!(findings, raw[row_number, year_column], year_column;
+                row = row_number,
+                source_file = source_file,
+                sheet = sheet)
+            if parsed !== nothing && parsed < 0
+                _ispdata_addfinding!(findings, :blocker, :negative_numeric_value,
+                    "Negative EV allocation in `$(year_column)`.",
+                    row = row_number,
+                    source_file = source_file,
+                    sheet = sheet,
+                    field = year_column)
+            end
+        end
+    end
+
+    return ISPValidationReport(source, :isp2026, findings)
+end
+
+function validate_isp2026_hydro_trace(df::DataFrame, path::AbstractString)
+    findings = ISPDataFinding[]
+    filename = basename(path)
+    nameset = Set(names(df))
+
+    "Year" in nameset || _ispdata_addfinding!(findings, :blocker, :missing_column,
+        "Hydro trace is missing `Year`.",
+        source_file = path,
+        field = "Year")
+
+    expected = if startswith(filename, "MaxEnergyYear")
+        :annual
+    elseif startswith(filename, "HalfHourlyNaturalInflow")
+        :halfhourly
+    elseif startswith(filename, "DailyNaturalInflow") || startswith(filename, "MonthlyNaturalInflow")
+        :daily
+    else
+        :unknown
+    end
+
+    if expected == :unknown
+        _ispdata_addfinding!(findings, :warning, :unknown_hydro_trace_kind,
+            "Hydro trace filename does not match a known ISP2026 pattern.",
+            source_file = path,
+            suggestion = "Document whether this file is applicable.")
+    elseif expected == :annual
+        ncol(df) > 1 || _ispdata_addfinding!(findings, :blocker, :missing_value_columns,
+            "Annual hydro trace has no asset columns.",
+            source_file = path)
+    elseif expected == :halfhourly
+        for column in vcat(["Month", "Day"], lpad.(string.(1:48), 2, '0'))
+            column in nameset || _ispdata_addfinding!(findings, :blocker, :missing_column,
+                "Half-hourly hydro trace is missing `$(column)`.",
+                source_file = path,
+                field = column)
+        end
+    elseif expected == :daily
+        for column in ["Month", "Day"]
+            column in nameset || _ispdata_addfinding!(findings, :blocker, :missing_column,
+                "Daily hydro trace is missing `$(column)`.",
+                source_file = path,
+                field = column)
+        end
+        ("Inflows" in nameset || "1" in nameset) || _ispdata_addfinding!(findings, :blocker, :missing_value_columns,
+            "Daily hydro trace needs `Inflows` or `1` value column.",
+            source_file = path)
+    end
+
+    for column in names(df)
+        column == "Year" && continue
+        if column in ("Month", "Day")
+            continue
+        end
+        for row_number in 1:nrow(df)
+            value = df[row_number, column]
+            parsed = _isp2026_validate_numeric_field!(findings, value, column;
+                row = row_number,
+                source_file = path,
+                allow_missing = false)
+            if parsed !== nothing && parsed < 0
+                severity = expected == :annual ? :blocker : :warning
+                _ispdata_addfinding!(findings, severity, :negative_numeric_value,
+                    "Negative hydro trace value in `$(column)`.",
+                    row = row_number,
+                    source_file = path,
+                    field = column,
+                    suggestion = expected == :annual ? "Annual energy limits should be non-negative." : "Natural inflow schedules clamp negative net inflows to zero.")
+            end
+        end
+    end
+
+    return ISPValidationReport(filename, expected, findings)
 end
 
 function _ispdata_bus_name(token)

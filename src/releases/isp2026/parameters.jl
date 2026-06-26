@@ -22,6 +22,61 @@ const HYDROSCE2026 = OrderedDict(
     "Accelerated Transition" => "Flat",
 )
 
+const ISP2026_SUBREGION_BUS_ALIASES = Dict(
+    "MEL" => "VIC",
+    "SEV" => "VIC",
+    "WNV" => "VIC",
+    "NSA" => "CSA",
+)
+
+const ISP2026_DSP_REGION_BUS_SHARES = Dict(
+    "QLD" => OrderedDict("NQ" => 0.0, "CQ" => 0.0, "GG" => 0.0, "SQ" => 1.0),
+    "NSW" => OrderedDict("NNSW" => 0.0, "CNSW" => 0.0, "SNW" => 1.0, "SNSW" => 0.0),
+    "VIC" => OrderedDict("VIC" => 1.0),
+    "TAS" => OrderedDict("TAS" => 1.0),
+    "SA" => OrderedDict("CSA" => 1.0, "SESA" => 0.0),
+)
+
+const ISP2026_DSP_BAND_TO_DER_SUFFIX = OrderedDict(
+    "\$300-\$500" => "BAND1",
+    "\$500-\$7500" => "BAND2",
+    "\$7500+" => "BAND4",
+    "Reliability Response" => "BANDRR",
+)
+
+const ISP2026_HYDRO_TRACE_TO_GENERATORS = OrderedDict(
+    "DailyNaturalInflow_AnthonyPieman" => ["Bastyan", "Mackintosh", "Reece", "Tribute"],
+    "DailyNaturalInflow_Gordon" => ["Gordon"],
+    "DailyNaturalInflow_JohnButters" => ["John Butters"],
+    "DailyNaturalInflow_LowerDerwent" => ["Catagunya / Liapootah / Wayatinah", "Lake Echo", "Meadowbank"],
+    "DailyNaturalInflow_MerseyForthLower" => ["Bastyan", "Mackintosh", "Reece", "Tribute"],
+    "DailyNaturalInflow_MerseyForthUpper" => ["Cethana", "Devils gate", "Fisher", "Lemonthyme / Wilmot"],
+    "DailyNaturalInflow_Poatina" => ["Poatina"],
+    "DailyNaturalInflow_Tarraleah" => ["Tarraleah"],
+    "DailyNaturalInflow_Trevallyn" => ["Trevallyn"],
+    "DailyNaturalInflow_Tungatinah" => ["Tungatinah"],
+    "HalfHourlyNaturalInflow_Blowering" => ["Blowering"],
+    "HalfHourlyNaturalInflow_Dartmouth" => ["Dartmouth"],
+    "HalfHourlyNaturalInflow_Eildon" => ["Eildon"],
+    "HalfHourlyNaturalInflow_Hume Dam" => ["Hume Dam NSW", "Hume Dam VIC"],
+    "HalfHourlyNaturalInflow_Koombaloomba Dam" => ["Kareeya"],
+    "HalfHourlyNaturalInflow_Kuranda Weir" => ["Barron Gorge"],
+    "MonthlyNaturalInflow_Geehi" => ["Murray 1", "Murray 2"],
+    "MonthlyNaturalInflow_Guthega" => ["Guthega"],
+    "MonthlyNaturalInflow_Talbingo" => ["Upper Tumut"],
+    "MonthlyNaturalInflow_Tantangara" => ["Upper Tumut"],
+    "MonthlyNaturalInflow_Tumut" => ["Upper Tumut"],
+    "MonthlyNaturalInflow_Tumut 2" => ["Upper Tumut"],
+)
+
+const ISP2026_HYDRO_TRACE_TO_ESS = OrderedDict(
+    "HalfHourlyNaturalInflow_Blowering" => ["Tumut 3"],
+    "MonthlyNaturalInflow_Talbingo" => ["Tumut 3", "Snowy 2.0"],
+    "MonthlyNaturalInflow_Tantangara" => ["Tumut 3", "Snowy 2.0"],
+    "MonthlyNaturalInflow_Tumut" => ["Tumut 3", "Snowy 2.0"],
+    "MonthlyNaturalInflow_Tumut 2" => ["Tumut 3", "Snowy 2.0"],
+)
+
 const WEATHER_YEARS_ISP2026 = Dict(
     ("2024-07-01", "2025-06-30") => "2019",
     ("2025-07-01", "2026-06-30") => "2020",

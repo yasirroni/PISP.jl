@@ -2416,6 +2416,248 @@ function der_tables(ts::ParseISPtimeStatic)
     end
 end
 
+function _isp2026_dsp_schedule_date(year_label::AbstractString, season::AbstractString)
+    parts = split(year_label, "-")
+    start_year = parse(Int, parts[1])
+    end_year = if length(parts) == 1
+        start_year
+    else
+        century = fld(start_year, 100) * 100
+        century + parse(Int, parts[2])
+    end
+    if season == "Summer"
+        return DateTime(start_year) + Month(10)
+    elseif season == "Winter"
+        return DateTime(end_year) + Month(3)
+    end
+    error("Unsupported ISP2026 DSP season `$(season)`.")
+end
+
+function _isp2026_der_id_by_bus_suffix(ts::ParseISPtimeStatic)
+    lookup = Dict{Tuple{String,String},Int}()
+    for row in eachrow(ts.der)
+        row.tech == "DSP" || continue
+        m = match(r"^DEM_(.+)_DSP_(BAND\d+|BANDRR)$", row.name)
+        m === nothing && continue
+        bus = String(m.captures[1])
+        suffix = String(m.captures[2])
+        lookup[(bus, suffix)] = row.id_der
+    end
+    return lookup
+end
+
+function _isp2026_der_pred_sched(ts::ParseISPtimeStatic, tv::ParseISPtimeVarying, inputs_workbook::String)
+    raw = ParseISP.read_xlsx_with_header(inputs_workbook, "DSP", "B9:AG164")
+    report = ParseISP.validate_isp2026_dsp_table(raw; source_file = inputs_workbook)
+    ParseISP.require_clean_validation!(report)
+
+    year_columns = ParseISP._isp2026_year_columns(raw)
+    cumulative = Dict{Tuple{String,String,String,String},Dict{String,Float64}}()
+
+    for row_number in 1:nrow(raw)
+        region = ParseISP._isp2026_text_or_empty(raw[row_number, "Region"])
+        band = ParseISP._isp2026_text_or_empty(raw[row_number, "Price band"])
+        scenario = ParseISP._isp2026_text_or_empty(raw[row_number, "Scenario"])
+        season = ParseISP._isp2026_text_or_empty(raw[row_number, "Season"])
+        ParseISP._isp2026_dsp_nondata_row(region, band, scenario, season) && continue
+        haskey(ParseISP.ISP2026_DSP_BAND_TO_DER_SUFFIX, band) || continue
+
+        for year_column in year_columns
+            value = ParseISP.parse_isp2026_number(raw[row_number, year_column])
+            value === nothing && continue
+            key = (region, scenario, season, String(year_column))
+            values = get!(cumulative, key, Dict{String,Float64}())
+            values[band] = value
+        end
+    end
+
+    der_id_by_bus_suffix = _isp2026_der_id_by_bus_suffix(ts)
+    scenario_ids = ParseISP.scenario_definitions(ParseISP.ISP2026())
+    next_id = isempty(tv.der_pred) ? 1 : maximum(tv.der_pred.id) + 1
+
+    for key in sort(collect(keys(cumulative)))
+        region, scenario_name, season, year_label = key
+        haskey(scenario_ids, scenario_name) || continue
+        haskey(ParseISP.ISP2026_DSP_REGION_BUS_SHARES, region) || continue
+
+        previous = 0.0
+        values = cumulative[key]
+        for band in ["\$300-\$500", "\$500-\$7500", "\$7500+"]
+            haskey(values, band) || continue
+            der_suffix = ParseISP.ISP2026_DSP_BAND_TO_DER_SUFFIX[band]
+            incremental = values[band] - previous
+            incremental < -1e-6 && error("ISP2026 DSP band values are not cumulative for $(join(key, " / ")) at $(band).")
+            incremental = max(incremental, 0.0)
+            previous = values[band]
+
+            for (bus, share) in ParseISP.ISP2026_DSP_REGION_BUS_SHARES[region]
+                share == 0.0 && continue
+                der_key = (bus, der_suffix)
+                haskey(der_id_by_bus_suffix, der_key) || error("Missing ISP2026 DSP DER row for $(bus) $(der_suffix).")
+                push!(tv.der_pred, [
+                    next_id,
+                    der_id_by_bus_suffix[der_key],
+                    scenario_ids[scenario_name],
+                    _isp2026_dsp_schedule_date(year_label, season),
+                    incremental * share,
+                ])
+                next_id += 1
+            end
+        end
+
+        band = "Reliability Response"
+        if haskey(values, band)
+            der_suffix = ParseISP.ISP2026_DSP_BAND_TO_DER_SUFFIX[band]
+            incremental = max(values[band], 0.0)
+            for (bus, share) in ParseISP.ISP2026_DSP_REGION_BUS_SHARES[region]
+                share == 0.0 && continue
+                der_key = (bus, der_suffix)
+                haskey(der_id_by_bus_suffix, der_key) || error("Missing ISP2026 DSP DER row for $(bus) $(der_suffix).")
+                push!(tv.der_pred, [
+                    next_id,
+                    der_id_by_bus_suffix[der_key],
+                    scenario_ids[scenario_name],
+                    _isp2026_dsp_schedule_date(year_label, season),
+                    incremental * share,
+                ])
+                next_id += 1
+            end
+        end
+    end
+
+    return tv
+end
+
+function _isp2026_hydro_trace_key(path::AbstractString)
+    name = replace(basename(path), r"_RefYear\d+_Flat\.csv$" => "")
+    return replace(name, r"\.csv$" => "")
+end
+
+function _isp2026_hydro_hourly_trace(path::AbstractString)
+    df = CSV.read(path, DataFrame)
+    report = ParseISP.validate_isp2026_hydro_trace(df, path)
+    ParseISP.require_clean_validation!(report)
+
+    dates = DateTime[]
+    values = Float64[]
+    if startswith(basename(path), "HalfHourlyNaturalInflow")
+        halfhour_columns = lpad.(string.(1:48), 2, '0')
+        for row in eachrow(df)
+            base = DateTime(Int(row.Year), Int(row.Month), Int(row.Day), 0, 0, 0)
+            for hour_index in 0:23
+                left = ParseISP.parse_isp2026_number(row[halfhour_columns[2 * hour_index + 1]])
+                right = ParseISP.parse_isp2026_number(row[halfhour_columns[2 * hour_index + 2]])
+                left === nothing && continue
+                right === nothing && continue
+                push!(dates, base + Hour(hour_index))
+                push!(values, max((left + right) / 2.0, 0.0))
+            end
+        end
+    else
+        value_column = "Inflows" in names(df) ? "Inflows" : "1"
+        for row in eachrow(df)
+            base = DateTime(Int(row.Year), Int(row.Month), Int(row.Day), 0, 0, 0)
+            value = ParseISP.parse_isp2026_number(row[value_column])
+            value === nothing && continue
+            for hour_index in 0:23
+                push!(dates, base + Hour(hour_index))
+                push!(values, max(value, 0.0))
+            end
+        end
+    end
+
+    return DataFrame(date = dates, value = values)
+end
+
+function _isp2026_append_natural_inflows!(chunks::Vector{DataFrame}, asset_rows::DataFrame,
+        id_column::Symbol, scenario::Int, hourly::DataFrame; value_multiplier::Float64 = 1.0)
+    isempty(asset_rows) && return nothing
+    capacity_column = :pmax in propertynames(asset_rows) ? :pmax : :capacity
+    capacities = [Float64(row[capacity_column]) * max(Int(row.n), 1) for row in eachrow(asset_rows)]
+    total_capacity = sum(capacities)
+    total_capacity > 0 || return nothing
+
+    for (idx, row) in enumerate(eachrow(asset_rows))
+        n_units = max(Int(row.n), 1)
+        share = capacities[idx] / total_capacity
+        push!(chunks, DataFrame(
+            :id => fill(0, nrow(hourly)),
+            id_column => fill(row[id_column], nrow(hourly)),
+            :scenario => fill(scenario, nrow(hourly)),
+            :date => hourly.date,
+            :value => hourly.value .* value_multiplier .* share ./ n_units,
+        ))
+    end
+    return nothing
+end
+
+function _isp2026_annual_hydro_limits(ts::ParseISPtimeStatic, tc::ParseISPtimeConfig,
+        hydro_root::AbstractString, scenario::Int, covered_gen_ids::Set{Int})
+    path = normpath(hydro_root, "MaxEnergyYear_RefYear5000_Flat.csv")
+    isfile(path) || return DataFrame(id = Int[], id_gen = Int[], scenario = Int[], date = DateTime[], value = Float64[])
+    df = CSV.read(path, DataFrame)
+    report = ParseISP.validate_isp2026_hydro_trace(df, path)
+    ParseISP.require_clean_validation!(report)
+
+    chunks = DataFrame[]
+    hydro_gen = filter(row -> row.fuel == "Hydro" && !(row.id_gen in covered_gen_ids), ts.gen)
+    isempty(hydro_gen) && return DataFrame(id = Int[], id_gen = Int[], scenario = Int[], date = DateTime[], value = Float64[])
+
+    for problem in eachrow(tc.problem)
+        problem.scenario == scenario || continue
+        source_year = year(problem.dstart)
+        matches = filter(row -> row.Year == source_year, df)
+        isempty(matches) && continue
+        source_row = matches[1, :]
+        hours = collect(problem.dstart:Hour(1):problem.dend)
+        isempty(hours) && continue
+
+        for genrow in eachrow(hydro_gen)
+            alias = String(genrow.alias)
+            alias in names(df) || continue
+            annual_gwh = ParseISP.parse_isp2026_number(source_row[alias])
+            annual_gwh === nothing && continue
+            hourly_mw = annual_gwh * 1000.0 / 8760.0 / max(Int(genrow.n), 1)
+            push!(chunks, DataFrame(
+                id = fill(0, length(hours)),
+                id_gen = fill(genrow.id_gen, length(hours)),
+                scenario = fill(scenario, length(hours)),
+                date = hours,
+                value = fill(hourly_mw, length(hours)),
+            ))
+        end
+    end
+
+    isempty(chunks) && return DataFrame(id = Int[], id_gen = Int[], scenario = Int[], date = DateTime[], value = Float64[])
+    return reduce(vcat, chunks)
+end
+
+function _isp2026_finish_schedule!(target::DataFrame, chunks::Vector{DataFrame}, id_column::Symbol,
+        tc::Union{Nothing,ParseISPtimeConfig} = nothing)
+    isempty(chunks) && return target
+    combined = reduce(vcat, chunks)
+    isempty(combined) && return target
+    if tc !== nothing
+        filtered_chunks = DataFrame[]
+        for problem in eachrow(tc.problem)
+            filtered = filter(row ->
+                row.scenario == problem.scenario &&
+                row.date >= problem.dstart &&
+                row.date <= problem.dend,
+                combined)
+            isempty(filtered) || push!(filtered_chunks, filtered)
+        end
+        isempty(filtered_chunks) && return target
+        combined = reduce(vcat, filtered_chunks)
+    end
+    grouped = combine(groupby(combined, [id_column, :scenario, :date]), :value => sum => :value)
+    sort!(grouped, [id_column, :scenario, :date])
+    grouped.id = 1:nrow(grouped)
+    select!(grouped, [:id, id_column, :scenario, :date, :value])
+    append!(target, grouped)
+    return target
+end
+
 """
     der_pred_sched(ts, tv, dsp_data)
 
@@ -2430,7 +2672,7 @@ inserted by `der_tables`.
 """
 function der_pred_sched(ts::ParseISPtimeStatic, tv::ParseISPtimeVarying, inputs_workbook::String; release::ParseISP.ISPRelease = ParseISP.ISP2024())
     if release isa ParseISP.ISP2026
-        return tv
+        return _isp2026_der_pred_sched(ts, tv, inputs_workbook)
     end
 
     sce_dsp = Dict("Progressive Change"     => Dict("QLD" => Dict("SUMMER"  => "B128:AG133", "WINTER"  =>"B137:AG142"), 
@@ -2566,12 +2808,37 @@ and returns the Snowy subset for re-use by ESS inflow routines (specific for TUM
 function gen_inflow_sched(ts::ParseISPtimeStatic, tv::ParseISPtimeVarying, tc::ParseISPtimeConfig, inputs_workbook::String, ispmodel::String; release::ParseISP.ISPRelease = ParseISP.ISP2024())
     if release isa ParseISP.ISP2026
         hydro_model_prefix = "$(ParseISP.release_year(release)) ISP"
+        chunks = DataFrame[]
+        covered_gen_ids = Set{Int}()
+        hydro_conversion = 1000.0 * 9.81 * 100.0 * 0.9 / 10^6
+
         for scenario in keys(ParseISP.scenario_definitions(release))
             hydro_root = normpath(ispmodel, "$(hydro_model_prefix) $(scenario)", "Traces", "hydro")
             isdir(hydro_root) || error("Missing ISP2026 hydro trace directory: $(hydro_root)")
             any(f -> endswith(f, ".csv"), readdir(hydro_root)) || error("No ISP2026 hydro trace CSVs found in $(hydro_root)")
+
+            scenario_id = ParseISP.scenario_definitions(release)[scenario]
+            for file in sort(filter(f -> endswith(f, ".csv") && !startswith(f, "MaxEnergyYear"), readdir(hydro_root)))
+                path = normpath(hydro_root, file)
+                trace_key = _isp2026_hydro_trace_key(path)
+                haskey(ParseISP.ISP2026_HYDRO_TRACE_TO_GENERATORS, trace_key) || continue
+
+                hourly = _isp2026_hydro_hourly_trace(path)
+                gen_names = ParseISP.ISP2026_HYDRO_TRACE_TO_GENERATORS[trace_key]
+                gen_rows = filter(row -> row.name in gen_names, ts.gen)
+                for row in eachrow(gen_rows)
+                    push!(covered_gen_ids, row.id_gen)
+                end
+                _isp2026_append_natural_inflows!(chunks, gen_rows, :id_gen, scenario_id, hourly;
+                    value_multiplier = hydro_conversion)
+            end
+
+            annual = _isp2026_annual_hydro_limits(ts, tc, hydro_root, scenario_id, covered_gen_ids)
+            isempty(annual) || push!(chunks, annual)
         end
-        return DataFrame(id_gen = Int[], partial = Float64[])
+
+        _isp2026_finish_schedule!(tv.gen_inflow, chunks, :id_gen, tc)
+        return DataFrame(ispmodel = [ispmodel])
     end
 
     HOURS_PER_DAY = 24
@@ -2787,6 +3054,31 @@ charge/discharge schedules.
 """
 function ess_inflow_sched(ts::ParseISPtimeStatic, tv::ParseISPtimeVarying, tc::ParseISPtimeConfig, inputs_workbook::String, df_snowy_capacity::DataFrame; release::ParseISP.ISPRelease = ParseISP.ISP2024())
     if release isa ParseISP.ISP2026
+        :ispmodel in propertynames(df_snowy_capacity) || return tv
+        ispmodel = df_snowy_capacity[1, :ispmodel]
+        hydro_model_prefix = "$(ParseISP.release_year(release)) ISP"
+        chunks = DataFrame[]
+        hydro_conversion = 1000.0 * 9.81 * 100.0 * 0.9 / 10^6
+
+        for scenario in keys(ParseISP.scenario_definitions(release))
+            hydro_root = normpath(ispmodel, "$(hydro_model_prefix) $(scenario)", "Traces", "hydro")
+            isdir(hydro_root) || error("Missing ISP2026 hydro trace directory: $(hydro_root)")
+            scenario_id = ParseISP.scenario_definitions(release)[scenario]
+
+            for file in sort(filter(f -> endswith(f, ".csv") && !startswith(f, "MaxEnergyYear"), readdir(hydro_root)))
+                path = normpath(hydro_root, file)
+                trace_key = _isp2026_hydro_trace_key(path)
+                haskey(ParseISP.ISP2026_HYDRO_TRACE_TO_ESS, trace_key) || continue
+
+                hourly = _isp2026_hydro_hourly_trace(path)
+                ess_names = ParseISP.ISP2026_HYDRO_TRACE_TO_ESS[trace_key]
+                ess_rows = filter(row -> row.name in ess_names, ts.ess)
+                _isp2026_append_natural_inflows!(chunks, ess_rows, :id_ess, scenario_id, hourly;
+                    value_multiplier = hydro_conversion)
+            end
+        end
+
+        _isp2026_finish_schedule!(tv.ess_inflow, chunks, :id_ess, tc)
         return tv
     end
 
@@ -2907,10 +3199,6 @@ subregional allocation workbook, ensure matching EV DER entries exist in
 - `DataFrame`: The EV DER schedule rows appended to `tv.der_pred`.
 """
 function ev_der_sched(tc, ts, tv, iasr2024_path::AbstractString, evworkbook_path::AbstractString; release::ParseISP.ISPRelease = ParseISP.ISP2024())
-    if release isa ParseISP.ISP2026
-        return DataFrame(id = Int[], id_der = Int[], scenario = Int[], date = DateTime[], value = Float64[])
-    end
-
     bev_phev_profile_weekend_df = ev_build_bev_phev_profile_dataframe(
         evworkbook_path,
         EV_2024_BEV_PHEV_PROFILE_WEEKEND_SHEET;
@@ -2924,7 +3212,8 @@ function ev_der_sched(tc, ts, tv, iasr2024_path::AbstractString, evworkbook_path
     profiles = vcat(bev_phev_profile_weekend_df, bev_phev_profile_weekday_df)
 
     vehicle_numbers_wide_dfs = OrderedDict(
-        sheet_name => ev_build_vehicle_numbers_dataframe(evworkbook_path, sheet_name)
+        sheet_name => ev_build_vehicle_numbers_dataframe(evworkbook_path, sheet_name;
+            scenario_id_by_name = ev_scenario_id_by_name(release))
         for sheet_name in ev_get_vehicle_numbers_sheet_names(evworkbook_path)
     )
     vehicle_numbers_dfs = OrderedDict(
@@ -2943,11 +3232,17 @@ function ev_der_sched(tc, ts, tv, iasr2024_path::AbstractString, evworkbook_path
     bev_phev_charge_type_df = ev_build_bev_phev_charge_type_dataframe(
         evworkbook_path,
         EV_2024_BEV_PHEV_CHARGE_TYPE_SHEET,
+        scenario_id_by_name = ev_scenario_id_by_name(release),
     )
-    subregional_demand_allocation_df = ev_melt_subregional_demand_allocation_dataframe(
-        ev_build_subregional_demand_allocation_dataframe(iasr2024_path),
-    )
-    ev_assign_subregional_bus_ids!(subregional_demand_allocation_df, ts)
+    subregional_demand_allocation_df = if release isa ParseISP.ISP2026
+        ev_build_isp2026_subregional_demand_allocation_dataframe(iasr2024_path, ts)
+    else
+        ev_melt_subregional_demand_allocation_dataframe(
+            ev_build_subregional_demand_allocation_dataframe(iasr2024_path;
+                scenario_id_by_name = ev_scenario_id_by_name(release)),
+        )
+    end
+    release isa ParseISP.ISP2026 || ev_assign_subregional_bus_ids!(subregional_demand_allocation_df, ts)
 
     ev_data_years = Set(ev_collect_data_dates(tc.problem))
     scenario_ids = sort(collect(unique(tc.problem.scenario)))

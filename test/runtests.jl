@@ -232,6 +232,45 @@ end
 end
 
 @testset "ISP2026 validators and fixes" begin
+    @test ParseISP.parse_isp2026_number("1,234.5") == 1234.5
+    @test ParseISP.parse_isp2026_number("12.5%"; percent_as_fraction = true) == 0.125
+    @test ParseISP.parse_isp2026_number("N/A") === nothing
+    @test ParseISP.parse_isp2026_date(2) == DateTime(1900, 1, 1)
+    @test ParseISP.parse_isp2026_date("2026-07-01") == DateTime(2026, 7, 1)
+
+    dsp = DataFrame(
+        "Region" => ["Region", missing, "Winter", "QLD", "Mars", "QLD"],
+        "Price band" => ["Price band", missing, missing, "\$300-\$500", "\$300-\$500", "\$300-\$500"],
+        "Scenario" => ["Scenario", missing, missing, "Slower Growth", "Slower Growth", "Slower Growth"],
+        "Season" => ["Season", missing, missing, "Summer", "Summer", "Summer"],
+        "2026-27" => [missing, missing, missing, "1,234.5", -1.0, "not a number"],
+    )
+    dsp_report = ParseISP.validate_isp2026_dsp_table(dsp)
+    @test ParseISP.has_blockers(dsp_report)
+    @test any(f -> f.code == :unknown_region_label && f.message == "Unknown DSP region `Mars`.", dsp_report.findings)
+    @test any(f -> f.code == :invalid_numeric_value && f.field == "2026-27", dsp_report.findings)
+    @test !any(f -> f.message == "Unknown DSP region `missing`.", dsp_report.findings)
+
+    ev_alloc = DataFrame(
+        "Region" => ["NSW"],
+        "Subregion" => ["BAD"],
+        "Scenario" => ["Slower Growth"],
+        "2026-27" => [1.0],
+    )
+    ev_report = ParseISP.validate_isp2026_ev_subregional_allocation(ev_alloc)
+    @test ParseISP.has_blockers(ev_report)
+    @test any(f -> f.code == :unknown_subregion_label, ev_report.findings)
+
+    natural_hydro = DataFrame("Year" => [2026], "Month" => [7], "Day" => [1], "Inflows" => [-1.0])
+    natural_report = ParseISP.validate_isp2026_hydro_trace(natural_hydro, "DailyNaturalInflow_Test_RefYear5000_Flat.csv")
+    @test !ParseISP.has_blockers(natural_report)
+    @test any(f -> f.severity == :warning && f.code == :negative_numeric_value, natural_report.findings)
+
+    annual_hydro = DataFrame("Year" => [2026], "Gordon" => [-1.0])
+    annual_report = ParseISP.validate_isp2026_hydro_trace(annual_hydro, "MaxEnergyYear_RefYear5000_Flat.csv")
+    @test ParseISP.has_blockers(annual_report)
+    @test any(f -> f.severity == :blocker && f.code == :negative_numeric_value, annual_report.findings)
+
     mktempdir() do dir
         workbook = joinpath(dir, "flow.xlsx")
         write_line_invoptions_fixture(workbook; buspair = "WNV to NQ")
@@ -264,6 +303,33 @@ end
             @test fixed.canonical[1, :busA] == "VIC"
             @test fixed.canonical[1, :idbusA] == ParseISP._ispdata_bus_id("VIC")
         end
+    end
+end
+
+@testset "EV WEM sections are skipped" begin
+    mktempdir() do dir
+        workbook = joinpath(dir, "ev.xlsx")
+        XLSX.openxlsx(workbook, mode = "w") do xf
+            sheet = xf[1]
+            XLSX.rename!(sheet, "BEV_PHEV_Profile_kW (Weekend)")
+            sheet[XLSX.CellRef(1, 2)] = "New South Wales"
+            sheet[XLSX.CellRef(2, 3)] = Time(0, 0)
+            sheet[XLSX.CellRef(2, 4)] = Time(0, 30)
+            sheet[XLSX.CellRef(3, 2)] = "Small Residential, Convenience - vehicle charging"
+            sheet[XLSX.CellRef(3, 3)] = 1.0
+            sheet[XLSX.CellRef(3, 4)] = 2.0
+            sheet[XLSX.CellRef(4, 2)] = "WEM"
+            sheet[XLSX.CellRef(5, 3)] = Time(0, 0)
+            sheet[XLSX.CellRef(5, 4)] = Time(0, 30)
+            sheet[XLSX.CellRef(6, 2)] = "WEM"
+            sheet[XLSX.CellRef(6, 3)] = 99.0
+            sheet[XLSX.CellRef(6, 4)] = 99.0
+        end
+
+        profiles = ParseISP.ev_build_bev_phev_profile_dataframe(workbook, "BEV_PHEV_Profile_kW (Weekend)"; day_type = "Weekend")
+        @test nrow(profiles) == 1
+        @test profiles.vehicle_type == ["Small Residential"]
+        @test profiles.state == ["NSW"]
     end
 end
 
