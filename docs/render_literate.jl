@@ -5,15 +5,13 @@
 # `docs/src/generated/` is committed to Git, not gitignored. A normal
 # `makedocs()` build only publishes already-rendered Markdown, so it stays
 # hermetic: no network access, no dependency on AEMO data or a website that
-# might change. See the `arpst-unimelb-agents` workspace's
-# `memories/decisions/adr/0009-documenter-jl-plus-literate-jl-docs-stack.md`
-# for why the two steps are kept apart.
+# might change. Keeping the two steps apart is what makes that hermetic
+# guarantee possible.
 #
 # Two tutorials, one small literal list and a loop over it — still no TOML
-# manifest, no ledger, no CLI flags. That threshold (ADR 0009's own stated
-# bar: "a second Literate source") is exactly what this file now is;
-# revisit only if a third tutorial or a second repo-specific concern
-# actually needs more structure than this.
+# manifest, no ledger, no CLI flags. That is deliberately as much structure
+# as this file has; revisit only if a third tutorial or a second
+# repo-specific concern actually needs more than a literal list.
 #
 # **Not every tutorial here is data-free.** Unlike `problem_table.jl`,
 # `pisp_outputs_validation.jl` reads a local AEMO/PISP data build from

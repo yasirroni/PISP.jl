@@ -23,16 +23,17 @@ This is a Literate.jl source file. It is meant to be processed with
 `Literate.markdown` to produce a runnable, rendered walkthrough — it is
 not meant to be read only as raw Julia.
 
-It is a Julia port of the core analysis in `eda/06_pisp_outputs.py`
-(ported 2026-07-08, not a line-for-line translation — the Python source
-has some real duplication in it, see that file's own history). It ports
-one representative piece: the summary prints that inspect PISP's own
-generated `Generator`/`Demand`/`Bus` tables and `schedule-2030` output,
-plus the single cleanest, most directly output-validating figure from
-that script — the daily aggregate solar PMax / wind PMax / total demand
-time-series comparison (`fig2` in the Python source). The other two
-multi-panel figures in `eda/06_pisp_outputs.py` (annual-mean-pmax bars;
-hourly-profile/duration-curve/scatter grid) are not ported here.
+It is a Julia port of a subset of the analysis in `eda/06_pisp_outputs.py`
+in this same repository; it is not a line-by-line mirror of that script,
+since the Python version has some duplicated logic that is not repeated
+here. It ports one representative piece: the summary prints that
+inspect PISP's own generated `Generator`/`Demand`/`Bus` tables and
+`schedule-2030` output, plus the single cleanest, most directly
+output-validating figure from that script — the daily aggregate solar
+PMax / wind PMax / total demand time-series comparison (`fig2` in the
+Python source). The other two multi-panel figures in
+`eda/06_pisp_outputs.py` (annual-mean-pmax bars; hourly-profile/
+duration-curve/scatter grid) are not ported here.
 
 `GKSwstype` must be set before `Plots`/GR initialize — `render_literate.jl`
 runs non-interactively (no display attached), and without this GR's
@@ -52,8 +53,7 @@ gr();
 ````
 
 **`@__DIR__` here is the *generated output* directory, not this source
-file's own directory — verified empirically while implementing this
-tutorial, not assumed.** Literate.jl executes tutorial code with both
+file's own directory.** Literate.jl executes tutorial code with both
 `@__DIR__` and `pwd()` set to its output directory
 (`docs/src/generated/`), not the location of this `.jl` source
 (`docs/literate/`), so that relative paths in the *generated* page work
@@ -140,10 +140,9 @@ Columns: ["id", "id_gen", "scenario", "date", "value"]
 ````
 
 A `println` and a richly-displayed (`DataFrame`) value are kept in
-separate code cells below — confirmed empirically while implementing
-this tutorial that Literate.jl silently drops a cell's plain stdout
-output whenever that same cell's *last* statement is a value with its
-own rich HTML display (as every `DataFrame` has here, under
+separate code cells below — Literate.jl silently drops a cell's plain
+stdout output whenever that same cell's *last* statement is a value with
+its own rich HTML display (as every `DataFrame` has here, under
 `Literate.DocumenterFlavor()`), rather than showing both. First five
 rows, for a look at the actual columns:
 
@@ -239,7 +238,8 @@ in that script rather than being self-contained: `dem_load_full` (demand
 load filtered to the ids that actually appear in `Demand.csv`) and a
 generator-side merge that attaches `tech` onto every `Generator_pmax_sched`
 row so it can be split into solar/wind subsets. Both are rebuilt here
-rather than assumed, since this is a rewrite, not a literal translation.
+explicitly, rather than reusing variables from the Python script, since
+this Julia version does not carry that script's intermediate state.
 
 ````julia
 dem_load_full = filter(:id_dem => in(Set(dem_df.id_dem)), dem_load)

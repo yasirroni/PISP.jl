@@ -4,22 +4,20 @@
 # (`docs/render_literate.jl`) that produces `docs/src/generated/`. That
 # output is committed to Git, not gitignored, so a normal build here only
 # publishes already-rendered Markdown: no network access, no dependency on
-# AEMO data or a website that might change. See the `arpst-unimelb-agents`
-# workspace's
-# `memories/decisions/adr/0009-documenter-jl-plus-literate-jl-docs-stack.md`.
+# AEMO data or a website that might change.
 #
 # `modules` is deliberately omitted below: passing `modules = [PISP]` would
 # turn on `checkdocs` (default `:all`), which would fail/warn on every
 # docstring in the package not referenced from a `@docs` block on this
-# site — most of PISP's source docstrings are unrelated to this tutorial
-# and authoring a full API reference is out of scope for this task. The
-# `@docs` block in `docs/src/api.md` still resolves the three functions it
-# names directly; it does not depend on `modules` being set.
+# site — most of PISP's source docstrings are unrelated to this tutorial,
+# and a full API reference has not been written yet. The `@docs` block in
+# `docs/src/api.md` still resolves the three functions it names directly;
+# it does not depend on `modules` being set.
 #
-# This is a **local build only**. There is no `deploydocs()` call — per
-# ADR 0009, deployment stays out of scope until PISP.jl's docs have a
-# pushed remote and CI to run against. Open `docs/build/index.html`
-# directly in a browser; no server is required.
+# This is a **local build only**. There is no `deploydocs()` call —
+# deployment stays out of scope until PISP.jl's docs have a pushed remote
+# and CI to run against. Open `docs/build/index.html` directly in a
+# browser; no server is required.
 #
 # Usage (from the repository root):
 #   julia --project=docs docs/make.jl
@@ -42,8 +40,8 @@ makedocs(;
     ],
 )
 
-# No `deploydocs()` call — see module docstring above and ADR 0009. If this
-# ever needs to be added, guard it behind a CI check, e.g.:
+# No `deploydocs()` call — see the module docstring above. If this ever
+# needs to be added, guard it behind a CI check, e.g.:
 #
 #   if get(ENV, "CI", "false") == "true"
 #       deploydocs(repo = "github.com/yasirroni/PISP.jl.git")

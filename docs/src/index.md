@@ -29,5 +29,5 @@ exercises, plus PISP's actual public entry point.
 
 This site is built with [Documenter.jl](https://documenter.juliadocs.org/)
 consuming [Literate.jl](https://fredrikekre.github.io/Literate.jl/)-generated
-tutorial pages, per this workspace's ADR 0009. It is a local build only —
-there is no `deploydocs()` call and no hosted version of this site yet.
+tutorial pages. It is a local build only — there is no `deploydocs()` call
+and no hosted version of this site yet.

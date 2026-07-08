@@ -5,7 +5,5 @@
 # `docs/src/generated/` (Literate.jl output, rebuilt with
 # `julia --project=docs docs/render_literate.jl`) is deliberately NOT
 # excluded here — it's committed, reviewable, diffable output, not a
-# throwaway artifact. See
-# `memories/decisions/adr/0009-documenter-jl-plus-literate-jl-docs-stack.md`
-# in the `arpst-unimelb-agents` workspace.
+# throwaway artifact.
 build/
