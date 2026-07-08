@@ -36,6 +36,8 @@ makedocs(;
         "Home" => "index.md",
         "Tutorial" => "generated/problem_table.md",
         "PISP output validation" => "generated/pisp_outputs_validation.md",
+        "Caveats" => "caveats.md",
+        "Concepts" => "concepts.md",
         "API Reference" => "api.md",
     ],
 )

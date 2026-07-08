@@ -162,9 +162,9 @@ Below, an overview of each of the databases the parser produces is given.
 
 | Parameter       | Description |  
 |-----------------|-------------|
-| `id_bus`            | id of the bus |
-| `active`        | Active flag (1: active; 0: inactive) |
-| `id_area`       | Area of the 5-bus NEM  market model (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) |
+| `id_bus`            | id of the bus | 
+| `active`        | Active flag (1: active; 0: inactive) | 
+| `id_area`       | NEM market area (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) | 
 
 ### Demand
 
@@ -288,3 +288,17 @@ Below, an overview of each of the databases the parser produces is given.
 > - 2024 Integrated System Plan **generation and storage outlook**
 > - 2024 Integrated System Plan **Model**
 > - 2024 Integrated System Plan **Demand & Variable Renewable Energy trace data**
+
+### Which release each static table draws from
+
+The four releases above are not interchangeable across tables — each of
+PISP's six static tables draws from a different subset of them:
+
+| Table | Source release(s) |
+| ----- | ------------------ |
+| `Bus` | None of the four — bus names, locations, and the area map are fixed package constants, not parsed from an AEMO file. |
+| `Demand` | None of the four for the static row itself (one placeholder row per bus); its hourly load schedule comes from the **Demand & Variable Renewable Energy trace data**. |
+| `Line` | **Inputs and Assumptions workbook** (network capability, transmission reliability, and augmentation-option sheets). |
+| `Generator` | **Inputs and Assumptions workbook** (existing-generator, capacity, mapping, and reliability sheets); hourly solar/wind schedules additionally draw on the **generation and storage outlook** and the **Demand & Variable Renewable Energy trace data**; hydro inflow schedules additionally draw on the **Model**. |
+| `ESS` | **Inputs and Assumptions workbook** (storage-property, capacity, mapping, and reliability sheets); behind-the-meter/VPP battery schedules additionally draw on the **generation and storage outlook**. |
+| `DER` | None of the four for the static row itself (built from the `Demand`/`Bus` tables); its demand-response and EV-charging schedules draw on the **Inputs and Assumptions workbook**. |
