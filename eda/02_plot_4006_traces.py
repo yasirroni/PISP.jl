@@ -11,6 +11,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+from table_utils import write_table
+
+SCRIPT_STEM = "02_plot_4006_traces"
 TRACES = Path("data/pisp-downloads/Traces")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
@@ -65,11 +68,69 @@ WIND_LOCATIONS = {
 HH_COLS_SOL = [str(i) for i in range(1, 49)]
 HH_COLS_WIND = [str(i).zfill(2) for i in range(1, 49)]
 
+
+# ---- Baseline table helpers ----
+def write_loaded_locations_table(sol_dict, wind_dict):
+    rows = []
+    for state, loc in SOLAR_LOCATIONS.items():
+        df = sol_dict.get(loc)
+        rows.append({
+            "tech": "solar",
+            "state": state,
+            "location": loc,
+            "file_name": f"{loc}_RefYear4006.csv",
+            "loaded": 1 if df is not None else 0,
+            "rows": len(df) if df is not None else np.nan,
+            "columns": len(df.columns) if df is not None else np.nan,
+        })
+    for state, loc in WIND_LOCATIONS.items():
+        df = wind_dict.get(loc)
+        rows.append({
+            "tech": "wind",
+            "state": state,
+            "location": loc,
+            "file_name": f"{loc}_RefYear4006.csv",
+            "loaded": 1 if df is not None else 0,
+            "rows": len(df) if df is not None else np.nan,
+            "columns": len(df.columns) if df is not None else np.nan,
+        })
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "loaded_locations")
+    print(f"Saved table: {path}")
+
+
+def write_daily_cf_summary_table(rows):
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "daily_cf_summary")
+    print(f"Saved table: {path}")
+
+
+def write_solar_diurnal_profile_table(rows):
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "solar_diurnal_profile")
+    print(f"Saved table: {path}")
+
+
+def write_wind_monthly_diurnal_profile_table(rows):
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "wind_monthly_diurnal_profile")
+    print(f"Saved table: {path}")
+
+
+def write_wind_monthly_mean_cf_table(rows):
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "wind_monthly_mean_cf")
+    print(f"Saved table: {path}")
+
+
+def write_annual_cf_by_fy_table(rows):
+    path = write_table(pd.DataFrame(rows), SCRIPT_STEM, "annual_cf_by_fy")
+    print(f"Saved table: {path}")
+
+
 # ---- Load 4006 traces ----
 sol_4006 = load_traces('solar', 4006, SOLAR_LOCATIONS.values())
 wind_4006 = load_traces('wind', 4006, WIND_LOCATIONS.values())
 
 print(f"Loaded {len(sol_4006)} solar locations, {len(wind_4006)} wind locations for trace 4006")
+write_loaded_locations_table(sol_4006, wind_4006)
+
+daily_cf_rows = []
 
 # ====== Figure 1: 4006 Solar CF Overview ======
 fig, axes = plt.subplots(len(sol_4006), 1, figsize=(16, 3*len(sol_4006)), sharex=True)
@@ -81,13 +142,25 @@ for ax, (loc, df) in zip(axes, sol_4006.items()):
     state = state_names.get(loc, loc)
     # Daily mean CF
     daily = daily_cf(df, HH_COLS_SOL)
+    rolling7 = daily.rolling(7).mean()
     ax.plot(df['datetime'], daily, linewidth=0.3, alpha=0.7, color='darkorange')
     # 7-day rolling
-    ax.plot(df['datetime'], daily.rolling(7).mean(), linewidth=1.5, color='darkred', label='7-day avg')
+    ax.plot(df['datetime'], rolling7, linewidth=1.5, color='darkred', label='7-day avg')
     ax.set_ylabel(f"{state}\nCF")
     ax.set_ylim(0, 1)
     ax.legend(loc='upper right', fontsize=8)
     ax.grid(True, alpha=0.3)
+    daily_cf_rows.append({
+        "tech": "solar",
+        "state": state,
+        "location": loc,
+        "n_days": len(daily),
+        "mean_daily_cf": daily.mean(),
+        "std_daily_cf": daily.std(),
+        "min_daily_cf": daily.min(),
+        "max_daily_cf": daily.max(),
+        "mean_rolling7_cf": rolling7.mean(),
+    })
 
 axes[-1].set_xlabel("Date")
 fig.suptitle("Solar 4006 — Daily Mean Capacity Factor by State", fontsize=14, y=1.01)
@@ -105,12 +178,24 @@ state_names_w = {v: k for k, v in WIND_LOCATIONS.items()}
 for ax, (loc, df) in zip(axes2, wind_4006.items()):
     state = state_names_w.get(loc, loc)
     daily = daily_cf(df, HH_COLS_WIND)
+    rolling7 = daily.rolling(7).mean()
     ax.plot(df['datetime'], daily, linewidth=0.3, alpha=0.7, color='steelblue')
-    ax.plot(df['datetime'], daily.rolling(7).mean(), linewidth=1.5, color='darkblue', label='7-day avg')
+    ax.plot(df['datetime'], rolling7, linewidth=1.5, color='darkblue', label='7-day avg')
     ax.set_ylabel(f"{state}\nCF")
     ax.set_ylim(0, 1)
     ax.legend(loc='upper right', fontsize=8)
     ax.grid(True, alpha=0.3)
+    daily_cf_rows.append({
+        "tech": "wind",
+        "state": state,
+        "location": loc,
+        "n_days": len(daily),
+        "mean_daily_cf": daily.mean(),
+        "std_daily_cf": daily.std(),
+        "min_daily_cf": daily.min(),
+        "max_daily_cf": daily.max(),
+        "mean_rolling7_cf": rolling7.mean(),
+    })
 
 axes2[-1].set_xlabel("Date")
 fig2.suptitle("Wind 4006 — Daily Mean Capacity Factor by State", fontsize=14, y=1.01)
@@ -118,6 +203,7 @@ plt.tight_layout()
 plt.savefig(FIGURES / "02_wind_4006_daily_cf.png", dpi=120, bbox_inches='tight')
 plt.close()
 print(f"Saved: 02_wind_4006_daily_cf.png")
+write_daily_cf_summary_table(daily_cf_rows)
 
 # ====== Figure 3: Solar summer vs winter daily profiles ======
 fig3, axes3 = plt.subplots(2, 1, figsize=(14, 8))
@@ -133,6 +219,7 @@ winter_mask = df_prof['Month'].isin([6, 7, 8])
 # Half-hourly profiles
 half_hours = np.arange(0.5, 24.5, 0.5)
 
+solar_diurnal_rows = []
 for season, mask, color, ax in [('Summer', summer_mask, 'darkorange', axes3[0]), 
                                   ('Winter', winter_mask, 'steelblue', axes3[1])]:
     df_season = df_prof[mask]
@@ -156,11 +243,24 @@ for season, mask, color, ax in [('Summer', summer_mask, 'darkorange', axes3[0]),
     ax.legend(loc='upper right', fontsize=8)
     ax.grid(True, alpha=0.3)
 
+    n_days_season = int(mask.sum())
+    for hh, hh_col in zip(half_hours, HH_COLS_SOL):
+        solar_diurnal_rows.append({
+            "location": prof_loc,
+            "season": season,
+            "half_hour": hh,
+            "n_days": n_days_season,
+            "mean_cf": mean_profile[hh_col],
+            "p10_cf": p10[hh_col],
+            "p90_cf": p90[hh_col],
+        })
+
 fig3.suptitle("Solar 4006 — Diurnal Profiles: Summer vs Winter", fontsize=14)
 plt.tight_layout()
 plt.savefig(FIGURES / "02_solar_4006_diurnal.png", dpi=120, bbox_inches='tight')
 plt.close()
 print(f"Saved: 02_solar_4006_diurnal.png")
+write_solar_diurnal_profile_table(solar_diurnal_rows)
 
 # ====== Figure 4: Wind seasonal analysis ======
 fig4, axes4 = plt.subplots(2, 1, figsize=(14, 8))
@@ -177,15 +277,24 @@ if df_wind_prof is not None:
     monthly_cf = df_wind_prof.groupby('month')[wind_hh_cols].mean()
     
     ax = axes4[0]
+    wind_monthly_diurnal_rows = []
     for m in range(1, 13):
         if m in monthly_cf.index:
             ax.plot(half_hours, monthly_cf.loc[m], linewidth=1, 
                    alpha=0.8, label=f'Month {m}')
+            for hh, hh_col in zip(half_hours, wind_hh_cols):
+                wind_monthly_diurnal_rows.append({
+                    "location": wind_loc,
+                    "month": m,
+                    "half_hour": hh,
+                    "mean_cf": monthly_cf.loc[m, hh_col],
+                })
     ax.set_title(f"Wind 4006 — Mean Diurnal Profile by Month: {wind_loc}")
     ax.set_ylabel("Capacity Factor")
     ax.legend(loc='upper right', fontsize=7, ncol=4)
     ax.grid(True, alpha=0.3)
     ax.set_ylim(0, 1)
+    write_wind_monthly_diurnal_profile_table(wind_monthly_diurnal_rows)
     
     # Annual CF over time
     ax2 = axes4[1]
@@ -198,6 +307,11 @@ if df_wind_prof is not None:
     ax2.set_ylabel("Capacity Factor")
     ax2.set_ylim(0, 1)
     ax2.grid(True, alpha=0.3)
+    wind_monthly_mean_rows = [
+        {"location": wind_loc, "month_start": d.strftime("%Y-%m-%d"), "mean_cf": v}
+        for d, v in zip(monthly_dates, monthly_mean.values)
+    ]
+    write_wind_monthly_mean_cf_table(wind_monthly_mean_rows)
 
 plt.tight_layout()
 plt.savefig(FIGURES / "02_wind_4006_seasonal.png", dpi=120, bbox_inches='tight')
@@ -212,11 +326,20 @@ fig5, ax5 = plt.subplots(figsize=(16, 6))
 df_s = sol_4006.get('Bannerton_SAT')
 df_w = wind_4006.get('DUNDWF1')
 
+annual_cf_rows = []
+
 if df_s is not None:
     df_s['fy'] = (df_s['datetime'] + pd.offsets.MonthEnd(6)).dt.year
     monthly_sol = daily_cf(df_s, HH_COLS_SOL).groupby(df_s['fy']).mean()
     ax5.plot(monthly_sol.index, monthly_sol.values, 'o-', color='darkorange', 
             linewidth=2, markersize=6, label='Solar CF (Bannerton VIC)')
+    for fy, v in zip(monthly_sol.index, monthly_sol.values):
+        annual_cf_rows.append({
+            "tech": "solar",
+            "location": "Bannerton_SAT",
+            "financial_year": int(fy),
+            "mean_cf": v,
+        })
 
 if df_w is not None:
     wind_hh_cols = [str(i).zfill(2) for i in range(1, 49)]
@@ -224,6 +347,15 @@ if df_w is not None:
     monthly_wind = daily_cf(df_w, wind_hh_cols).groupby(df_w['fy']).mean()
     ax5.plot(monthly_wind.index, monthly_wind.values, 's-', color='darkblue',
             linewidth=2, markersize=6, label='Wind CF (DUNDWF1 VIC)')
+    for fy, v in zip(monthly_wind.index, monthly_wind.values):
+        annual_cf_rows.append({
+            "tech": "wind",
+            "location": "DUNDWF1",
+            "financial_year": int(fy),
+            "mean_cf": v,
+        })
+
+write_annual_cf_by_fy_table(annual_cf_rows)
 
 ax5.set_xlabel("Financial Year (ending)")
 ax5.set_ylabel("Annual Mean Capacity Factor")
