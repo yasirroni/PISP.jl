@@ -1,28 +1,77 @@
 # Domain concepts
 
-This page collects a handful of domain conventions that recur across PISP's build options and output tables, so they have one place to be looked up rather than being re-derived from tutorial code each time.
+This page defines the conventions that shape PISP's output tables. These conventions are visible in the data model: they determine table names, scenario IDs, time windows, bus assignments, and how schedule tables should be joined to static tables.
 
-## AEMO's three ISP scenarios and the financial-year half split
+## Scenario model
 
-Every PISP build is organised around AEMO's three 2024 Integrated System Plan scenarios — *Progressive Change*, *Step Change*, and *Green Energy Exports* — selectable via the `scenarios` keyword of `build_ISP24_datasets` (default: all three).
+PISP uses the three scenario IDs encoded in `src/parameters/general2024ISP.jl`:
 
-Independently of scenario, PISP also splits each calendar year into two halves — January–June and July–December — because that 1 July boundary is where some of the underlying AEMO input files themselves change. Building a whole planning year always produces one block per scenario per half (so 3 scenarios × 2 halves = 6 blocks for a full year); building an arbitrary date range only splits at 1 July if the requested window actually straddles it.
+| Scenario ID | Scenario name |
+|---:|---|
+| 1 | Progressive Change |
+| 2 | Step Change |
+| 3 | Green Energy Exports |
 
-## Reference trace and probability-of-exceedance defaults
+The `scenarios` keyword to `build_ISP24_datasets` selects which IDs are included. The default is all three scenarios.
 
-Two build-time parameters control which AEMO weather/demand trace year is used:
+Several source files use scenario-specific labels that differ from the display names. Hydro inflow files use `NetZero2050`, `StepChange`, and `HydrogenSuperpower`; demand traces use `PROGRESSIVE_CHANGE`, `STEP_CHANGE`, and `HYDROGEN_EXPORT`. PISP's public output tables retain numeric scenario IDs.
 
-- `reftrace` selects the reference weather year trace: an individual historical year (2011–2023), or `4006`, which is the trace associated with the ISP's Optimal Development Path (ODP) — the default used across PISP's own build examples.
-- `poe` selects the demand probability-of-exceedance level: 10% or 50%, i.e. how likely the modelled demand is to be exceeded in a given year.
+## Planning years, date ranges, and the 1 July split
 
-Both are ordinary keyword arguments to `build_ISP24_datasets`; there is no separate "recommended" value baked into the parsing logic beyond the 4006 default used in PISP's own examples and documentation.
+PISP can build output by planning year or by explicit date range:
 
-## Area map and the solar/wind classification rule
+| Mode | Keyword | Output schedule tag | Split behaviour |
+|---|---|---|---|
+| Planning year | `years = [2030]` | `schedule-2030` | Always creates January-June and July-December problem blocks for each scenario. |
+| Date range | `drange = [(start, end)]` | `schedule-DDMMYYYY-DDMMYYYY` | Splits only when the requested range crosses 1 July. |
 
-Every bus in PISP's `Bus` table carries an `id_area`, mapping it onto one of the five NEM market areas (QLD, NSW, VIC, TAS, SA); joining that onto `id_bus` in the `Generator`, `ESS`, or `Demand` tables (or `id_bus_from`/`id_bus_to` in `Line`) assigns every other row an area as well.
+The split matters because some ISP inputs are organised by Australian financial year. The split is an internal problem-table convention; static tables are still written once per build folder, while time-varying schedules are written under each schedule directory.
 
-When classifying generators as solar or wind — for example, to aggregate fleet-wide output — match on the `tech` column with a case-insensitive substring search (`"pv"`/`"solar"` for solar, `"wind"` for wind), not an exact match on `fuel`. `tech` is the finer-grained column PISP actually uses to distinguish, for example, rooftop PV from utility-scale PV, so a `tech`-based match captures distinctions a `fuel`-based match would collapse.
+## Trace year and probability of exceedance
 
-## Static tables vs. hourly schedules
+Two build arguments select the weather/demand traces used by time-varying tables:
 
-Every PISP table has a static row per asset, but only some assets also get an hourly time-varying schedule. In a typical PISP build, generator output schedules (`Generator_pmax_sched`) exist only for the assets whose output genuinely varies within a year — chiefly the solar and wind fleet — while every other generator keeps a single static `pmax` value in the `Generator` table itself. The same static/schedule split applies to the other schedule tables PISP produces (demand load, ESS state-of-charge limits, line ratings, DER prediction): a table only gets a schedule counterpart where the underlying AEMO input is itself time-varying: this is also the practical rule for interpreting PISP's output — before joining in a schedule table, check whether the asset in question actually has rows in it, or whether its static value in the corresponding time-static table is already the complete picture.
+| Argument | Meaning | Encoded options |
+|---|---|---|
+| `reftrace` | Reference weather trace year or trace ID. | Historical years 2011-2023, or `4006` for the ISP Optimal Development Path trace. |
+| `poe` | Demand probability of exceedance. | `10` or `50`. |
+
+For `reftrace = 4006`, PISP contains an explicit financial-year-to-weather-year map in `WEATHER_YEARS_ISP`. The map is documented in [Parameters and mappings](@ref).
+
+## NEM bus and area model
+
+PISP represents the East Coast Australian system as 12 named ISP sub-regional buses, mapped to five NEM market areas. The bus names, coordinates, and bus-to-area relationships are package constants rather than rows parsed from an AEMO workbook at build time.
+
+Every static asset table uses the bus model directly or indirectly:
+
+| Table | Bus relationship |
+|---|---|
+| `Bus` | One row per package-defined bus. |
+| `Demand` | `id_bus` identifies the bus containing the demand node. |
+| `Generator` | `id_bus` identifies the connected bus. |
+| `ESS` | `id_bus` identifies the connected bus. |
+| `Line` | `id_bus_from` and `id_bus_to` identify the aggregated corridor endpoints. |
+| `DER` | `id_dem` links to a demand row, which links to a bus. |
+
+See [Parameters and mappings](@ref) for the current bus list.
+
+## Static values and schedule overlays
+
+PISP writes a static row for every asset and schedule rows only for values that vary across scenario/time. A downstream model should treat a schedule table as an override or time-varying companion for one static column, not as a replacement for the static table.
+
+Examples:
+
+| Static table | Static column | Schedule table | Schedule value |
+|---|---|---|---|
+| `Demand` | `load_` | `Demand_load_sched` | Time-varying demand load. |
+| `Generator` | `pmax` | `Generator_pmax_sched` | Time-varying maximum generator output. |
+| `Generator` | `n` | `Generator_n_sched` | Time-varying unit availability/count. |
+| `ESS` | `pmax`, `lmax`, `emax`, `n` | `ESS_*_sched` | Time-varying discharge, charge, energy, and unit values. |
+| `Line` | `fwcap`, `rvcap` | `Line_fwcap_sched`, `Line_rvcap_sched` | Time-varying transfer limits. |
+| `DER` | `pred_max` | `DER_pred_sched` | Time-varying demand-side response/EV prediction. |
+
+A missing schedule row does not mean the asset is absent. It usually means the static value already carries the relevant value for the period being studied.
+
+## Solar and wind classification
+
+When aggregating variable renewable generation from PISP output, classify by `Generator.tech`, not by `Generator.fuel` alone. The tutorial uses a case-insensitive substring rule: `pv` or `solar` for solar, and `wind` for wind. This preserves distinctions such as rooftop PV versus utility-scale PV that can be collapsed by fuel-level grouping.

@@ -1,9 +1,9 @@
 # API Reference
 
-Docstrings for the functions exercised in the [Building a `PISPtimeConfig` problem table](@ref) tutorial, plus PISP's actual public entry point. These are the package's own existing docstrings from `src/utils/general/PISPutils-general.jl` — nothing here is newly authored for this docs site.
+The main public entry point is `PISP.build_ISP24_datasets`. The problem-table helpers are documented because they explain the scenario/time split used by the build pipeline and are exercised in the tutorial.
 
 ```@docs
+PISP.build_ISP24_datasets
 PISP.fill_problem_table_year
 PISP.fill_problem_table_drange
-PISP.build_ISP24_datasets
 ```

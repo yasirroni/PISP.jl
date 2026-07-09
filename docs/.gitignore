@@ -1,9 +1,5 @@
-# Regenerable Documenter.jl site build — rebuild with
-# `julia --project=docs docs/make.jl`. Not committed; it's a build
-# artifact, not source.
+# Regenerable Documenter.jl site build; rebuild with:
+#   julia --project=docs docs/make.jl
 #
-# `docs/src/generated/` (Literate.jl output, rebuilt with
-# `julia --project=docs docs/render_literate.jl`) is deliberately NOT
-# excluded here — it's committed, reviewable, diffable output, not a
-# throwaway artifact.
+# Keep docs/src/generated/ committed. Those files are rendered Literate tutorial pages, not throwaway build output.
 build/
