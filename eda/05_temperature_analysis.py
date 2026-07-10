@@ -11,6 +11,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import json
 
+from table_utils import write_table
+
+SCRIPT_STEM = "05_temperature_analysis"
 TRACES = Path("data/pisp-downloads/Traces")
 DOWNLOADS = Path("data/pisp-downloads")
 FIGURES = Path("eda/figures")
@@ -19,9 +22,79 @@ FIGURES.mkdir(parents=True, exist_ok=True)
 HH_COLS_SOL = [str(i) for i in range(1, 49)]
 HH_COLS_WIND = [str(i).zfill(2) for i in range(1, 49)]
 
+# ---- Baseline table schemas (kept explicit so empty tables still carry headers) ----
+SHEET_INVENTORY_COLS = ["sheet_index", "sheet_name", "is_keyword_match", "is_rooftop_match", "is_reliability_match"]
+RELEVANT_SHEET_SHAPE_COLS = ["sheet_name", "n_rows", "n_cols", "read_ok"]
+ROOFTOP_SHEET_COLS = ["sheet_name", "n_rows", "n_cols", "columns_preview"]
+RELIABILITY_SHEET_SHAPE_COLS = ["sheet_name", "n_rows", "n_cols"]
+PISP_OUTPUT_INVENTORY_COLS = ["kind", "name"]
+GENERATOR_DETAILS_COLS = ["category", "id_gen", "name", "tech", "forate", "derate", "pmin", "pmax", "n"]
+GENERATOR_TEMP_COLS_COLS = ["generator_table_exists", "total_columns", "n_temp_columns", "temp_columns_list"]
+CLIMATE_ZONE_SUMMARY_COLS = [
+    "zone", "location", "n_summer_days", "mean_daily_cf", "mean_midday_cf", "min_midday_cf", "p5_midday_cf",
+]
+
+
+def write_sheet_inventory_table(rows):
+    path = write_table(pd.DataFrame(rows, columns=SHEET_INVENTORY_COLS), SCRIPT_STEM, "workbook_sheet_inventory")
+    print(f"Saved table: {path}")
+
+
+def write_relevant_sheet_shapes_table(rows):
+    path = write_table(
+        pd.DataFrame(rows, columns=RELEVANT_SHEET_SHAPE_COLS), SCRIPT_STEM, "workbook_relevant_sheet_shapes"
+    )
+    print(f"Saved table: {path}")
+
+
+def write_rooftop_sheet_table(rows):
+    path = write_table(pd.DataFrame(rows, columns=ROOFTOP_SHEET_COLS), SCRIPT_STEM, "workbook_rooftop_sheet_summary")
+    print(f"Saved table: {path}")
+
+
+def write_reliability_sheet_shapes_table(rows):
+    path = write_table(
+        pd.DataFrame(rows, columns=RELIABILITY_SHEET_SHAPE_COLS), SCRIPT_STEM, "workbook_reliability_sheet_shapes"
+    )
+    print(f"Saved table: {path}")
+
+
+def write_pisp_output_inventory_table(rows):
+    path = write_table(
+        pd.DataFrame(rows, columns=PISP_OUTPUT_INVENTORY_COLS), SCRIPT_STEM, "pisp_output_inventory"
+    )
+    print(f"Saved table: {path}")
+
+
+def write_generator_details_table(rows):
+    path = write_table(
+        pd.DataFrame(rows, columns=GENERATOR_DETAILS_COLS), SCRIPT_STEM, "generator_solar_wind_details"
+    )
+    print(f"Saved table: {path}")
+
+
+def write_generator_temp_columns_table(row):
+    path = write_table(
+        pd.DataFrame([row], columns=GENERATOR_TEMP_COLS_COLS), SCRIPT_STEM, "generator_temperature_columns"
+    )
+    print(f"Saved table: {path}")
+
+
+def write_climate_zone_summary_table(rows):
+    path = write_table(
+        pd.DataFrame(rows, columns=CLIMATE_ZONE_SUMMARY_COLS), SCRIPT_STEM, "climate_zone_summer_cf_summary"
+    )
+    print(f"Saved table: {path}")
+
+
 # ====== 1. Examine ISP Assumptions Workbook ======
 workbook_path = DOWNLOADS / "2024-isp-inputs-and-assumptions-workbook.xlsx"
 print(f"Workbook exists: {workbook_path.exists()}")
+
+sheet_inventory_rows = []
+relevant_sheet_shape_rows = []
+rooftop_sheet_rows = []
+reliability_sheet_shape_rows = []
 
 if workbook_path.exists():
     xls = pd.ExcelFile(workbook_path)
@@ -37,6 +110,16 @@ if workbook_path.exists():
         if any(kw in name_lower for kw in temp_keywords):
             print(f"  - {name}")
 
+    for i, name in enumerate(xls.sheet_names):
+        name_lower = name.lower()
+        sheet_inventory_rows.append({
+            "sheet_index": i + 1,
+            "sheet_name": name,
+            "is_keyword_match": 1 if any(kw in name_lower for kw in temp_keywords) else 0,
+            "is_rooftop_match": 1 if ('rooftop' in name_lower or 'rtpv' in name_lower) else 0,
+            "is_reliability_match": 1 if ('reliability' in name_lower or 'outage' in name_lower or 'generator' in name_lower) else 0,
+        })
+
     # Read key sheets
     relevant_sheets = [s for s in xls.sheet_names if any(kw in s.lower() for kw in temp_keywords)]
 
@@ -45,8 +128,14 @@ if workbook_path.exists():
             df = pd.read_excel(xls, sheet_name=sheet, header=None)
             print(f"\n--- Sheet: {sheet} (shape: {df.shape}) ---")
             print(df.head(20).to_string())
+            relevant_sheet_shape_rows.append({
+                "sheet_name": sheet, "n_rows": df.shape[0], "n_cols": df.shape[1], "read_ok": 1,
+            })
         except Exception as e:
             print(f"\n--- Sheet: {sheet} — Error: {e}")
+            relevant_sheet_shape_rows.append({
+                "sheet_name": sheet, "n_rows": np.nan, "n_cols": np.nan, "read_ok": 0,
+            })
 
     # Specifically look for Rooftop PV sheet
     for sheet in xls.sheet_names:
@@ -56,6 +145,12 @@ if workbook_path.exists():
                 print(f"\n=== Rooftop PV Sheet ({sheet}) ===")
                 print(f"Columns: {list(df.columns)}")
                 print(df.head(10).to_string())
+                rooftop_sheet_rows.append({
+                    "sheet_name": sheet,
+                    "n_rows": df.shape[0],
+                    "n_cols": df.shape[1],
+                    "columns_preview": "|".join(map(str, list(df.columns)[:5])),
+                })
             except Exception as e:
                 print(f"\n=== Rooftop PV Sheet ({sheet}) — Error: {e}")
 
@@ -66,8 +161,16 @@ if workbook_path.exists():
                 df = pd.read_excel(xls, sheet_name=sheet, header=None)
                 print(f"\n=== Reliability Sheet: {sheet} (shape: {df.shape}) ===")
                 print(df.head(30).to_string())
+                reliability_sheet_shape_rows.append({
+                    "sheet_name": sheet, "n_rows": df.shape[0], "n_cols": df.shape[1],
+                })
             except Exception as e:
                 pass
+
+write_sheet_inventory_table(sheet_inventory_rows)
+write_relevant_sheet_shapes_table(relevant_sheet_shape_rows)
+write_rooftop_sheet_table(rooftop_sheet_rows)
+write_reliability_sheet_shapes_table(reliability_sheet_shape_rows)
 
 # ====== 2. Examine PISP Output Generator Table ======
 gen_csv = Path("data/pisp-datasets/out-ref4006-poe10/csv/Bus.csv")
@@ -75,15 +178,24 @@ csv_dir = Path("data/pisp-datasets/out-ref4006-poe10/csv/")
 sched_dir = Path("data/pisp-datasets/out-ref4006-poe10/")
 
 print(f"\n=== PISP Output Files ===")
+pisp_output_rows = []
 if csv_dir.exists():
     for f in sorted(csv_dir.glob("*.csv")):
         print(f"  CSV: {f.name}")
+        pisp_output_rows.append({"kind": "csv", "name": f.name})
 
 for d in sorted(sched_dir.glob("schedule-*")):
     print(f"  Schedule: {d.name}")
+    pisp_output_rows.append({"kind": "schedule", "name": d.name})
+
+write_pisp_output_inventory_table(pisp_output_rows)
 
 # Read Generator table
 gen_path = csv_dir / "Generator.csv"
+generator_details_rows = []
+generator_temp_columns_row = {
+    "generator_table_exists": 0, "total_columns": np.nan, "n_temp_columns": np.nan, "temp_columns_list": "",
+}
 if gen_path.exists():
     gen_df = pd.read_csv(gen_path)
     print(f"\n=== Generator Table (shape: {gen_df.shape}) ===")
@@ -101,9 +213,32 @@ if gen_path.exists():
     if len(wind_gens) > 0:
         print(wind_gens[['tech', 'forate', 'derate', 'pmin', 'pmax', 'n']].head(10).to_string())
 
+    for category, subset in (("solar", solar_gens), ("wind", wind_gens)):
+        for _, row in subset.iterrows():
+            generator_details_rows.append({
+                "category": category,
+                "id_gen": row["id_gen"],
+                "name": row["name"],
+                "tech": row["tech"],
+                "forate": row["forate"],
+                "derate": row["derate"],
+                "pmin": row["pmin"],
+                "pmax": row["pmax"],
+                "n": row["n"],
+            })
+
     # Check for any temperature-related columns
     temp_cols = [c for c in gen_df.columns if any(kw in c.lower() for kw in ['temp', 'heat', 'thermal'])]
     print(f"\nTemperature-related columns in Generator: {temp_cols}")
+    generator_temp_columns_row = {
+        "generator_table_exists": 1,
+        "total_columns": len(gen_df.columns),
+        "n_temp_columns": len(temp_cols),
+        "temp_columns_list": "|".join(temp_cols),
+    }
+
+write_generator_details_table(generator_details_rows)
+write_generator_temp_columns_table(generator_temp_columns_row)
 
 # ====== 3. Analyze solar trace for temperature derating signatures ======
 # If temperature derating were modeled, we'd expect:
@@ -120,6 +255,7 @@ CLIMATE_ZONES = {
 }
 
 print("\n=== Solar CF by Climate Zone (Summer 2019) ===")
+climate_zone_summary_rows = []
 for zone, loc in CLIMATE_ZONES.items():
     f = TRACES / "solar_2019" / f"{loc}_RefYear2019.csv"
     if f.exists():
@@ -132,6 +268,17 @@ for zone, loc in CLIMATE_ZONES.items():
                   f"mean_midday={midday.mean():.3f}, "
                   f"min_midday={midday.min():.3f}, "
                   f"p5_midday={midday.quantile(0.05):.3f}")
+            climate_zone_summary_rows.append({
+                "zone": zone,
+                "location": loc,
+                "n_summer_days": len(summer),
+                "mean_daily_cf": daily.mean(),
+                "mean_midday_cf": midday.mean(),
+                "min_midday_cf": midday.min(),
+                "p5_midday_cf": midday.quantile(0.05),
+            })
+
+write_climate_zone_summary_table(climate_zone_summary_rows)
 
 # ====== Figure: CF distribution by climate zone ======
 fig, ax = plt.subplots(figsize=(10, 6))
