@@ -11,6 +11,9 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+from table_utils import write_table
+
+SCRIPT_STEM = "06_pisp_outputs"
 OUT = Path("data/pisp-datasets/out-ref4006-poe10/csv")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
@@ -26,6 +29,19 @@ print(f"Columns: {list(gen_df.columns)}")
 print(f"\nFuel types:\n{gen_df['fuel'].value_counts()}")
 print(f"\nTech types:\n{gen_df['tech'].value_counts()}")
 
+fuel_counts = gen_df['fuel'].value_counts()
+write_table(
+    fuel_counts.rename_axis('fuel').reset_index(name='count'),
+    SCRIPT_STEM,
+    "generator_fuel_counts",
+)
+tech_counts = gen_df['tech'].value_counts()
+write_table(
+    tech_counts.rename_axis('tech').reset_index(name='count'),
+    SCRIPT_STEM,
+    "generator_tech_counts",
+)
+
 # ---- Load schedule files ----
 gen_pmax = pd.read_csv(OUT / "schedule-2030" / "Generator_pmax_sched.csv")
 dem_load = pd.read_csv(OUT / "schedule-2030" / "Demand_load_sched.csv")
@@ -38,6 +54,15 @@ print(gen_pmax.head(5))
 print("\n=== Demand_load_sched ===")
 print(f"Shape: {dem_load.shape}")
 print(dem_load.head(5))
+
+write_table(
+    pd.DataFrame([
+        {"schedule": "Generator_pmax_sched", "n_rows": gen_pmax.shape[0], "n_cols": gen_pmax.shape[1]},
+        {"schedule": "Demand_load_sched", "n_rows": dem_load.shape[0], "n_cols": dem_load.shape[1]},
+    ]),
+    SCRIPT_STEM,
+    "schedule_shapes",
+)
 
 # ---- Map generators to buses/areas ----
 area_map = dict(zip(bus_df['id_bus'], bus_df['id_area']))
@@ -52,6 +77,20 @@ print(f"\nSolar generators: {len(solar_gens)}")
 print(f"Wind generators: {len(wind_gens)}")
 print(f"\nSolar tech breakdown:\n{solar_gens['tech'].value_counts()}")
 print(f"\nWind tech breakdown:\n{wind_gens['tech'].value_counts()}")
+
+write_table(
+    pd.DataFrame([
+        {"category": "solar", "n_generators": len(solar_gens)},
+        {"category": "wind", "n_generators": len(wind_gens)},
+    ]),
+    SCRIPT_STEM,
+    "solar_wind_generator_counts",
+)
+solar_wind_tech_counts = pd.concat([
+    solar_gens['tech'].value_counts().rename_axis('tech').reset_index(name='count').assign(category='solar'),
+    wind_gens['tech'].value_counts().rename_axis('tech').reset_index(name='count').assign(category='wind'),
+], ignore_index=True)[['category', 'tech', 'count']]
+write_table(solar_wind_tech_counts, SCRIPT_STEM, "solar_wind_tech_counts")
 
 # ---- Annual mean pmax per generator type ----
 fig, axes = plt.subplots(2, 2, figsize=(14, 10))
@@ -75,6 +114,10 @@ ax.set_yticklabels([f"G{g}" for g in sol_annual.index], fontsize=6)
 ax.set_title("Solar Generators — Annual Mean pmax (MW)")
 ax.set_xlabel("PMax (MW)")
 ax.grid(True, alpha=0.3)
+
+# sol_annual above is computed only once in this script (this occurrence);
+# it is the value that feeds the saved figure, so it is the table baseline
+# for the solar half of `annual_mean_pmax`.
 
 # Wind pmax annual mean
 ax = axes[0, 1]
@@ -103,10 +146,15 @@ ax.grid(True, alpha=0.3)
 
 # Duration curve: solar vs wind
 ax = axes[1, 1]
+# Divide directly by these id_gen-indexed Series (not by
+# `sol_sched['id_gen'].map(sol_pmax_map)`, which re-indexes the mapped
+# result by sol_sched's original row position instead of id_gen and used
+# to silently divide every solar generator's mean pmax by generator 92's
+# pmax, and left wind entirely NaN).
 sol_pmax_map = solar_gens.set_index('id_gen')['pmax']
 wind_pmax_map = wind_gens.set_index('id_gen')['pmax']
-sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched['id_gen'].map(sol_pmax_map)
-wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_sched['id_gen'].map(wind_pmax_map)
+sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_pmax_map
+wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_pmax_map
 ax.plot(np.sort(sol_cf.dropna().values)[::-1], color='darkorange', linewidth=1.5, label=f'Solar (n={len(sol_cf.dropna())})', alpha=0.7)
 ax.plot(np.sort(wind_cf.dropna().values)[::-1], color='steelblue', linewidth=1.5, label=f'Wind (n={len(wind_cf.dropna())})', alpha=0.7)
 ax.set_title("Capacity Factor Duration Curve (2030)")
@@ -116,6 +164,10 @@ ax.legend()
 ax.grid(True, alpha=0.3)
 
 # Wind pmax annual mean
+# NOTE: this is the second (live) occurrence of this block — it re-derives
+# wind_ids/wind_sched/wind_annual and overwrites the values from the block
+# above just before the figure is saved, so this is the value instrumented
+# below for the wind half of `annual_mean_pmax`.
 ax = axes[0, 1]
 wind_ids = wind_gens['id_gen'].values
 wind_sched = gen_pmax[gen_pmax['id_gen'].isin(wind_ids)]
@@ -125,7 +177,19 @@ ax.set_title("Wind Generators — Annual Mean pmax (MW)")
 ax.set_xlabel("PMax (MW)")
 ax.grid(True, alpha=0.3)
 
+annual_mean_pmax = pd.concat([
+    pd.DataFrame({"tech": "solar", "id_gen": sol_annual.index, "mean_pmax": sol_annual.values}),
+    pd.DataFrame({"tech": "wind", "id_gen": wind_annual.index, "mean_pmax": wind_annual.values}),
+], ignore_index=True)
+write_table(annual_mean_pmax, SCRIPT_STEM, "annual_mean_pmax")
+
 # Demand by area
+# NOTE: this is the second (live) occurrence of the demand-by-area block —
+# it re-derives dem_load_full/dem_daily and overwrites the values from the
+# block above just before the figure is saved, so this is the value
+# instrumented below for `demand_by_area_daily`. It is also the last
+# assignment of `dem_load_full`, which is reused later for the daily
+# solar/wind/demand time series.
 ax = axes[1, 0]
 dem_ids = dem_df['id_dem'].values
 dem_load_full = dem_load[dem_load['id_dem'].isin(dem_ids)]
@@ -142,14 +206,37 @@ ax.set_ylabel("Demand (MW)")
 ax.legend(fontsize=7)
 ax.grid(True, alpha=0.3)
 
+demand_by_area_daily = dem_daily.rename_axis(['date', 'area_name']).reset_index(name='total_demand_mw')
+write_table(demand_by_area_daily, SCRIPT_STEM, "demand_by_area_daily")
+
 # Duration curve: solar vs wind
+# NOTE: this is the second (live) occurrence of the duration-curve block —
+# `sol_cf`/`wind_cf` are recomputed here (guarded by non-empty checks that
+# are always true for this dataset) and plotted last, so these sorted,
+# NaN-dropped values are what is instrumented below for
+# `capacity_factor_duration`.
 ax = axes[1, 1]
+cf_duration_frames = []
 if len(sol_sched) > 0:
-    sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched['id_gen'].map(sol_pmax_map)
-    ax.plot(np.sort(sol_cf.dropna().values)[::-1], color='darkorange', linewidth=1.5, label='Solar CF', alpha=0.7)
+    sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_pmax_map
+    sol_cf_sorted = np.sort(sol_cf.dropna().values)[::-1]
+    ax.plot(sol_cf_sorted, color='darkorange', linewidth=1.5, label='Solar CF', alpha=0.7)
+    cf_duration_frames.append(pd.DataFrame({
+        "tech": "solar",
+        "rank": np.arange(1, len(sol_cf_sorted) + 1),
+        "capacity_factor": sol_cf_sorted,
+    }))
 if len(wind_sched) > 0:
-    wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_sched['id_gen'].map(wind_pmax_map)
-    ax.plot(np.sort(wind_cf.dropna().values)[::-1], color='steelblue', linewidth=1.5, label='Wind CF', alpha=0.7)
+    wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_pmax_map
+    wind_cf_sorted = np.sort(wind_cf.dropna().values)[::-1]
+    ax.plot(wind_cf_sorted, color='steelblue', linewidth=1.5, label='Wind CF', alpha=0.7)
+    cf_duration_frames.append(pd.DataFrame({
+        "tech": "wind",
+        "rank": np.arange(1, len(wind_cf_sorted) + 1),
+        "capacity_factor": wind_cf_sorted,
+    }))
+if cf_duration_frames:
+    write_table(pd.concat(cf_duration_frames, ignore_index=True), SCRIPT_STEM, "capacity_factor_duration")
 ax.set_title("Capacity Factor Duration Curve (2030)")
 ax.set_xlabel("Generator Rank")
 ax.set_ylabel("Capacity Factor")
@@ -177,6 +264,15 @@ wind_daily = wind_pmax_ts.groupby(wind_pmax_ts['datetime'].dt.date)['value'].sum
 dem_daily_ts = dem_load_full.groupby(dem_load_full['datetime'].dt.date)['value'].sum()
 
 dates = pd.to_datetime(sol_daily.index)
+
+daily_solar_wind_demand_gw = pd.DataFrame({
+    "date": dates,
+    "solar_gw": sol_daily.values / 1000,
+    "wind_gw": wind_daily.values / 1000,
+    "demand_gw": dem_daily_ts.values / 1000,
+})
+write_table(daily_solar_wind_demand_gw, SCRIPT_STEM, "daily_solar_wind_demand_gw")
+
 ax2.plot(dates, sol_daily.values / 1000, color='darkorange', linewidth=1, alpha=0.7, label='Solar PMax (GW)')
 ax2.plot(dates, wind_daily.values / 1000, color='steelblue', linewidth=1, alpha=0.7, label='Wind PMax (GW)')
 ax2.plot(dates, dem_daily_ts.values / 1000, color='grey', linewidth=1, alpha=0.7, label='Total Demand (GW)')
@@ -224,6 +320,12 @@ ax.set_ylabel("PMax (MW)")
 ax.legend(fontsize=7)
 ax.grid(True, alpha=0.3)
 
+hourly_pmax_profile = pd.concat([
+    top_sol_ts.rename('mean_pmax').reset_index().rename(columns={'datetime': 'hour'}).assign(tech='solar'),
+    top_wind_ts.rename('mean_pmax').reset_index().rename(columns={'datetime': 'hour'}).assign(tech='wind'),
+], ignore_index=True)[['tech', 'id_gen', 'hour', 'mean_pmax']]
+write_table(hourly_pmax_profile, SCRIPT_STEM, "hourly_pmax_profile")
+
 # Daily aggregate solar+wind vs demand scatter
 ax = axes3[1, 0]
 all_dates = pd.to_datetime(sol_daily.index)
@@ -241,12 +343,40 @@ ax.set_xlabel("Demand (GW)")
 ax.set_ylabel("VRE Solar+Wind (GW)")
 ax.grid(True, alpha=0.3)
 
+write_table(
+    pd.DataFrame([{
+        "n_days": len(combined),
+        "mean_demand_gw": combined['demand_gw'].mean(),
+        "mean_vre_gw": combined['vre'].mean(),
+        "min_demand_gw": combined['demand_gw'].min(),
+        "max_demand_gw": combined['demand_gw'].max(),
+        "min_vre_gw": combined['vre'].min(),
+        "max_vre_gw": combined['vre'].max(),
+        "corr_demand_vre": combined['demand_gw'].corr(combined['vre']),
+    }]),
+    SCRIPT_STEM,
+    "vre_vs_demand_summary",
+)
+
 # Distribution of demand
 ax = axes3[1, 1]
 ax.hist(dem_daily_ts.values, bins=50, color='grey', alpha=0.6)
 ax.set_title("Daily Total Demand Distribution (2030)")
 ax.set_xlabel("Demand (MW)")
 ax.grid(True, alpha=0.3)
+
+write_table(
+    pd.DataFrame([{
+        "n": len(dem_daily_ts),
+        "mean_mw": dem_daily_ts.mean(),
+        "std_mw": dem_daily_ts.std(),
+        "min_mw": dem_daily_ts.min(),
+        "max_mw": dem_daily_ts.max(),
+        "median_mw": dem_daily_ts.median(),
+    }]),
+    SCRIPT_STEM,
+    "demand_distribution_summary",
+)
 
 plt.tight_layout()
 plt.savefig(FIGURES / "06_pisp_detailed.png", dpi=120, bbox_inches='tight')
