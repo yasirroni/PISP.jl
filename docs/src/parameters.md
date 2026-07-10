@@ -1,6 +1,12 @@
 # Parameters and mappings
 
-This page records package constants and hard-coded mappings that affect generated datasets. They are part of PISP's data definition: users should treat them as assumptions to review, not as invisible implementation details.
+PISP combines source-derived values with package-defined constants and reconciliation rules.
+Those values are part of the dataset specification: they determine how published names become stable identifiers, how assets are assigned to regions and technologies, and how composite traces are paired with planning years.
+
+!!! note "Why are some values hard-coded?"
+    The AEMO source files do not use one shared identifier system across every workbook, archive, and trace family.
+    PISP therefore defines a canonical representation and records the mappings required to populate it.
+    These mappings should be reviewed as modelling assumptions rather than dismissed as temporary implementation details.
 
 ## Scenario IDs
 
@@ -10,11 +16,14 @@ This page records package constants and hard-coded mappings that affect generate
 | 2 | Step Change | `StepChange` | `STEP_CHANGE` |
 | 3 | Green Energy Exports | `HydrogenSuperpower` | `HYDROGEN_EXPORT` |
 
-The code also contains a secondary `ID2SCE2` mapping that labels scenario 3 as `Hydrogen Export`. The public scenario mapping used by the build path is `ID2SCE`, where scenario 3 is `Green Energy Exports`.
+Some legacy package logic uses `Hydrogen Export` as an alternate label for scenario 3.
+Generated datasets use the public scenario name `Green Energy Exports` and the numeric scenario ID `3`.
+Downstream code should prefer the numeric ID when joining or comparing schedules.
 
 ## Bus and area constants
 
-The 12-bus representation is defined in `src/parameters/general2024ISP.jl`.
+The 12-bus representation gives all source families a common spatial index.
+Each bus represents an ISP sub-region rather than a detailed electrical node.
 
 | Bus ID | Alias | Name | Area | Latitude | Longitude |
 |---:|---|---|---|---:|---:|
@@ -35,7 +44,9 @@ The five market areas are encoded as `QLD = 1`, `NSW = 2`, `VIC = 3`, `TAS = 4`,
 
 ## Reference trace 4006 weather-year mapping
 
-For `reftrace = 4006`, PISP maps each financial year to a historical weather year. The code comment points to AEMO's 2024 ISP PLEXOS model instructions as the source for this mapping.
+Reference trace `4006` is a composite planning trace.
+It does not represent one historical weather year repeated across the horizon.
+Instead, each financial year is paired with a selected historical year:
 
 | Financial-year window | Weather year |
 |---|---:|
@@ -68,31 +79,46 @@ For `reftrace = 4006`, PISP maps each financial year to a historical weather yea
 | 2050-07-01 to 2051-06-30 | 2017 |
 | 2051-07-01 to 2052-06-30 | 2018 |
 
-## Technology and asset mapping files
+!!! note "Why does this mapping matter?"
+    A result labelled by planning year can still reflect weather conditions from a different historical year.
+    Scenario comparisons should therefore record both the planning period and the mapped weather year so changes are not attributed to the wrong cause.
 
-Several parameter files contain large dictionaries that map AEMO names, unit IDs, storage projects, hydro assets, buildout templates, and trace filenames onto PISP rows:
+## Asset and technology mapping families
 
-| File | Main role |
+PISP maintains several mapping families because names and classifications differ among the source artifacts:
+
+| Mapping family | What it reconciles |
 |---|---|
-| `src/parameters/gens2024ISP.jl` | Existing generator unit mappings, fuel/technology groupings, and generator trace filename exceptions. |
-| `src/parameters/ess2024ISP.jl` | Battery and pumped-storage mappings, including project coordinates/aliases and storage properties. |
-| `src/parameters/hydro2024ISP.jl` | Hydro-specific mappings used by inflow logic. |
-| `src/parameters/buildout2024ISP.jl` | Parameter templates for new-entrant BESS, pumped hydro, CCGT, and OCGT buildouts. |
-| `src/parameters/retirements2024ISP.jl` | Retirement assumptions and mappings used by generator schedules. |
+| Existing generators | Published unit names, unit IDs, fuel classes, technology labels, and trace filename exceptions. |
+| Storage projects | Battery and pumped-storage names, aliases, coordinates, capacities, and service parameters. |
+| Hydro assets | Hydro unit identities and the files used to construct inflow schedules. |
+| Future build-out templates | Canonical parameter sets for new BESS, pumped hydro, CCGT, and OCGT rows. |
+| Retirement assumptions | Unit retirement timing and the resulting generator availability schedules. |
 
-These files contain values that cannot be reconstructed from the output tables alone. When using PISP output for a study, review the relevant parameter file when the result depends on project naming, technology grouping, hydro treatment, storage classification, forced-outage parameters, or buildout templates.
+These mappings contain information that cannot be reconstructed from the output tables alone.
+A study that depends on technology grouping, project identity, hydro treatment, storage classification, forced-outage assumptions, or build-out templates should review the relevant mapping before accepting the generated rows.
 
 ## Rooftop PV `pmax` placeholder
 
-Distributed (rooftop) PV generator rows (`RTPV_*`, `tech = "RoofPV"`) are written with a fixed `pmax` and `capacity` of `100.0` for every NEM subregion (`src/parsers/PISP-2024parser.jl`, `gen_pmax_distpv`). This value is a schema placeholder, not a real installed-capacity figure: the rooftop PV hourly trace for each subregion is read directly from AEMO's demand-side distributed-PV profile files and written to the schedule with no scaling relative to this placeholder. A downstream study that needs each subregion's true rooftop PV capacity should not read it from `Generator.pmax`/`Generator.capacity` for these rows.
+Distributed rooftop PV rows (`RTPV_*`, `tech = "RoofPV"`) carry a fixed static `pmax` and `capacity` of `100.0` for every NEM sub-region.
+This is a schema placeholder, not a measurement of installed rooftop PV capacity.
+The hourly rooftop PV trace is written directly to the generator schedule and is not scaled relative to that placeholder.
 
-## Generator `pmax` for utility-scale solar and wind
+A downstream study that needs installed capacity for rooftop PV should not use the static `Generator.pmax` or `Generator.capacity` fields for these rows.
+Use an externally validated capacity source or a study-specific reconstruction instead.
 
-Utility-scale solar (`LargePV`) and wind generator rows record the sum of currently operating unit capacity for their subregion (`src/parsers/PISP-2024parser.jl`, `gen_pmax_wind` and the equivalent solar function), not any capacity growth planned for a future study year. A schedule built for a future planning year can draw on ISP outlook capacity that reflects planned build-out beyond what is currently operating, so a generator's scheduled output can legitimately exceed its static `Generator.pmax`/`Generator.capacity` value for that reason alone. See Assumptions for the capacity-factor implication.
+## Utility-scale solar and wind `pmax`
+
+Utility-scale solar (`LargePV`) and wind rows record the sum of currently operating capacity assigned to the sub-region.
+A future-year schedule can incorporate additional ISP-outlook build-out and can therefore exceed the static `Generator.pmax` or `Generator.capacity` value without implying a parser error.
+
+This distinction is why the static field is not a valid capacity-factor denominator for these technologies.
+See [Assumptions and scope](@ref) for the downstream interpretation rule.
 
 ## Forced-outage and reliability constants
 
-Forced-outage fields are static output columns, not time-varying schedules. Their interpretation differs by asset class:
+Forced-outage quantities are static output fields rather than time-varying schedules.
+Their schemas differ by asset class:
 
 | Asset table | Outage fields |
 |---|---|
@@ -100,4 +126,17 @@ Forced-outage fields are static output columns, not time-varying schedules. Thei
 | `ESS` | `fullout`, `partialout`, `mttrfull`, `mttrpart`; no combined `forate` column. |
 | `Line` | `fullout`, `mttrfull`; no partial-outage or derating fields. |
 
-The generator `forate` is computed in code as `1 - (fullout + partialout * (1 - derate))`. Review the source tables and constants before treating these values as current AEMO reliability assumptions.
+For generators, the combined forced-outage rate is computed as:
+
+```math
+\mathrm{forate} = 1 - \left(\mathrm{fullout} + \mathrm{partialout}(1 - \mathrm{derate})\right)
+```
+
+Review the source vintage and package assumptions before treating these values as current reliability statistics.
+PISP does not convert them into seasonal or chronological outage processes.
+
+## See also
+
+- [Data sources](@ref) distinguishes source-derived, code-derived, and mapped information.
+- [Domain concepts](@ref) explains how the bus model, scenario IDs, and trace selection shape the dataset.
+- [Assumptions and scope](@ref) identifies the modelling consequences of the rooftop PV, utility-scale VRE, network, and reliability conventions.

@@ -2,6 +2,11 @@
 
 PISP produces structured datasets from ISP inputs. It does not solve a power-system optimisation problem, validate the economic plausibility of the resulting case, or certify that every input remains current with AEMO's latest published revision.
 
+The package therefore separates two responsibilities:
+
+- PISP provides a reproducible transformation from its configured sources and mappings to a documented dataset.
+- The user decides whether the resulting representation and assumptions are valid for a particular study.
+
 ## Package boundary
 
 `build_ISP24_datasets` downloads or reads ISP inputs, applies PISP's parsing and mapping rules, and writes static and time-varying tables. The package does not run economic dispatch, security-constrained unit commitment, capacity expansion, production-cost modelling, or power flow.
@@ -46,3 +51,9 @@ Before using PISP output in a downstream study, check:
 | Does the study require more network detail than the 12-bus representation? | PISP does not encode detailed nodal topology. |
 | Are forced-outage, cost, efficiency, hydro, and buildout constants acceptable for the study? | These values can materially affect downstream optimisation or reliability results. |
 | Are schedule values joined to the correct static table and scenario? | Schedule tables are overlays, not standalone assets. |
+
+## See also
+
+- [Data sources](@ref) identifies the source vintages and reproducibility boundary.
+- [Domain concepts](@ref) explains the aggregated network and static-versus-schedule data model.
+- [Parameters and mappings](@ref) records the hard-coded values and technology-specific exceptions that require review.

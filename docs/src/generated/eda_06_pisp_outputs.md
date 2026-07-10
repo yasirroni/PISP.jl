@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../literate/pisp_outputs_validation.jl"
+EditURL = "../../literate/eda_06_pisp_outputs.jl"
 ```
 
 # Validating PISP-produced outputs against demand
@@ -220,11 +220,11 @@ xlabel!(fig, "Date")
 ylabel!(fig, "GW")
 title!(fig, "2030 — Daily Aggregate: Solar PMax, Wind PMax, Total Demand")
 
-const FIGURE_PATH = joinpath(@__DIR__, "pisp_outputs_validation-timeseries.png")
+const FIGURE_PATH = joinpath(@__DIR__, "eda_06_pisp_outputs-timeseries.png")
 savefig(fig, FIGURE_PATH)
 ````
 
-![2030 daily aggregate solar PMax, wind PMax, and total demand](pisp_outputs_validation-timeseries.png)
+![2030 daily aggregate solar PMax, wind PMax, and total demand](eda_06_pisp_outputs-timeseries.png)
 
 ## Summary
 

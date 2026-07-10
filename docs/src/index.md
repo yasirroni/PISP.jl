@@ -1,38 +1,85 @@
 # PISP.jl
 
-PISP.jl parses public AEMO Integrated System Plan material into structured power-system datasets for the National Electricity Market (NEM). It is a dataset builder, not a dispatch or optimisation model: it prepares static network and asset tables, hourly schedules, and scenario/time metadata that can be consumed by downstream modelling tools.
+AEMO publishes the Integrated System Plan as a collection of workbooks, model archives, outlook files, and time-series traces.
+Using those materials in a power-system study requires more than downloading them: scenario labels must be reconciled, assets must be assigned to a common network representation, financial-year conventions must be handled, and time-varying traces must remain linked to the static assets they describe.
 
-The current build path targets the 2024 Integrated System Plan. Its high-level entry point is `PISP.build_ISP24_datasets(; kwargs...)`, which can build either whole planning years (`years`) or explicit date windows (`drange`). PISP splits each requested time span at the 1 July Australian financial-year boundary where the underlying ISP inputs require that convention.
+PISP.jl performs that data-preparation work for the 2024 Integrated System Plan.
+It converts the published material and package-defined mappings into a consistent set of power-system tables that downstream modelling tools can consume.
+PISP is a dataset builder, not a dispatch, unit-commitment, capacity-expansion, or power-flow model.
 
-## What the package produces
+## What becomes available
 
-A normal build writes two groups of output tables, in CSV and/or Arrow format:
+A PISP build produces three connected forms of information:
 
-| Output group | Location pattern | Contents |
+| Dataset layer | What it provides | Typical use |
 |---|---|---|
-| Static tables | `<output_name>-ref<reftrace>-poe<poe>/csv/` or `/arrow/` | `Bus`, `Demand`, `DER`, `ESS`, `Generator`, and `Line` tables. |
-| Schedule tables | `<output_name>-ref<reftrace>-poe<poe>/csv/schedule-<tag>/` or `/arrow/schedule-<tag>/` | Hourly or dated schedules such as demand load, generator PMax, unit counts, line transfer limits, storage limits, inflows, and DER prediction. |
+| Static asset tables | Buses, demand nodes, generators, storage, transmission corridors, and demand-side resources. | Define the assets and their time-invariant parameters. |
+| Schedule tables | Scenario- and time-dependent demand, capacity, unit-count, transfer-limit, inflow, and DER values. | Reconstruct how the static system changes across a study period. |
+| Scenario and time metadata | Scenario identifiers, requested planning years or date ranges, trace selection, and financial-year blocks. | Keep schedules comparable and reproducible. |
 
-See [Output tables](@ref) for the exported schemas and schedule naming conventions.
+The static tables and schedules form one dataset model.
+A schedule should be joined to its corresponding static table rather than interpreted as an independent asset inventory.
+See [Domain concepts](@ref) for the relationships and [Output tables](@ref) for the exported files.
 
-## Core concepts
+## Who the package is for
 
-PISP organises each build by scenario, time window, and trace year. The package uses the three 2024 ISP scenarios, a 12-bus NEM sub-regional representation, and trace inputs selected by `reftrace` and `poe`. See [Domain concepts](@ref) for the conventions that determine how tables and schedules should be interpreted.
+PISP is intended for researchers and model developers who need a structured NEM planning dataset before running a downstream optimisation, simulation, or reliability workflow.
+It is particularly useful when a study needs to preserve the distinctions among ISP scenario, planning period, reference trace, probability of exceedance, and asset identity.
 
-## Data and caveats
+The package does not remove the need for modelling judgement.
+Users still need to review the aggregated network representation, hard-coded mappings, source vintage, reliability assumptions, and technology-specific caveats before treating the generated data as study-ready.
 
-The package combines downloaded AEMO workbooks/archives with a small set of package constants and hard-coded mappings. Those constants are part of the dataset definition, not incidental implementation details. See:
+## Dataset workflow
 
-- [Data sources](@ref) for the encoded AEMO inputs and local input layout.
-- [Parameters and mappings](@ref) for scenario IDs, bus/area mappings, trace-year mappings, and selected hard-coded assumptions.
-- [Assumptions and scope](@ref) for modelling boundaries before using PISP output in a study.
+```text
+AEMO ISP source material
+          |
+          v
+PISP parsing, reconciliation, and package mappings
+          |
+          +-----------------------+
+          |                       |
+          v                       v
+static asset tables        schedule tables
+          |                       |
+          +-----------+-----------+
+                      |
+                      v
+downstream power-system model or data analysis
+```
+
+A typical workflow is:
+
+1. Select the ISP scenarios, planning years or date ranges, reference trace, and demand probability of exceedance.
+2. Provide or download the required source material.
+3. Build the static and schedule tables.
+4. Review the assumptions and mappings that affect the intended study.
+5. Join schedules to static assets by the documented identifiers and scenario fields.
+
+## Build entry point
+
+The high-level entry point is `PISP.build_ISP24_datasets(; kwargs...)`.
+It accepts whole planning years through `years` or explicit time windows through `drange`.
+Where the underlying ISP inputs use Australian financial years, PISP splits the requested period at 1 July so each problem block remains aligned with the source convention.
+
+The [Building a `PISPtimeConfig` problem table](@ref) tutorial shows how those scenario/time blocks are constructed before source files are parsed.
+
+## Understand the data before using it
+
+- [Data sources](@ref) explains why several source vintages and source families are required, and identifies the local input layout.
+- [Domain concepts](@ref) explains the asset relationships, scenario model, trace selection, and static-versus-schedule design.
+- [Output tables](@ref) documents the exported files, join keys, units, and reconstruction rules.
+- [Parameters and mappings](@ref) records package-defined values that materially affect the dataset.
+- [Assumptions and scope](@ref) defines the modelling boundaries and validation responsibilities that remain with the user.
 
 ## Tutorials
 
-[Building a `PISPtimeConfig` problem table](@ref) explains the scenario/time table that PISP builds before reading AEMO files. It runs entirely in memory.
+[Building a `PISPtimeConfig` problem table](@ref) explains the scenario/time index that PISP creates before reading AEMO files.
+It runs entirely in memory.
 
-[Validating PISP-produced outputs against demand](@ref) inspects a local PISP output build and compares daily aggregate solar PMax, wind PMax, and demand. This page requires the example output data described in [Data sources](@ref).
+[Validating PISP-produced outputs against demand](@ref) inspects a local PISP output build and relates generator and demand schedules back to the static asset tables.
+It requires a local 2030 CSV build at `data/pisp-datasets/out-ref4006-poe10/csv/`, including `schedule-2030/`.
 
 ## API reference
 
-See [API Reference](@ref) for the public entry point and the problem-table helpers used by the tutorials.
+See [API Reference](@ref) for the public build entry point and the problem-table helpers used by the tutorials.

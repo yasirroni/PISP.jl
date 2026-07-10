@@ -32,7 +32,7 @@ makedocs(;
         "Assumptions and scope" => "assumptions.md",
         "Tutorials" => [
             "Problem table" => "generated/problem_table.md",
-            "Output validation" => "generated/pisp_outputs_validation.md",
+            "Output validation" => "generated/eda_06_pisp_outputs.md",
         ],
         "API Reference" => "api.md",
     ],
