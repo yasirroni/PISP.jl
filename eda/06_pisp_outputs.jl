@@ -74,9 +74,8 @@ function write_solar_wind_count_tables(solar_gens::DataFrame, wind_gens::DataFra
     write_table(combined, SCRIPT_STEM, "solar_wind_tech_counts")
 end
 
-# Plain per-generator annual mean pmax — a straightforward grouped mean, not
-# affected by the row-position/id_gen-label indexing bug that used to affect
-# `capacity_factor_duration` (see below; now fixed).
+# Plain per-generator annual mean pmax — a straightforward grouped mean,
+# unrelated to the capacity-factor denominator question addressed below.
 function write_annual_mean_pmax_table(gen_pmax::DataFrame, solar_gens::DataFrame, wind_gens::DataFrame)
     solar_ids = Set(solar_gens.id_gen)
     wind_ids = Set(wind_gens.id_gen)
@@ -93,29 +92,28 @@ function write_annual_mean_pmax_table(gen_pmax::DataFrame, solar_gens::DataFrame
     write_table(combined, SCRIPT_STEM, "annual_mean_pmax")
 end
 
-# The Python source used to compute
-#
-#   sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched['id_gen'].map(sol_pmax_map)
-#
-# which divided a Series indexed by `id_gen` labels by a Series indexed by the
-# ORIGINAL 0-based row position of each row in the raw, unfiltered
-# `Generator_pmax_sched.csv` (pandas preserves row-position index labels
-# through boolean filtering, and `.map()` does not reset them). Pandas aligns
-# division on index LABELS, not generator identity, so every solar generator's
-# mean pmax was silently divided by generator 92's static pmax and every wind
-# capacity factor came out NaN. Fixed here (and in the Python source) by
-# dividing directly by the id_gen-keyed `pmax_of` lookup for each generator's
-# own row, rather than by row position.
+# Capacity factor is mean(scheduled value) / each generator's OWN scheduled
+# maximum, not Generator.csv's static `pmax`. PISP's static pmax is not a
+# usable capacity reference for these generators: RoofPV's is a hardcoded
+# 100.0 schema-filler (PISP.jl src/parsers/PISP-2024parser.jl:1070,
+# `gen_pmax_distpv`), and wind/LargePV's reflects only *existing* capacity
+# while a 2030 schedule can draw on ISP outlook (planned buildout) capacity
+# that legitimately exceeds it (same file, `gen_pmax_wind`, ~line 1386 vs.
+# ~1477). SiennaNEM.jl, a sibling project (same author) that builds a
+# Sienna System from this same PISP output, hits the identical problem and
+# solves it the same way: for `fuel in ("Solar", "Wind")` it treats each
+# generator's own scheduled-trace maximum as its capacity
+# (SiennaNEM.jl src/read_data.jl:214-229, `update_system_data_bound!`;
+# src/create_system.jl:342,368 call the static pmax "dummy" for this reason).
 function capacity_factor_duration_frame(gen_pmax::DataFrame, gens::DataFrame, tech::AbstractString)
     ids = Set(gens.id_gen)
-    pmax_of = Dict(row.id_gen => row.pmax for row in eachrow(gens))
 
     sched = gen_pmax[in.(gen_pmax.id_gen, Ref(ids)), :]
-    grouped_mean = Dict(row.id_gen => row.mean_value for row in eachrow(combine(groupby(sched, :id_gen), :value => mean => :mean_value)))
+    grouped = combine(groupby(sched, :id_gen), :value => mean => :mean_value, :value => maximum => :max_value)
 
     cf_values = Float64[]
-    for gid in sort(collect(keys(grouped_mean)))
-        cf = grouped_mean[gid] / pmax_of[gid]
+    for row in eachrow(grouped)
+        cf = row.mean_value / row.max_value
         isnan(cf) && continue
         push!(cf_values, cf)
     end

@@ -146,15 +146,21 @@ ax.grid(True, alpha=0.3)
 
 # Duration curve: solar vs wind
 ax = axes[1, 1]
-# Divide directly by these id_gen-indexed Series (not by
-# `sol_sched['id_gen'].map(sol_pmax_map)`, which re-indexes the mapped
-# result by sol_sched's original row position instead of id_gen and used
-# to silently divide every solar generator's mean pmax by generator 92's
-# pmax, and left wind entirely NaN).
-sol_pmax_map = solar_gens.set_index('id_gen')['pmax']
-wind_pmax_map = wind_gens.set_index('id_gen')['pmax']
-sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_pmax_map
-wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_pmax_map
+# Capacity factor is mean(scheduled value) / each generator's OWN scheduled
+# maximum, not Generator.csv's static `pmax`. PISP's static pmax is not a
+# usable capacity reference for these generators: RoofPV's is a hardcoded
+# 100.0 schema-filler (PISP.jl src/parsers/PISP-2024parser.jl:1070,
+# `gen_pmax_distpv`), and wind/LargePV's reflects only *existing* capacity
+# while a 2030 schedule can draw on ISP outlook (planned buildout) capacity
+# that legitimately exceeds it (same file, `gen_pmax_wind`, ~line 1386 vs.
+# ~1477). SiennaNEM.jl, a sibling project (same author) that builds a
+# Sienna System from this same PISP output, hits the identical problem and
+# solves it the same way: for `fuel in ("Solar", "Wind")` it treats each
+# generator's own scheduled-trace maximum as its capacity
+# (SiennaNEM.jl src/read_data.jl:214-229, `update_system_data_bound!`;
+# src/create_system.jl:342,368 call the static pmax "dummy" for this reason).
+sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched.groupby('id_gen')['value'].max()
+wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_sched.groupby('id_gen')['value'].max()
 ax.plot(np.sort(sol_cf.dropna().values)[::-1], color='darkorange', linewidth=1.5, label=f'Solar (n={len(sol_cf.dropna())})', alpha=0.7)
 ax.plot(np.sort(wind_cf.dropna().values)[::-1], color='steelblue', linewidth=1.5, label=f'Wind (n={len(wind_cf.dropna())})', alpha=0.7)
 ax.set_title("Capacity Factor Duration Curve (2030)")
@@ -214,11 +220,13 @@ write_table(demand_by_area_daily, SCRIPT_STEM, "demand_by_area_daily")
 # `sol_cf`/`wind_cf` are recomputed here (guarded by non-empty checks that
 # are always true for this dataset) and plotted last, so these sorted,
 # NaN-dropped values are what is instrumented below for
-# `capacity_factor_duration`.
+# `capacity_factor_duration`. See the first occurrence above for why the
+# denominator is each generator's own scheduled maximum, not Generator.csv's
+# static pmax.
 ax = axes[1, 1]
 cf_duration_frames = []
 if len(sol_sched) > 0:
-    sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_pmax_map
+    sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched.groupby('id_gen')['value'].max()
     sol_cf_sorted = np.sort(sol_cf.dropna().values)[::-1]
     ax.plot(sol_cf_sorted, color='darkorange', linewidth=1.5, label='Solar CF', alpha=0.7)
     cf_duration_frames.append(pd.DataFrame({
@@ -227,7 +235,7 @@ if len(sol_sched) > 0:
         "capacity_factor": sol_cf_sorted,
     }))
 if len(wind_sched) > 0:
-    wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_pmax_map
+    wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_sched.groupby('id_gen')['value'].max()
     wind_cf_sorted = np.sort(wind_cf.dropna().values)[::-1]
     ax.plot(wind_cf_sorted, color='steelblue', linewidth=1.5, label='Wind CF', alpha=0.7)
     cf_duration_frames.append(pd.DataFrame({
