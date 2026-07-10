@@ -11,6 +11,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 
+from table_utils import write_table
+
+SCRIPT_STEM = "07_demand_heat_events"
+
 TRACES = Path("data/pisp-downloads/Traces")
 OUT = Path("data/pisp-datasets/out-ref4006-poe10/csv")
 FIGURES = Path("eda/figures")
@@ -22,6 +26,12 @@ HH_COLS_SOL = [str(i) for i in range(1, 49)]
 dem_dir = TRACES / "demand_VIC_Step Change"
 dem_files = sorted(dem_dir.glob("*_POE10_OPSO_MODELLING.csv"))
 print(f"Found {len(dem_files)} demand trace files")
+
+write_table(
+    pd.DataFrame({"file": [f.name for f in dem_files]}),
+    SCRIPT_STEM,
+    "demand_trace_inventory",
+)
 
 # ---- Load demand schedule from PISP output ----
 dem_load = pd.read_csv(OUT / "schedule-2030" / "Demand_load_sched.csv")
@@ -38,6 +48,7 @@ dem_load['area'] = dem_load['id_bus'].map(area_map)
 # ---- Aggregate daily demand by area ----
 dem_daily = dem_load.groupby([dem_load['datetime'].dt.date, 'area'])['value'].mean().reset_index()
 dem_daily.columns = ['date', 'area', 'demand_mw']
+write_table(dem_daily, SCRIPT_STEM, "demand_by_area_daily")
 
 # ---- Load solar 4006 for VIC ----
 sol_4006 = {}
@@ -118,6 +129,11 @@ if 'Bannerton_SAT' in sol_4006:
             merged.at[i, 'solar_cf'] = matches[HH_COLS_SOL].mean(axis=1).values[0]
 
     merged = merged.dropna(subset=['solar_cf'])
+    write_table(
+        merged[['date', 'demand', 'solar_cf']],
+        SCRIPT_STEM,
+        "vic_demand_solar_merged",
+    )
     ax2.scatter(merged['solar_cf'], merged['demand'], s=5, alpha=0.3, c='purple')
     ax2.set_title("VIC Demand vs Solar CF (2030, Bannerton)")
     ax2.set_xlabel("Daily Mean Solar CF")
@@ -135,6 +151,19 @@ if 'Bannerton_SAT' in sol_4006:
 
     print(f"\nHigh-demand + Low-solar days: {len(bad_days)}")
     print(f"  Threshold: demand > {threshold_demand:.0f} MW, solar CF < {threshold_solar:.3f}")
+
+    write_table(
+        pd.DataFrame([{
+            "demand_quantile": 0.9,
+            "solar_quantile": 0.1,
+            "threshold_demand_mw": threshold_demand,
+            "threshold_solar_cf": threshold_solar,
+            "bad_day_count": len(bad_days),
+            "total_day_count": len(merged),
+        }]),
+        SCRIPT_STEM,
+        "high_demand_low_solar_summary",
+    )
 
 plt.tight_layout()
 plt.savefig(FIGURES / "07_demand_vs_solar_scatter.png", dpi=120, bbox_inches='tight')
@@ -164,8 +193,18 @@ ax = axes3[0, 0]
 heat_df = vic_dem_full[vic_dem_full['date_only'].isin(heat_days)]
 normal_df = vic_dem_full[vic_dem_full['date_only'].isin(normal_days)]
 
-heat_hourly = heat_df.groupby(heat_df['datetime'].dt.hour)['value'].mean()
-normal_hourly = normal_df.groupby(normal_df['datetime'].dt.hour)['value'].mean()
+heat_hourly = heat_df.groupby(heat_df['datetime'].dt.hour)['value'].mean().reindex(range(24))
+normal_hourly = normal_df.groupby(normal_df['datetime'].dt.hour)['value'].mean().reindex(range(24))
+
+write_table(
+    pd.DataFrame({
+        "hour": range(24),
+        "heat_mean_demand_mw": heat_hourly.values,
+        "normal_mean_demand_mw": normal_hourly.values,
+    }),
+    SCRIPT_STEM,
+    "heat_normal_hourly_profile",
+)
 
 ax.plot(range(24), heat_hourly.values, 'r-', linewidth=2, marker='o', markersize=4,
        label=f'Heat days (>{demand_p95:.0f} MW, n={len(heat_days)})')
@@ -180,6 +219,14 @@ ax.grid(True, alpha=0.3)
 # Duration curve
 ax = axes3[0, 1]
 sorted_demand = np.sort(vic_daily.values)[::-1]
+write_table(
+    pd.DataFrame({
+        "day_rank": range(1, len(sorted_demand) + 1),
+        "demand_mw": sorted_demand,
+    }),
+    SCRIPT_STEM,
+    "demand_duration_curve",
+)
 ax.plot(sorted_demand, 'grey', linewidth=1.5)
 ax.axhline(demand_p90, color='blue', linestyle='--', label=f'P90={demand_p90:.0f}')
 ax.axhline(demand_p95, color='red', linestyle='--', label=f'P95={demand_p95:.0f}')
@@ -211,6 +258,15 @@ ax = axes3[1, 1]
 if 'Bannerton_SAT' in sol_4006:
     # Use aggregated daily
     merged_sorted = merged.sort_values('demand')
+    write_table(
+        pd.DataFrame({
+            "day_rank": range(1, len(merged_sorted) + 1),
+            "demand_norm": (merged_sorted['demand'] / merged_sorted['demand'].max()).values,
+            "solar_norm": (merged_sorted['solar_cf'] / merged_sorted['solar_cf'].max()).values,
+        }),
+        SCRIPT_STEM,
+        "normalized_vre_demand_summary",
+    )
     ax.bar(range(len(merged_sorted)), merged_sorted['demand'] / merged_sorted['demand'].max(),
           alpha=0.5, color='grey', label='VIC Demand (norm)', width=1)
     ax.plot(range(len(merged_sorted)), merged_sorted['solar_cf'] / merged_sorted['solar_cf'].max(),
@@ -243,5 +299,32 @@ if 'Bannerton_SAT' in sol_4006:
             hot_day_cfs.append(match[HH_COLS_SOL].mean(axis=1).values[0])
     print(f"\nSolar CF on top 10 heat event days: mean={np.mean(hot_day_cfs):.4f}")
     print(f"  Individual CFs: {[f'{c:.4f}' for c in hot_day_cfs]}")
+
+    write_table(
+        pd.DataFrame({
+            "rank": range(1, len(hot_day_cfs) + 1),
+            "date": [str(hd) for hd in heat_days[:10]],
+            "solar_cf": hot_day_cfs,
+            "mean_solar_cf_top10": [np.mean(hot_day_cfs)] * len(hot_day_cfs),
+        }),
+        SCRIPT_STEM,
+        "hot_day_solar_cf_detail",
+    )
+
+write_table(
+    pd.DataFrame([{
+        "total_days": len(daily_vic),
+        "demand_p90_mw": demand_p90,
+        "demand_p95_mw": demand_p95,
+        "heat_day_count": len(heat_days),
+        "normal_day_count": len(normal_days),
+        "heat_event_pct": 100 * len(heat_days) / len(daily_vic),
+        "peak_demand_mw": daily_vic.max(),
+        "peak_date": str(daily_vic.idxmax()),
+        "mean_demand_mw": daily_vic.mean(),
+    }]),
+    SCRIPT_STEM,
+    "demand_heat_event_summary",
+)
 
 print("\nDone.")
