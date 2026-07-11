@@ -162,9 +162,9 @@ Below, an overview of each of the databases the parser produces is given.
 
 | Parameter       | Description |  
 |-----------------|-------------|
-| `id_bus`            | id of the bus | 
-| `active`        | Active flag (1: active; 0: inactive) | 
-| `id_area`       | NEM market area (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) | 
+| `id_bus`            | id of the bus |
+| `active`        | Active flag (1: active; 0: inactive) |
+| `id_area`       | NEM market area (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) |
 
 ### Demand
 
