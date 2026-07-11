@@ -28,6 +28,7 @@ const EDA_DRAFT_LITERATE_SOURCES = [
     "eda_05_temperature_analysis.jl",
     "eda_07_demand_heat_events.jl",
     "eda_08_4006_composite_map.jl",
+    "eda_09_download_inventory.jl",
 ]
 
 const EDA_SOURCE_TO_SCRIPT_STEM = Dict(
@@ -38,6 +39,7 @@ const EDA_SOURCE_TO_SCRIPT_STEM = Dict(
     "eda_05_temperature_analysis.jl" => "05_temperature_analysis",
     "eda_07_demand_heat_events.jl" => "07_demand_heat_events",
     "eda_08_4006_composite_map.jl" => "08_4006_composite_map",
+    "eda_09_download_inventory.jl" => "09_download_inventory",
 )
 
 const SOURCE_SET = get(ENV, "PISP_LITERATE_SET", "published")
