@@ -143,14 +143,10 @@ module ISPReportDownloader
     end
 
     function is_valid_pdf(path::AbstractString)
-        try
-            isfile(path) || return false
-            filesize(path) >= length(PDF_SIGNATURE) || return false
-            return open(path, "r") do io
-                read(io, length(PDF_SIGNATURE)) == PDF_SIGNATURE
-            end
-        catch
-            return false
+        isfile(path) || return false
+        filesize(path) >= length(PDF_SIGNATURE) || return false
+        return open(path, "r") do io
+            read(io, length(PDF_SIGNATURE)) == PDF_SIGNATURE
         end
     end
 

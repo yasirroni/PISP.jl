@@ -59,7 +59,27 @@ using PISP
 report_paths = PISP.download_isp_reports()
 ```
 
-The PDFs are saved under `data/pisp-reports/` by default. Existing valid PDFs are skipped, while invalid files are re-downloaded; use `PISP.download_isp_reports(overwrite = true)` to refresh all ten reports. Pass `outdir = "..."` to use a different local directory.
+The PDFs are saved under `data/pisp-reports/` by default. Existing valid PDFs are skipped, while invalid files are re-downloaded; use `PISP.download_isp_reports(overwrite = true)` to refresh all ten reports. Pass `outdir = "..."` to use a different local directory:
+
+```julia
+using PISP
+
+# Refresh every report, saving to a custom directory
+report_paths = PISP.download_isp_reports(
+    outdir    = joinpath(@__DIR__, "..", "data", "pisp-reports"),
+    overwrite = true,
+    )
+```
+
+To inspect the ten targets (key, title, filename, source URL) without downloading anything:
+
+```julia
+using PISP
+
+for target in PISP.ISPReportDownloader.isp_report_targets()
+    println(target.key, " -> ", target.filename)
+end
+```
 
 ## Optional parameters for PISP.build_ISP24_datasets()
 There are multiple parameters that can be adjusted when generating the dataset from the public 2024 Integrated System Plan (ISP) datafiles:

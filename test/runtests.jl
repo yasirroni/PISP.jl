@@ -58,7 +58,7 @@ using Test
             target = targets[1]
             destination = joinpath(outdir, target.filename)
             mkpath(outdir)
-            write(destination, "%PDF-1.7\\nexisting")
+            write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
             paths = report_downloader.download_report_targets([target];
@@ -86,14 +86,14 @@ using Test
                                                                 download_function = function (url, path; headers)
                                                                     calls[] += 1
                                                                     received_headers[] = headers
-                                                                    write(path, "%PDF-1.7\\nreplacement")
+                                                                    write(path, "%PDF-1.7\nreplacement")
                                                                     return path
                                                                 end)
 
             @test paths == [destination]
             @test calls[] == 1
             @test received_headers[] == PISP.PISPScrapperUtils.DEFAULT_FILE_HEADERS
-            @test read(destination, String) == "%PDF-1.7\\nreplacement"
+            @test read(destination, String) == "%PDF-1.7\nreplacement"
             @test readdir(outdir) == [target.filename]
         end
 
@@ -101,7 +101,7 @@ using Test
             target = targets[3]
             destination = joinpath(outdir, target.filename)
             mkpath(outdir)
-            existing = "%PDF-1.7\\nexisting"
+            existing = "%PDF-1.7\nexisting"
             write(destination, existing)
 
             err = try
@@ -144,7 +144,7 @@ using Test
             target = targets[5]
             destination = joinpath(outdir, target.filename)
             mkpath(outdir)
-            write(destination, "%PDF-1.7\\nexisting")
+            write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
             paths = report_downloader.download_report_targets([target];
@@ -152,13 +152,13 @@ using Test
                                                                 overwrite = true,
                                                                 download_function = function (url, path; headers)
                                                                     calls[] += 1
-                                                                    write(path, "%PDF-1.7\\nrefreshed")
+                                                                    write(path, "%PDF-1.7\nrefreshed")
                                                                     return path
                                                                 end)
 
             @test paths == [destination]
             @test calls[] == 1
-            @test read(destination, String) == "%PDF-1.7\\nrefreshed"
+            @test read(destination, String) == "%PDF-1.7\nrefreshed"
             @test readdir(outdir) == [target.filename]
         end
     end
