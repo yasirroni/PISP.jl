@@ -161,11 +161,9 @@ function write_join_coverage_tables(gen_pmax::DataFrame, gen_df::DataFrame, dem_
 end
 
 function write_build_metadata_table()
-    generated_at_utc = Dates.format(Dates.unix2datetime(time()), dateformat"yyyy-mm-ddTHH:MM:SS") * "Z"
     write_table(
         DataFrame([
             (
-                generated_at_utc = generated_at_utc,
                 pisp_output_root = replace(relpath(OUT, REPO_ROOT), '\\' => '/'),
                 schedule_tag = SCHEDULE_TAG,
                 schedule_directory = replace(relpath(SCHEDULE_DIR, REPO_ROOT), '\\' => '/'),

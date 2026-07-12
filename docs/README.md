@@ -109,7 +109,7 @@ source data or PISP datasets
 
 The EDA producer owns calculations and evidence tables. The Literate page owns reader framing, visible evidence, interpretation boundaries, and links to stable package references. A tutorial may execute similar joins when those joins are themselves the workflow being taught, but validation metrics remain in the registered producer.
 
-Snapshot pages must display their generated time and input or build identity. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
+Snapshot pages must display their input or build identity (which download root, output root, or schedule directory was inspected). Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
 
 ## Adding a page
 

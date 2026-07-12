@@ -2,7 +2,6 @@
 
 using CSV
 using DataFrames
-using Dates
 using Printf
 
 const SCRIPT_STEM = "09_download_inventory"
@@ -171,10 +170,8 @@ end
 
 function write_snapshot_metadata(root, files)
     total_bytes = isempty(files) ? 0 : sum(file.size_bytes for file in files)
-    generated_at_utc = Dates.format(Dates.unix2datetime(time()), dateformat"yyyy-mm-ddTHH:MM:SS") * "Z"
     metadata = DataFrame([
         (
-            generated_at_utc = generated_at_utc,
             download_root = root,
             total_files = length(files),
             total_bytes = total_bytes,
