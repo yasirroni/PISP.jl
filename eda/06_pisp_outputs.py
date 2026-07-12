@@ -158,7 +158,7 @@ ax = axes[1, 1]
 # PISP output, applies the same convention (src/read_data.jl:214-229,
 # `update_system_data_bound!`) and calls the static pmax "dummy" for these
 # generators (src/create_system.jl:342,368). See PISP.jl's own
-# docs/src/parameters.md and docs/src/assumptions.md for the full caveat.
+# the generated Parameters and mappings page and docs/src/assumptions.md for the full caveat.
 sol_cf = sol_sched.groupby('id_gen')['value'].mean() / sol_sched.groupby('id_gen')['value'].max()
 wind_cf = wind_sched.groupby('id_gen')['value'].mean() / wind_sched.groupby('id_gen')['value'].max()
 ax.plot(np.sort(sol_cf.dropna().values)[::-1], color='darkorange', linewidth=1.5, label=f'Solar (n={len(sol_cf.dropna())})', alpha=0.7)

@@ -2,6 +2,7 @@
 
 using CSV
 using DataFrames
+using Dates
 using Printf
 
 const SCRIPT_STEM = "09_download_inventory"
@@ -168,10 +169,26 @@ function print_summary(root, files, top_level)
     end
 end
 
+function write_snapshot_metadata(root, files)
+    total_bytes = isempty(files) ? 0 : sum(file.size_bytes for file in files)
+    generated_at_utc = Dates.format(Dates.unix2datetime(time()), dateformat"yyyy-mm-ddTHH:MM:SS") * "Z"
+    metadata = DataFrame([
+        (
+            generated_at_utc = generated_at_utc,
+            download_root = root,
+            total_files = length(files),
+            total_bytes = total_bytes,
+            tree_depth = MAX_TREE_DEPTH,
+            max_files_per_directory = MAX_TREE_CHILDREN_PER_DIR,
+        ),
+    ])
+    write_table(metadata, SCRIPT_STEM, "snapshot_metadata")
+end
+
 function main()
     isdir(DOWNLOAD_ROOT) || error(
         "expected local download tree at \"$DOWNLOAD_ROOT\"; " *
-        "run the PISP downloader (see docs/src/data-sources.md) to populate " *
+        "run the PISP downloader to populate " *
         "data/pisp-downloads/ before regenerating eda/$(SCRIPT_STEM).jl evidence",
     )
 
@@ -183,6 +200,7 @@ function main()
     write_table(top_level, SCRIPT_STEM, "top_level_summary")
     write_table(extensions, SCRIPT_STEM, "extension_summary")
     write_table(DataFrame(tree_rows), SCRIPT_STEM, "directory_tree")
+    write_snapshot_metadata(DOWNLOAD_ROOT, files)
 
     print_summary(DOWNLOAD_ROOT, files, top_level)
 

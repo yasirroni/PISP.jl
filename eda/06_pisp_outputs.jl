@@ -1,5 +1,8 @@
 #!/usr/bin/env julia
 
+# Authoritative producer for generated-output validation evidence consumed by docs/literate/validation/generated_output_consistency.jl.
+# The tutorial in docs/literate/tutorials/working_with_pisp_outputs.jl may execute similar joins to teach the workflow, but validation metrics should be added here rather than duplicated in the documentation source.
+
 using CSV
 using DataFrames
 using Dates
@@ -7,7 +10,14 @@ using Printf
 using Statistics
 
 const SCRIPT_STEM = "06_pisp_outputs"
-const OUT = joinpath("data", "pisp-datasets", "out-ref4006-poe10", "csv")
+const REPO_ROOT = normpath(joinpath(@__DIR__, ".."))
+const OUT = normpath(get(
+    ENV,
+    "PISP_OUTPUT_ROOT",
+    joinpath(REPO_ROOT, "data", "pisp-datasets", "out-ref4006-poe10", "csv"),
+))
+const SCHEDULE_TAG = get(ENV, "PISP_SCHEDULE_TAG", "schedule-2030")
+const SCHEDULE_DIR = joinpath(OUT, SCHEDULE_TAG)
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
@@ -30,10 +40,7 @@ end
 
 const AREA_NAMES = Dict(1 => "QLD", 2 => "NSW", 3 => "VIC", 4 => "TAS", 5 => "SA")
 
-# Schedule date strings look like "2030-01-01T00:00:00.0". CSV.jl's type
-# inference already parses this column as DateTime directly (it tolerates the
-# single-digit fractional seconds); this helper only has to handle the string
-# fallback in case a future dataset stores the column as text instead.
+# Schedule date strings look like "2030-01-01T00:00:00.0". CSV.jl's type inference already parses this column as DateTime directly (it tolerates the single-digit fractional seconds); this helper only has to handle the string fallback in case a future dataset stores the column as text instead.
 parse_schedule_datetime(s::AbstractString) = DateTime(replace(s, r"\.\d+$" => ""))
 parse_schedule_datetime(d::DateTime) = d
 
@@ -56,6 +63,119 @@ function write_schedule_shape_table(gen_pmax::DataFrame, dem_load::DataFrame)
     write_table(DataFrame(rows), SCRIPT_STEM, "schedule_shapes")
 end
 
+function write_schedule_time_coverage_table(gen_pmax::DataFrame, dem_load::DataFrame)
+    rows = NamedTuple[]
+    for (schedule_name, schedule) in [
+        ("Generator_pmax_sched", gen_pmax),
+        ("Demand_load_sched", dem_load),
+    ]
+        timestamps = parse_schedule_datetime.(schedule.date)
+        push!(
+            rows,
+            (
+                schedule = schedule_name,
+                first_timestamp = minimum(timestamps),
+                last_timestamp = maximum(timestamps),
+                unique_timestamps = length(unique(timestamps)),
+                unique_days = length(unique(Date.(timestamps))),
+            ),
+        )
+    end
+    write_table(DataFrame(rows), SCRIPT_STEM, "schedule_time_coverage")
+end
+
+function append_relationship_diagnostics!(summary_rows, detail_rows, relationship, left_label, right_label, left_ids, right_ids)
+    left_set = Set(skipmissing(left_ids))
+    right_set = Set(skipmissing(right_ids))
+    left_unmatched = sort(collect(setdiff(left_set, right_set)))
+    right_unmatched = sort(collect(setdiff(right_set, left_set)))
+
+    push!(
+        summary_rows,
+        (
+            relationship = relationship,
+            left_label = left_label,
+            right_label = right_label,
+            left_unique_ids = length(left_set),
+            right_unique_ids = length(right_set),
+            left_unmatched_ids = length(left_unmatched),
+            right_unmatched_ids = length(right_unmatched),
+        ),
+    )
+
+    for id in left_unmatched
+        push!(detail_rows, (relationship = relationship, unmatched_side = left_label, id = string(id)))
+    end
+    for id in right_unmatched
+        push!(detail_rows, (relationship = relationship, unmatched_side = right_label, id = string(id)))
+    end
+end
+
+function write_join_coverage_tables(gen_pmax::DataFrame, gen_df::DataFrame, dem_load::DataFrame, dem_df::DataFrame, bus_df::DataFrame)
+    summary_rows = NamedTuple[]
+    detail_rows = NamedTuple[]
+
+    append_relationship_diagnostics!(
+        summary_rows,
+        detail_rows,
+        "generator schedule to static generator",
+        "Generator_pmax_sched.id_gen",
+        "Generator.id_gen",
+        gen_pmax.id_gen,
+        gen_df.id_gen,
+    )
+    append_relationship_diagnostics!(
+        summary_rows,
+        detail_rows,
+        "demand schedule to static demand",
+        "Demand_load_sched.id_dem",
+        "Demand.id_dem",
+        dem_load.id_dem,
+        dem_df.id_dem,
+    )
+    append_relationship_diagnostics!(
+        summary_rows,
+        detail_rows,
+        "generator bus to bus table",
+        "Generator.id_bus",
+        "Bus.id_bus",
+        gen_df.id_bus,
+        bus_df.id_bus,
+    )
+    append_relationship_diagnostics!(
+        summary_rows,
+        detail_rows,
+        "demand bus to bus table",
+        "Demand.id_bus",
+        "Bus.id_bus",
+        dem_df.id_bus,
+        bus_df.id_bus,
+    )
+
+    write_table(DataFrame(summary_rows), SCRIPT_STEM, "join_coverage")
+    write_table(
+        isempty(detail_rows) ? DataFrame(relationship = String[], unmatched_side = String[], id = String[]) : DataFrame(detail_rows),
+        SCRIPT_STEM,
+        "unmatched_ids",
+    )
+end
+
+function write_build_metadata_table()
+    generated_at_utc = Dates.format(Dates.unix2datetime(time()), dateformat"yyyy-mm-ddTHH:MM:SS") * "Z"
+    write_table(
+        DataFrame([
+            (
+                generated_at_utc = generated_at_utc,
+                pisp_output_root = OUT,
+                schedule_tag = SCHEDULE_TAG,
+                schedule_directory = SCHEDULE_DIR,
+            ),
+        ]),
+        SCRIPT_STEM,
+        "build_metadata",
+    )
+end
+
 function write_solar_wind_count_tables(solar_gens::DataFrame, wind_gens::DataFrame)
     write_table(
         DataFrame([
@@ -74,8 +194,7 @@ function write_solar_wind_count_tables(solar_gens::DataFrame, wind_gens::DataFra
     write_table(combined, SCRIPT_STEM, "solar_wind_tech_counts")
 end
 
-# Plain per-generator annual mean pmax — a straightforward grouped mean,
-# unrelated to the capacity-factor denominator question addressed below.
+# Plain per-generator annual mean pmax — a straightforward grouped mean, unrelated to the capacity-factor denominator question addressed below.
 function write_annual_mean_pmax_table(gen_pmax::DataFrame, solar_gens::DataFrame, wind_gens::DataFrame)
     solar_ids = Set(solar_gens.id_gen)
     wind_ids = Set(wind_gens.id_gen)
@@ -92,19 +211,10 @@ function write_annual_mean_pmax_table(gen_pmax::DataFrame, solar_gens::DataFrame
     write_table(combined, SCRIPT_STEM, "annual_mean_pmax")
 end
 
-# Capacity factor for solar and wind divides each generator's scheduled mean
-# output by that generator's own scheduled maximum, not by the static `pmax`
-# recorded in `Generator.csv`. The static field is not a reliable capacity
-# reference for these generators: rooftop PV rows carry a fixed placeholder
-# pmax (src/parsers/PISP-2024parser.jl:1070, `gen_pmax_distpv`), and
-# utility-scale solar/wind rows record only currently operating capacity,
-# which a future-year schedule can exceed once ISP-outlook build-out is
-# reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same
-# file). SiennaNEM.jl, which builds unit-commitment models from this same
-# PISP output, applies the same convention (src/read_data.jl:214-229,
-# `update_system_data_bound!`) and calls the static pmax "dummy" for these
-# generators (src/create_system.jl:342,368). See PISP.jl's own
-# docs/src/parameters.md and docs/src/assumptions.md for the full caveat.
+# Capacity factor for solar and wind divides each generator's scheduled mean output by that generator's own scheduled maximum, not by the static `pmax` recorded in `Generator.csv`.
+# The static field is not a reliable capacity reference for these generators: rooftop PV rows carry a fixed placeholder pmax (src/parsers/PISP-2024parser.jl:1070, `gen_pmax_distpv`), and utility-scale solar/wind rows record only currently operating capacity, which a future-year schedule can exceed once ISP-outlook build-out is reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same file).
+# SiennaNEM.jl, which builds unit-commitment models from this same PISP output, applies the same convention (src/read_data.jl:214-229, `update_system_data_bound!`) and calls the static pmax "dummy" for these generators (src/create_system.jl:342,368).
+# See PISP.jl's own the generated Parameters and mappings page and docs/src/assumptions.md for the full caveat.
 function capacity_factor_duration_frame(gen_pmax::DataFrame, gens::DataFrame, tech::AbstractString)
     ids = Set(gens.id_gen)
 
@@ -178,7 +288,7 @@ function write_daily_solar_wind_demand_table(gen_pmax_ts::DataFrame, dem_load_fu
 end
 
 function write_hourly_pmax_profile_table(gen_pmax_ts::DataFrame)
-    cutoff = Date(2030, 1, 30)
+    cutoff = minimum(Date.(gen_pmax_ts.datetime)) + Day(29)
     subset30 = gen_pmax_ts[Date.(gen_pmax_ts.datetime) .<= cutoff, :]
 
     sol_subset = subset30[is_solar_tech.(subset30.tech), :]
@@ -235,8 +345,10 @@ function main()
     dem_df = CSV.read(joinpath(OUT, "Demand.csv"), DataFrame)
     bus_df = CSV.read(joinpath(OUT, "Bus.csv"), DataFrame)
 
-    gen_pmax = CSV.read(joinpath(OUT, "schedule-2030", "Generator_pmax_sched.csv"), DataFrame)
-    dem_load = CSV.read(joinpath(OUT, "schedule-2030", "Demand_load_sched.csv"), DataFrame)
+    gen_pmax = CSV.read(joinpath(SCHEDULE_DIR, "Generator_pmax_sched.csv"), DataFrame)
+    dem_load = CSV.read(joinpath(SCHEDULE_DIR, "Demand_load_sched.csv"), DataFrame)
+
+    write_build_metadata_table()
 
     println("=== Generator Table ===")
     println("Shape: ", (nrow(gen_df), ncol(gen_df)))
@@ -247,6 +359,8 @@ function main()
     println("\n=== Demand_load_sched ===")
     println("Shape: ", (nrow(dem_load), ncol(dem_load)))
     write_schedule_shape_table(gen_pmax, dem_load)
+    write_schedule_time_coverage_table(gen_pmax, dem_load)
+    write_join_coverage_tables(gen_pmax, gen_df, dem_load, dem_df, bus_df)
 
     solar_gens = gen_df[is_solar_tech.(gen_df.tech), :]
     wind_gens = gen_df[is_wind_tech.(gen_df.tech), :]
