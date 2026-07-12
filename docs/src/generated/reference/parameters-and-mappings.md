@@ -82,6 +82,8 @@ bus_area_mappings
 
 The composite trace maps each financial-year interval to a historical weather year. Repeated historical years are part of the mapping and should be considered when comparing planning periods.
 
+The mapping is based on AEMO's 2024 ISP PLEXOS model instructions (https://aemo.com.au/-/media/files/major-publications/isp/2024/supporting-materials/2024-isp-plexos-model-instructions.pdf?la=en), the same document `PISP.WEATHER_YEARS_ISP`'s own source comment cites in `src/parameters/general2024ISP.jl`. The specific page or table within that document has not yet been identified; this page traces the mapping to that source comment and the table below, not to a page number in AEMO's document.
+
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
 ```
@@ -144,4 +146,6 @@ reliability_schema
 Scenario labels, source-specific aliases, bus assignments, weather-year mappings, technology groupings, retirement schedules, and build-out templates are modelling inputs rather than incidental filenames. Changes to these mappings can change generated datasets without any change to the downloaded source files.
 
 Rooftop PV and utility-scale renewable capacity fields require special care. The time-varying schedule is the relevant maximum-output series for solar and wind; the static `pmax` field is not a universal capacity-factor denominator. See [Assumptions and scope](@ref).
+
+Both `gen_pmax_wind` and `gen_pmax_solar` (`src/parsers/PISP-2024parser.jl`) read the same two sheets of the 2024 ISP Inputs and Assumptions workbook: `Existing Gen Data Summary` (cell range `B11:K297`) for the operating-capacity figures, and `Renewable Energy Zones` (cell range `B7:G50`) for REZ-to-bus assignment.
 
