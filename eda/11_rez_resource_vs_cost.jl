@@ -11,11 +11,10 @@ const DOWNLOADS = joinpath("data", "pisp-downloads")
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 
-# Question (final question 2 of tasks/done/0076-isp-2024-raw-data-eda-questions.md):
-# joining Renewable Energy Zones (resource limits) to REZ Costs forecast
-# (transmission-augmentation cost) by REZ identifier, do the highest-potential
-# REZs also tend to be the costliest to connect, or is there no clear
-# resource-vs-cost relationship -- and which REZs are the outliers?
+# Analysis question: when Renewable Energy Zones' resource limits are joined to
+# transmission-augmentation cost by REZ identifier, do the highest-potential REZs
+# also tend to be the costliest to connect, or is there no clear resource-vs-cost
+# relationship -- and which REZs are the outliers?
 #
 # Data-grounding note: the "Renewable Energy Zones" sheet named in the
 # question does NOT itself carry numeric resource limits -- it is a
@@ -31,7 +30,7 @@ const TABLE_ROOT = joinpath(@__DIR__, "tables")
 # (resource limits) to "REZ Augmentations Options" (capacity + cost per
 # augmentation option) by REZ ID -- the two sheets that actually carry
 # joinable numeric data -- rather than the two sheets named literally in the
-# question, which was written before this sheet-level detail was confirmed.
+# literal workbook-sheet pairing.
 #
 # EDA insight (from the executed `rez_resource_vs_cost` join): of the 43 REZs
 # on the "Build limits" sheet, only 23 join to a REZ that also has a
@@ -255,7 +254,8 @@ function main()
     end
 
     joined = innerjoin(resource_limits, primary_options, on = [:rez_id, :rez_name])
-    println("Joined REZs (resource limit + primary augmentation option): ", nrow(joined))
+    joined_row_count = nrow(joined)
+    println("Joined REZs (resource limit + primary augmentation option): ", joined_row_count)
     write_table(joined, SCRIPT_STEM, "rez_resource_vs_cost")
 
     # One REZ (N12, Illawarra) carries a genuine 0 MW total resource limit in
@@ -265,6 +265,7 @@ function main()
     # (undefined/infinite ratio) and reported separately rather than dropped
     # silently.
     zero_resource = filter(:total_resource_limit_mw => iszero, joined)
+    zero_resource_exclusion_count = nrow(zero_resource)
     if nrow(zero_resource) > 0
         println("REZ(s) excluded from correlation/ranking for having a 0 MW total resource limit:")
         for row in eachrow(zero_resource)
@@ -276,6 +277,19 @@ function main()
 
     correlation = pearson_correlation(joined.total_resource_limit_mw, joined.expected_cost_million)
     println(@sprintf("Pearson correlation (total resource limit MW vs. expected cost \$M), n=%d: %.3f", nrow(joined), correlation))
+    write_table(
+        DataFrame(
+            method = ["Pearson correlation"],
+            coefficient = [correlation],
+            usable_row_count = [nrow(joined)],
+            zero_resource_exclusion_count = [zero_resource_exclusion_count],
+            joined_row_count = [joined_row_count],
+            source_column_x = ["total_resource_limit_mw"],
+            source_column_y = ["expected_cost_million"],
+        ),
+        SCRIPT_STEM,
+        "rez_resource_cost_correlation_summary",
+    )
 
     joined.cost_per_resource_mw = joined.expected_cost_million ./ joined.total_resource_limit_mw
     ranked = sort(joined, :cost_per_resource_mw)

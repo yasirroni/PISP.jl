@@ -183,3 +183,18 @@ evidence_dir = "eda/tables/julia/08_4006_composite_map"
 producer = "eda/08_4006_composite_map.jl"
 snapshot = true
 related_reference_pages = ["generated/reference/parameters-and-mappings.md", "assumptions.md"]
+
+[[page]]
+id = "rez-resource-versus-connection-cost"
+title = "REZ resource potential versus connection cost"
+kind = "analysis"
+data_layer = "source-data"
+source = "literate/eda_11_rez_resource_vs_cost.jl"
+output = "generated/analyses/rez-resource-versus-connection-cost.md"
+status = "published"
+nav_order = 70
+snapshot = true
+evidence_dir = "eda/tables/julia/11_rez_resource_vs_cost"
+producer = "eda/11_rez_resource_vs_cost.jl"
+data_requirements = ["data/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx"]
+related_reference_pages = ["generated/reference/data-sources.md", "generated/reference/parameters-and-mappings.md", "assumptions.md"]
