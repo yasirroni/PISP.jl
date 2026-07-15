@@ -7,8 +7,8 @@ using Printf
 using Statistics
 
 const SCRIPT_STEM = "07_demand_heat_events"
-const TRACES = joinpath("data", "pisp-downloads", "Traces")
-const OUT = joinpath("data", "pisp-datasets", "out-ref4006-poe10", "csv")
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
+const OUT = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)

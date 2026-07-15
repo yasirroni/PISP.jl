@@ -5,7 +5,7 @@ using DataFrames
 using Printf
 
 const SCRIPT_STEM = "09_download_inventory"
-const DOWNLOAD_ROOT = joinpath("data", "pisp-downloads")
+const DOWNLOAD_ROOT = joinpath("data", "2024", "pisp-downloads")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 const MAX_TREE_DEPTH = 3
 const MAX_TREE_CHILDREN_PER_DIR = 3
@@ -186,7 +186,7 @@ function main()
     isdir(DOWNLOAD_ROOT) || error(
         "expected local download tree at \"$DOWNLOAD_ROOT\"; " *
         "run the PISP downloader to populate " *
-        "data/pisp-downloads/ before regenerating eda/$(SCRIPT_STEM).jl evidence",
+        "data/2024/pisp-downloads/ before regenerating eda/$(SCRIPT_STEM).jl evidence",
     )
 
     files, tree_rows = walk_download_root(DOWNLOAD_ROOT)

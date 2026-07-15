@@ -6,7 +6,7 @@ using Printf
 using XLSX
 
 const SCRIPT_STEM = "12_storage_characteristics"
-const DOWNLOADS = joinpath("data", "pisp-downloads")
+const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 

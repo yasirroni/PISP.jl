@@ -13,7 +13,7 @@ from table_utils import write_table
 
 # ---- Paths ----
 SCRIPT_STEM = "01_data_loading"
-TRACES = Path("data/pisp-downloads/Traces")
+TRACES = Path("data/2024/pisp-downloads/Traces")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 

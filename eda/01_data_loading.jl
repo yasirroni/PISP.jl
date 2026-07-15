@@ -6,7 +6,7 @@ using Dates
 using Printf
 
 const SCRIPT_STEM = "01_data_loading"
-const TRACES = joinpath("data", "pisp-downloads", "Traces")
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)

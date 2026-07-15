@@ -14,7 +14,7 @@ const REPO_ROOT = normpath(joinpath(@__DIR__, ".."))
 const OUT = normpath(get(
     ENV,
     "PISP_OUTPUT_ROOT",
-    joinpath(REPO_ROOT, "data", "pisp-datasets", "out-ref4006-poe10", "csv"),
+    joinpath(REPO_ROOT, "data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv"),
 ))
 const SCHEDULE_TAG = get(ENV, "PISP_SCHEDULE_TAG", "schedule-2030")
 const SCHEDULE_DIR = joinpath(OUT, SCHEDULE_TAG)

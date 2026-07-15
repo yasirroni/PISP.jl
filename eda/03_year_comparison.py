@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from table_utils import write_table
 
 SCRIPT_STEM = "03_year_comparison"
-TRACES = Path("data/pisp-downloads/Traces")
+TRACES = Path("data/2024/pisp-downloads/Traces")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 

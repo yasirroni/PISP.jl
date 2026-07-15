@@ -7,7 +7,7 @@ using Printf
 using Statistics
 
 const SCRIPT_STEM = "11_rez_resource_vs_cost"
-const DOWNLOADS = joinpath("data", "pisp-downloads")
+const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 

@@ -7,8 +7,8 @@ using Printf
 using Statistics
 
 const SCRIPT_STEM = "05_temperature_analysis"
-const TRACES = joinpath("data", "pisp-downloads", "Traces")
-const DOWNLOADS = joinpath("data", "pisp-downloads")
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
+const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
 
 const TEMP_KEYWORDS = ["temp", "heat", "thermal", "derate", "pv", "solar", "wind", "rooftop", "inverter"]
@@ -302,8 +302,8 @@ function main()
     path = write_table(reliability_shape_df, SCRIPT_STEM, "workbook_reliability_sheet_shapes")
     println("Saved table: ", path)
 
-    csv_dir = joinpath("data", "pisp-datasets", "out-ref4006-poe10", "csv")
-    sched_dir = joinpath("data", "pisp-datasets", "out-ref4006-poe10")
+    csv_dir = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv")
+    sched_dir = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10")
     output_inventory_df = pisp_output_inventory(csv_dir, sched_dir)
     path = write_table(output_inventory_df, SCRIPT_STEM, "pisp_output_inventory")
     println("Saved table: ", path)

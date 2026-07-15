@@ -15,8 +15,8 @@ from table_utils import write_table
 
 SCRIPT_STEM = "07_demand_heat_events"
 
-TRACES = Path("data/pisp-downloads/Traces")
-OUT = Path("data/pisp-datasets/out-ref4006-poe10/csv")
+TRACES = Path("data/2024/pisp-downloads/Traces")
+OUT = Path("data/2024/pisp-datasets/out-ref4006-poe10/csv")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 

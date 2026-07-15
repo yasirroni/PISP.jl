@@ -15,7 +15,7 @@ import matplotlib.patches as mpatches
 from table_utils import write_table
 
 SCRIPT_STEM = "08_4006_composite_map"
-TRACES = Path("data/pisp-downloads/Traces")
+TRACES = Path("data/2024/pisp-downloads/Traces")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 

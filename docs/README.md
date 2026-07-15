@@ -41,7 +41,7 @@ The complete build performs these lifecycle stages in order:
 
 The build stops on the first failed producer, Literate page, registry check, or Documenter build. A failed complete render does not replace an existing `docs/src/generated/` tree.
 
-Set `PISP_DATA_ROOT` when the source-data reference page should inspect a download root other than `data/pisp-downloads/`.
+Set `PISP_DATA_ROOT` when the source-data reference page should inspect a download root other than `data/2024/pisp-downloads/`.
 
 Open `docs/build/index.html` after the build completes.
 

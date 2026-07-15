@@ -14,8 +14,8 @@ import json
 from table_utils import write_table
 
 SCRIPT_STEM = "05_temperature_analysis"
-TRACES = Path("data/pisp-downloads/Traces")
-DOWNLOADS = Path("data/pisp-downloads")
+TRACES = Path("data/2024/pisp-downloads/Traces")
+DOWNLOADS = Path("data/2024/pisp-downloads")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 
@@ -173,9 +173,9 @@ write_rooftop_sheet_table(rooftop_sheet_rows)
 write_reliability_sheet_shapes_table(reliability_sheet_shape_rows)
 
 # ====== 2. Examine PISP Output Generator Table ======
-gen_csv = Path("data/pisp-datasets/out-ref4006-poe10/csv/Bus.csv")
-csv_dir = Path("data/pisp-datasets/out-ref4006-poe10/csv/")
-sched_dir = Path("data/pisp-datasets/out-ref4006-poe10/")
+gen_csv = Path("data/2024/pisp-datasets/out-ref4006-poe10/csv/Bus.csv")
+csv_dir = Path("data/2024/pisp-datasets/out-ref4006-poe10/csv/")
+sched_dir = Path("data/2024/pisp-datasets/out-ref4006-poe10/")
 
 print(f"\n=== PISP Output Files ===")
 pisp_output_rows = []

@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 from table_utils import write_table
 
 SCRIPT_STEM = "02_plot_4006_traces"
-TRACES = Path("data/pisp-downloads/Traces")
+TRACES = Path("data/2024/pisp-downloads/Traces")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 

@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 from table_utils import write_table
 
 SCRIPT_STEM = "06_pisp_outputs"
-OUT = Path("data/pisp-datasets/out-ref4006-poe10/csv")
+OUT = Path("data/2024/pisp-datasets/out-ref4006-poe10/csv")
 FIGURES = Path("eda/figures")
 FIGURES.mkdir(parents=True, exist_ok=True)
 
