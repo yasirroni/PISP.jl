@@ -32,7 +32,7 @@ using Test
         end
     end
 
-    @testset "ISP report downloader" begin
+    @testset "ISP 2024 report downloader" begin
         report_downloader = PISP.ISPReportDownloader
         targets = report_downloader.isp_report_targets()
         expected_targets = [
@@ -48,8 +48,9 @@ using Test
             (:appendix_a7_security, "A7 System Security", "a7-system-security.pdf", "https://www.aemo.com.au/-/media/files/major-publications/isp/2024/appendices/a7-system-security.pdf?la=en"),
         ]
 
-        @test isdefined(PISP, :download_isp_reports)
-        @test PISP.download_isp_reports === report_downloader.download_isp_reports
+        @test isdefined(PISP, :download_ISP24_reports)
+        @test PISP.download_ISP24_reports === report_downloader.download_isp_reports
+        @test !isdefined(PISP, :download_isp_reports)
         @test [(target.key, target.title, target.filename, target.url) for target in targets] == expected_targets
         @test all(target -> endswith(lowercase(target.filename), ".pdf"), targets)
         @test all(target -> startswith(target.url, "https://www.aemo.com.au/"), targets)
@@ -179,8 +180,9 @@ using Test
             (:appendix_a7_security, "A7 System Security", "a7-system-security.pdf", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/appendices/a7-system-security.pdf?la=en"),
         ]
 
-        @test isdefined(PISP, :download_isp2026_reports)
-        @test PISP.download_isp2026_reports === report_downloader.download_isp_reports
+        @test isdefined(PISP, :download_ISP26_reports)
+        @test PISP.download_ISP26_reports === report_downloader.download_isp_reports
+        @test !isdefined(PISP, :download_isp2026_reports)
         @test [(target.key, target.title, target.filename, target.url) for target in targets] == expected_targets
 
         mktempdir() do outdir
