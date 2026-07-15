@@ -236,7 +236,7 @@ function main()
     )
 
     # ====== Figure 1: VIC demand + solar CF time series ======
-    p1 = plot(layout=(2,1), size=(1200, 800))
+    p1 = plot(layout=(2,1), size=(1400, 900), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
 
     if haskey(sol_4006, "Bannerton_SAT")
         sol_vic = sol_4006["Bannerton_SAT"]
@@ -282,7 +282,8 @@ function main()
     println("Saved: 07_demand_vs_solar_scatter.png")
 
     # ====== Figure 3: Demand heat events (2x2 subplots) ======
-    p3 = plot(layout=(2,2), size=(1000, 800))
+    month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    p3 = plot(layout=(2,2), size=(1200, 1000), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
 
     # Hourly profile for heat days vs normal days
     hours = 0:23
@@ -321,7 +322,7 @@ function main()
     heatmap_data = heatmap_data ./ max.(counts, 1)
 
     heatmap!(p3[3], 0:23, 1:12, heatmap_data, c=:YlOrRd, title="VIC Demand Heatmap: Month vs Hour",
-            xlabel="Hour", ylabel="Month", legend=false)
+            xlabel="Hour", ylabel="Month", yticks=(1:12, month_labels), legend=false)
 
     # Normalized demand and solar
     if nrow(merged) > 0

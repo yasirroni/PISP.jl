@@ -267,7 +267,7 @@ function main()
 
     p1 = plot(sol_datetime, sol_hourly, linewidth=0.8, color=:orange, label="", title="Solar 4006 — Bannerton_SAT (first 30 days)", ylabel="Mean half-hourly CF", legend=false)
     p2 = plot(wind_datetime, wind_hourly, linewidth=0.8, color=:steelblue, label="", title="Wind 4006 — ARWF1 (first 30 days)", ylabel="Mean half-hourly CF", legend=false)
-    p = plot(p1, p2, layout=(2,1), size=(1400, 800))
+    p = plot(p1, p2, layout=(2,1), size=(1600, 900), left_margin=5Plots.mm, bottom_margin=4Plots.mm, top_margin=4Plots.mm)
     savefig(p, figure_path(SCRIPT_STEM, "01_sample_traces.png"))
     println("Saved: $(figure_path(SCRIPT_STEM, "01_sample_traces.png"))")
 

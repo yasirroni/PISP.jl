@@ -287,7 +287,7 @@ function main()
         plot!(p, ylabel="$(state)\nCF", ylim=(0, 1), grid=true, gridalpha=0.3)
         push!(plots_sol, p)
     end
-    p_sol = plot(plots_sol..., layout=(length(plots_sol), 1), size=(1600, 300*length(plots_sol)))
+    p_sol = plot(plots_sol..., layout=(length(plots_sol), 1), size=(1800, 300*length(plots_sol)), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
     plot!(p_sol, plot_title="Solar 4006 — Daily Mean Capacity Factor by State")
     savefig(p_sol, figure_path(SCRIPT_STEM, "02_solar_4006_daily_cf.png"))
     println("Saved: 02_solar_4006_daily_cf.png")
@@ -304,7 +304,7 @@ function main()
         plot!(p, ylabel="$(state)\nCF", ylim=(0, 1), grid=true, gridalpha=0.3)
         push!(plots_wind, p)
     end
-    p_wind = plot(plots_wind..., layout=(length(plots_wind), 1), size=(1600, 300*length(plots_wind)))
+    p_wind = plot(plots_wind..., layout=(length(plots_wind), 1), size=(1800, 300*length(plots_wind)), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
     plot!(p_wind, plot_title="Wind 4006 — Daily Mean Capacity Factor by State")
     savefig(p_wind, figure_path(SCRIPT_STEM, "02_wind_4006_daily_cf.png"))
     println("Saved: 02_wind_4006_daily_cf.png")
@@ -338,7 +338,7 @@ function main()
               ylim=(0, 1.05), xlabel="Hour of day", grid=true, gridalpha=0.3)
         push!(plots_diurnal, p)
     end
-    p_diu = plot(plots_diurnal..., layout=(2,1), size=(1400, 800))
+    p_diu = plot(plots_diurnal..., layout=(2,1), size=(1600, 1000), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
     plot!(p_diu, plot_title="Solar 4006 — Diurnal Profiles: Summer vs Winter")
     savefig(p_diu, figure_path(SCRIPT_STEM, "02_solar_4006_diurnal.png"))
     println("Saved: 02_solar_4006_diurnal.png")
@@ -378,13 +378,13 @@ function main()
               ylim=(0, 1), grid=true, gridalpha=0.3)
         push!(plots_wind_sea, p2)
 
-        p_wind_sea = plot(plots_wind_sea..., layout=(2,1), size=(1400, 800))
+        p_wind_sea = plot(plots_wind_sea..., layout=(2,1), size=(1600, 900), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
         savefig(p_wind_sea, figure_path(SCRIPT_STEM, "02_wind_4006_seasonal.png"))
         println("Saved: 02_wind_4006_seasonal.png")
     end
 
     # ====== Figure 5: Annual CF by FY ======
-    p5 = plot(legend=true, size=(1600, 600))
+    p5 = plot(legend=true, size=(1800, 700), left_margin=6Plots.mm, right_margin=4Plots.mm, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
 
     df_s = get(sol_4006, "Bannerton_SAT", nothing)
     if df_s !== nothing
