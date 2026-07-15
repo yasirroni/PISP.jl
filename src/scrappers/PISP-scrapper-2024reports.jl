@@ -3,6 +3,11 @@ module ISPReportDownloader
     using HTTP
     using PISP.PISPScrapperUtils: DEFAULT_FILE_HEADERS
 
+    export ISPReportTarget,
+        ReportDownloadFailure,
+        ReportDownloadResult,
+        download_report_targets
+
     struct ISPReportTarget
         key::Symbol
         title::String
@@ -15,6 +20,16 @@ module ISPReportDownloader
                     filename::AbstractString,
                     url::AbstractString) =
         ISPReportTarget(key, String(title), String(filename), String(url))
+
+    struct ReportDownloadFailure
+        target::ISPReportTarget
+        error::String
+    end
+
+    struct ReportDownloadResult
+        paths::Vector{String}
+        failures::Vector{ReportDownloadFailure}
+    end
 
     const DEFAULT_REPORTS_OUTDIR = "data/pisp-reports"
     const PDF_SIGNATURE = UInt8[0x25, 0x50, 0x44, 0x46, 0x2d] # %PDF-
@@ -87,17 +102,23 @@ module ISPReportDownloader
         throttle_seconds !== nothing && throttle_seconds < 0 &&
             throw(ArgumentError("throttle_seconds must be non-negative."))
 
-        saved_paths = String[]
+        paths = String[]
+        failures = ReportDownloadFailure[]
         for target in targets
-            path, downloaded = download_report_target(target;
-                                                       outdir = outdir,
-                                                       overwrite = overwrite,
-                                                       download_function = download_function)
-            push!(saved_paths, path)
-            downloaded && throttle_seconds !== nothing && sleep(throttle_seconds)
+            try
+                path, downloaded = download_report_target(target;
+                                                           outdir = outdir,
+                                                           overwrite = overwrite,
+                                                           download_function = download_function)
+                push!(paths, path)
+                downloaded && throttle_seconds !== nothing && sleep(throttle_seconds)
+            catch err
+                push!(failures, ReportDownloadFailure(target, sprint(showerror, err)))
+                @warn "Failed to download ISP report; continuing with later targets" target = target.key exception = (err, catch_backtrace())
+            end
         end
 
-        return saved_paths
+        return ReportDownloadResult(paths, failures)
     end
 
     function download_report_target(target::ISPReportTarget;

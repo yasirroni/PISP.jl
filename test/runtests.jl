@@ -62,14 +62,15 @@ using Test
             write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                 outdir = outdir,
                                                                 download_function = function (url, path; headers)
                                                                     calls[] += 1
                                                                     error("a valid existing PDF should be skipped")
                                                                 end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 0
             @test readdir(outdir) == [target.filename]
         end
@@ -82,7 +83,7 @@ using Test
             calls = Ref(0)
             received_headers = Ref{Any}(nothing)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                 outdir = outdir,
                                                                 download_function = function (url, path; headers)
                                                                     calls[] += 1
@@ -91,7 +92,8 @@ using Test
                                                                     return path
                                                                 end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 1
             @test received_headers[] == PISP.PISPScrapperUtils.DEFAULT_FILE_HEADERS
             @test read(destination, String) == "%PDF-1.7\nreplacement"
@@ -105,39 +107,29 @@ using Test
             existing = "%PDF-1.7\nexisting"
             write(destination, existing)
 
-            err = try
-                report_downloader.download_report_targets([target];
-                                                           outdir = outdir,
-                                                           overwrite = true,
-                                                           download_function = (url, path; headers) -> write(path, "not a PDF"))
-                nothing
-            catch caught
-                caught
-            end
+            result = report_downloader.download_report_targets([target];
+                                                                outdir = outdir,
+                                                                overwrite = true,
+                                                                download_function = (url, path; headers) -> write(path, "not a PDF"))
 
-            @test err isa ErrorException
-            @test occursin(string(target.key), sprint(showerror, err))
-            @test occursin(target.title, sprint(showerror, err))
-            @test occursin(target.url, sprint(showerror, err))
+            @test isempty(result.paths)
+            @test length(result.failures) == 1
+            @test result.failures[1].target === target
+            @test occursin("not a non-empty PDF", result.failures[1].error)
             @test read(destination, String) == existing
             @test readdir(outdir) == [target.filename]
         end
 
         mktempdir() do outdir
             target = targets[4]
-            err = try
-                report_downloader.download_report_targets([target];
-                                                           outdir = outdir,
-                                                           download_function = (url, path; headers) -> error("request failed"))
-                nothing
-            catch caught
-                caught
-            end
+            result = report_downloader.download_report_targets([target];
+                                                                outdir = outdir,
+                                                                download_function = (url, path; headers) -> error("request failed"))
 
-            @test err isa ErrorException
-            @test occursin(string(target.key), sprint(showerror, err))
-            @test occursin(target.title, sprint(showerror, err))
-            @test occursin(target.url, sprint(showerror, err))
+            @test isempty(result.paths)
+            @test length(result.failures) == 1
+            @test result.failures[1].target === target
+            @test occursin("request failed", result.failures[1].error)
             @test isempty(readdir(outdir))
         end
 
@@ -148,7 +140,7 @@ using Test
             write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                 outdir = outdir,
                                                                 overwrite = true,
                                                                 download_function = function (url, path; headers)
@@ -157,10 +149,30 @@ using Test
                                                                     return path
                                                                 end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 1
             @test read(destination, String) == "%PDF-1.7\nrefreshed"
             @test readdir(outdir) == [target.filename]
+        end
+
+        mktempdir() do outdir
+            failed_target, successful_target = targets[1:2]
+            successful_destination = joinpath(outdir, successful_target.filename)
+
+            result = report_downloader.download_report_targets([failed_target, successful_target];
+                                                                outdir = outdir,
+                                                                download_function = function (url, path; headers)
+                                                                    url == failed_target.url && error("temporary upstream failure")
+                                                                    write(path, "%PDF-1.7\nlater target")
+                                                                    return path
+                                                                end)
+
+            @test result.paths == [successful_destination]
+            @test length(result.failures) == 1
+            @test result.failures[1].target === failed_target
+            @test occursin("temporary upstream failure", result.failures[1].error)
+            @test read(successful_destination, String) == "%PDF-1.7\nlater target"
         end
     end
 
@@ -192,14 +204,15 @@ using Test
             write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                  outdir = outdir,
                                                                  download_function = function (url, path; headers)
                                                                      calls[] += 1
                                                                      error("a valid existing PDF should be skipped")
                                                                  end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 0
         end
 
@@ -210,7 +223,7 @@ using Test
             write(destination, "not a PDF")
             calls = Ref(0)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                  outdir = outdir,
                                                                  download_function = function (url, path; headers)
                                                                      calls[] += 1
@@ -218,7 +231,8 @@ using Test
                                                                      return path
                                                                  end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 1
             @test read(destination, String) == "%PDF-1.7\nreplacement"
         end
@@ -230,19 +244,23 @@ using Test
             existing = "%PDF-1.7\nexisting"
             write(destination, existing)
 
-            @test_throws ErrorException report_downloader.download_report_targets([target];
-                                                                                     outdir = outdir,
-                                                                                     overwrite = true,
-                                                                                     download_function = (url, path; headers) -> write(path, "not a PDF"))
+            result = report_downloader.download_report_targets([target];
+                                                                outdir = outdir,
+                                                                overwrite = true,
+                                                                download_function = (url, path; headers) -> write(path, "not a PDF"))
+            @test isempty(result.paths)
+            @test length(result.failures) == 1
             @test read(destination, String) == existing
         end
 
         mktempdir() do outdir
             target = targets[4]
 
-            @test_throws ErrorException report_downloader.download_report_targets([target];
-                                                                                     outdir = outdir,
-                                                                                     download_function = (url, path; headers) -> error("request failed"))
+            result = report_downloader.download_report_targets([target];
+                                                                outdir = outdir,
+                                                                download_function = (url, path; headers) -> error("request failed"))
+            @test isempty(result.paths)
+            @test length(result.failures) == 1
             @test isempty(readdir(outdir))
         end
 
@@ -253,7 +271,7 @@ using Test
             write(destination, "%PDF-1.7\nexisting")
             calls = Ref(0)
 
-            paths = report_downloader.download_report_targets([target];
+            result = report_downloader.download_report_targets([target];
                                                                  outdir = outdir,
                                                                  overwrite = true,
                                                                  download_function = function (url, path; headers)
@@ -262,9 +280,29 @@ using Test
                                                                      return path
                                                                  end)
 
-            @test paths == [destination]
+            @test result.paths == [destination]
+            @test isempty(result.failures)
             @test calls[] == 1
             @test read(destination, String) == "%PDF-1.7\nrefreshed"
+        end
+
+        mktempdir() do outdir
+            failed_target, successful_target = targets[1:2]
+            successful_destination = joinpath(outdir, successful_target.filename)
+
+            result = report_downloader.download_report_targets([failed_target, successful_target];
+                                                                 outdir = outdir,
+                                                                 download_function = function (url, path; headers)
+                                                                     url == failed_target.url && error("temporary upstream failure")
+                                                                     write(path, "%PDF-1.7\nlater target")
+                                                                     return path
+                                                                 end)
+
+            @test result.paths == [successful_destination]
+            @test length(result.failures) == 1
+            @test result.failures[1].target === failed_target
+            @test occursin("temporary upstream failure", result.failures[1].error)
+            @test read(successful_destination, String) == "%PDF-1.7\nlater target"
         end
     end
 
@@ -274,8 +312,8 @@ using Test
         expected_targets = [
             (:isp26_inputs, "2026 ISP Inputs and Assumptions workbook", "2026-isp-inputs-and-assumptions-workbook.xlsm", "", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-inputs-and-assumptions-workbook.xlsm?rev=de6f5853cd5e4d5cbb06bc90bdf0e378&sc_lang=en"),
             (:isp26_ev_support, "2025 IASR EV workbook referenced by the final 2026 ISP workbook", "aemo-2025-iasr-ev-workbook.xlsx", "", "https://aemo.com.au/-/media/files/stakeholder_consultation/consultations/nem-consultations/2024/2025-iasr-scenarios/final-docs/AEMO-2025-IASR-EV-workbook"),
-            (:isp26_outlook, "2026 ISP generation and storage outlook", "2026-isp-generation-and-storage-outlook.zip", "", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-generation-and-storage-outlook.zip?rev=b64eda28a46b4d3eb3e4b3cbafea3f84&sc_lang=en"),
-            (:isp26_model, "2026 ISP Model", "2026-isp-model.zip", "", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-model.zip?rev=78bfcf05ad414a8f9ba01f6a7c329fc2&sc_lang=en"),
+            (:isp26_outlook, "2026 ISP generation and storage outlook", "2026-isp-generation-and-storage-outlook.zip", "zip", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/supporting-materials/2026-isp-generation-and-storage-outlook.zip?rev=b64eda28a46b4d3eb3e4b3cbafea3f84&sc_lang=en"),
+            (:isp26_model, "2026 ISP Model", "2026-isp-model.zip", "zip", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-model.zip?rev=78bfcf05ad414a8f9ba01f6a7c329fc2&sc_lang=en"),
             (:isp26_solar_traces, "2026 ISP Solar traces", "2026-isp-solar-traces.zip", "zip/Traces", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-solar-traces.zip?rev=3ad06155b7b94628bc77b90efe94588e&sc_lang=en"),
             (:isp26_wind_traces, "2026 ISP Wind traces", "2026-isp-wind-traces.zip", "zip/Traces", "https://www.aemo.com.au/-/media/files/major-publications/isp/2026/isp-model/2026-isp-wind-traces.zip?rev=73674cd5bc6b4b7fbbc7d0e68ee0bc7c&sc_lang=en"),
         ]
