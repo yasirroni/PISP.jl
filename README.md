@@ -24,11 +24,11 @@ poe             = 10           # Probability of exceedance (POE) for demand
 target_years    = [2030, 2031] # Planning years for which to generate datasets
 
 PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+    downloadpath = joinpath(@__DIR__, "..", "data", "2024", "pisp-downloads"),
     poe          = poe,
     reftrace     = reference_trace,
     years        = target_years,
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "2024", "pisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
@@ -42,11 +42,11 @@ using PISP
 
 # Build datasets for specific date windows instead of full calendar years
 PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+    downloadpath = joinpath(@__DIR__, "..", "data", "2024", "pisp-downloads"),
     poe          = 10,
     reftrace     = 4006,
     drange       = [("01-01-2030", "31-03-2030"), ("01-07-2031", "30-09-2031")],
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "2024", "pisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
@@ -61,7 +61,7 @@ Download the ten selected 2024 ISP report PDFs from AEMO with:
 using PISP
 
 report_paths = PISP.download_isp_reports(
-    outdir    = joinpath(@__DIR__, "..", "data", "pisp-reports"),
+    outdir    = joinpath(@__DIR__, "..", "data", "2024", "pisp-reports"),
     overwrite = false,
     )
 ```
