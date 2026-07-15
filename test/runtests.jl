@@ -282,6 +282,7 @@ using Test
 
         @test isdefined(PISP, :download_isp2026_assets)
         @test PISP.download_isp2026_assets === downloader.download_isp2026_files
+        @test downloader.DEFAULT_FILES_OUTDIR == PISP.ISPFileDownloader.DEFAULT_FILES_OUTDIR
         @test [(target.key, target.title, target.filename, target.subdir, target.url) for target in targets] == expected_targets
 
         mktempdir() do outdir

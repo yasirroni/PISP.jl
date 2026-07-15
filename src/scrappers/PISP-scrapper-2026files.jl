@@ -17,7 +17,7 @@ module ISP2026FileDownloader
                   subdir::AbstractString = "") =
         ISPFileTarget(key, String(title), String(url), String(filename), String(subdir))
 
-    const DEFAULT_FILES_OUTDIR = "data/2026/pisp-downloads"
+    const DEFAULT_FILES_OUTDIR = "scrapped/ISP_reference_files"
 
     # Solar and wind traces are direct archives for the 2026 release, unlike the
     # HTML-discovered trace links used by the 2024 downloader.
@@ -53,7 +53,7 @@ module ISP2026FileDownloader
     isp_file_targets() = copy(ISP_FILE_TARGETS)
 
     """
-        download_isp2026_files(; outdir = "data/2026/pisp-downloads", overwrite = false, throttle_seconds = nothing)
+        download_isp2026_files(; outdir = "scrapped/ISP_reference_files", overwrite = false, throttle_seconds = nothing)
 
     Download the six direct 2026 ISP source assets. Existing files are retained unless
     `overwrite = true`. This downloader does not extract archives or derive trace data.
