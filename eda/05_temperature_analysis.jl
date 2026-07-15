@@ -344,7 +344,7 @@ function main()
         summer = filter(row -> row.Month in (12, 1, 2), df)
         nrow(summer) == 0 && continue
         daily = [mean(row[col] for col in HH_COLS_SOL) for row in eachrow(summer)]
-        histogram!(p1, daily, bins=50, alpha=0.5, label="$(zone) ($(loc))", density=true)
+        histogram!(p1, daily, bins=50, alpha=0.5, label="$(zone) ($(loc))", normalize=:pdf)
     end
     savefig(p1, figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"))
     println("Saved: 05_cf_by_climate_zone.png")
