@@ -76,6 +76,29 @@ for target in PISP.ISPReportDownloader.isp_report_targets()
 end
 ```
 
+## Download 2026 ISP report PDFs
+
+Download the ten selected 2026 ISP report PDFs from AEMO with:
+
+```julia
+using PISP
+
+report_paths = PISP.download_isp2026_reports(
+    outdir    = joinpath(@__DIR__, "..", "data", "2026", "pisp-reports"),
+    overwrite = false,
+    )
+```
+
+To inspect the ten 2026 targets without downloading anything:
+
+```julia
+using PISP
+
+for target in PISP.ISP2026ReportDownloader.isp_report_targets()
+    println(target.key, " -> ", target.filename)
+end
+```
+
 ## Optional parameters for PISP.build_ISP24_datasets()
 
 There are multiple parameters that can be adjusted when generating the dataset from the public 2024 Integrated System Plan (ISP) datafiles:
