@@ -404,15 +404,22 @@ function main()
     sort!(sol_annual, :mean_pmax)
     sort!(wind_annual, :mean_pmax)
 
-    p_overview = plot(layout=(2,2), size=(1000, 800))
+    # Create bar plots using a workaround: use scatter with horizontal lines instead
+    p_sol_bar = scatter(sol_annual.mean_pmax, 1:nrow(sol_annual),
+                        title="Solar Generators — Annual Mean pmax (MW)", xlabel="PMax (MW)", ylabel="",
+                        legend=false, grid=true, gridalpha=0.3, markersize=0,
+                        yticks=(1:nrow(sol_annual), string.(sol_annual.id_gen)))
+    for i in 1:nrow(sol_annual)
+        plot!(p_sol_bar, [0, sol_annual.mean_pmax[i]], [i, i], color=:orange, alpha=0.7, label="")
+    end
 
-    # Solar pmax
-    bar!(p_overview[1], 1:nrow(sol_annual), sol_annual.mean_pmax, orientation=:h, legend=false, color=:orange, alpha=0.7)
-    plot!(p_overview[1], title="Solar Generators — Annual Mean pmax (MW)", ylabel="", xlabel="PMax (MW)", grid=true, gridalpha=0.3)
-
-    # Wind pmax
-    bar!(p_overview[2], 1:nrow(wind_annual), wind_annual.mean_pmax, orientation=:h, legend=false, color=:steelblue, alpha=0.7)
-    plot!(p_overview[2], title="Wind Generators — Annual Mean pmax (MW)", ylabel="", xlabel="PMax (MW)", grid=true, gridalpha=0.3)
+    p_wind_bar = scatter(wind_annual.mean_pmax, 1:nrow(wind_annual),
+                         title="Wind Generators — Annual Mean pmax (MW)", xlabel="PMax (MW)", ylabel="",
+                         legend=false, grid=true, gridalpha=0.3, markersize=0,
+                         yticks=(1:nrow(wind_annual), string.(wind_annual.id_gen)))
+    for i in 1:nrow(wind_annual)
+        plot!(p_wind_bar, [0, wind_annual.mean_pmax[i]], [i, i], color=:steelblue, alpha=0.7, label="")
+    end
 
     # Demand by area (daily)
     area_map_plot = Dict(row.id_bus => row.id_area for row in eachrow(bus_df))
@@ -423,12 +430,12 @@ function main()
     dem_load_full_plot.date_only = Date.(dem_load_full_plot.datetime)
     dem_daily_area = combine(groupby(dem_load_full_plot, [:date_only, :area_name]), :value => sum => :total_demand_mw)
 
+    p_demand = plot(title="Daily Total Demand (MW) by NEM Area", xlabel="Date", ylabel="Demand (MW)",
+                    legend=:topright, grid=true, gridalpha=0.3)
     for area in sort(unique(dem_daily_area.area_name))
         area_data = filter(row -> row.area_name == area, dem_daily_area)
-        plot!(p_overview[3], area_data.date_only, area_data.total_demand_mw, label=area, linewidth=1, alpha=0.7)
+        plot!(p_demand, area_data.date_only, area_data.total_demand_mw, label=area, linewidth=1, alpha=0.7)
     end
-    plot!(p_overview[3], title="Daily Total Demand (MW) by NEM Area", xlabel="Date", ylabel="Demand (MW)",
-          legend=:topright, grid=true, gridalpha=0.3)
 
     # CF duration curve
     sol_cf_grouped = combine(groupby(sol_sched, :id_gen), :value => mean => :mean_val, :value => maximum => :max_val)
@@ -448,10 +455,13 @@ function main()
     end
     wind_cf_sorted = sort(wind_cf_vals; rev=true)
 
-    plot!(p_overview[4], sol_cf_sorted, label="Solar CF", color=:orange, linewidth=1.5, alpha=0.7)
-    plot!(p_overview[4], wind_cf_sorted, label="Wind CF", color=:steelblue, linewidth=1.5, alpha=0.7)
-    plot!(p_overview[4], title="Capacity Factor Duration Curve (2030)", xlabel="Generator Rank", ylabel="Capacity Factor",
-          legend=:topright, grid=true, gridalpha=0.3)
+    p_cf = plot(sol_cf_sorted, label="Solar CF", color=:orange, linewidth=1.5, alpha=0.7,
+                title="Capacity Factor Duration Curve (2030)", xlabel="Generator Rank", ylabel="Capacity Factor",
+                legend=:topright, grid=true, gridalpha=0.3)
+    plot!(p_cf, wind_cf_sorted, label="Wind CF", color=:steelblue, linewidth=1.5, alpha=0.7)
+
+    # Combine all 4 plots into a 2x2 layout
+    p_overview = plot(p_sol_bar, p_wind_bar, p_demand, p_cf, layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
     savefig(p_overview, figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"))
     println("Saved: 06_pisp_outputs_overview.png")
@@ -466,7 +476,7 @@ function main()
     dem_daily_ts_plot = combine(groupby(dem_load_full_plot, :date_only), :value => sum => :total_demand)
 
     p_ts = plot(size=(1200, 600), title="2030 — Daily Aggregate: Solar PMax, Wind PMax, Total Demand",
-               xlabel="Date", ylabel="GW", legend=:topright, grid=true, gridalpha=0.3)
+               xlabel="Date", ylabel="GW", legend=:topright, grid=true, gridalpha=0.3, left_margin=8Plots.mm)
     plot!(p_ts, sol_daily_ts.date_only, sol_daily_ts.total ./ 1000, label="Solar PMax (GW)", color=:orange, linewidth=1, alpha=0.7)
     plot!(p_ts, wind_daily_ts.date_only, wind_daily_ts.total ./ 1000, label="Wind PMax (GW)", color=:steelblue, linewidth=1, alpha=0.7)
     plot!(p_ts, dem_daily_ts_plot.date_only, dem_daily_ts_plot.total_demand ./ 1000, label="Total Demand (GW)", color=:grey, linewidth=1, alpha=0.7)
@@ -488,7 +498,7 @@ function main()
     wind_profile = combine(groupby(wind_subset, [:id_gen, :hour]), :value => mean => :mean_pmax)
     sort!(wind_profile, :id_gen)
 
-    p_detailed = plot(layout=(2,2), size=(1000, 800))
+    p_detailed = plot(layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
     # Solar hourly profile
     top_sol_gens = unique(sol_profile.id_gen)[1:min(5, length(unique(sol_profile.id_gen)))]
