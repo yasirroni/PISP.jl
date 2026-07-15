@@ -53,9 +53,9 @@ PISP.build_ISP24_datasets(
     )
 ```
 
-## Download 2024 ISP report PDFs
+## Download ISP report PDFs
 
-Download the ten selected 2024 ISP report PDFs from AEMO with:
+Download selected ISP report PDFs from AEMO:
 
 ```julia
 using PISP
@@ -64,14 +64,6 @@ PISP.download_ISP24_reports(
     outdir    = joinpath(@__DIR__, "..", "data", "2024", "pisp-reports"),
     overwrite = false,
     )
-```
-
-## Download 2026 ISP report PDFs
-
-Download the ten selected 2026 ISP report PDFs from AEMO with:
-
-```julia
-using PISP
 
 PISP.download_ISP26_reports(
     outdir    = joinpath(@__DIR__, "..", "data", "2026", "pisp-reports"),
@@ -81,18 +73,24 @@ PISP.download_ISP26_reports(
 
 ## Download 2026 ISP source data
 
-Download the six direct 2026 ISP source assets from AEMO with:
+Download 2026 ISP source assets from AEMO:
 
 ```julia
 using PISP
 
+isp2026_downloads_dir = joinpath(@__DIR__, "..", "data", "2026", "pisp-downloads")
 source_paths = PISP.download_isp2026_assets(
-    outdir    = joinpath(@__DIR__, "..", "data", "2026", "pisp-downloads"),
+    outdir    = isp2026_downloads_dir,
     overwrite = false,
     )
+
+PISP.ISPdatabuilder.extract_downloads(
+    data_root = isp2026_downloads_dir,
+)
 ```
 
-The 2026 solar and wind trace archives are stored below `zip/Traces/` within the selected download directory. The downloader does not extract archives or build datasets.
+> [!NOTE]
+> The 2026 ISP parser is still under review, see [ParseISP.jl](https://github.com/airampg/ParseISP.jl).
 
 ## Optional parameters for PISP.build_ISP24_datasets()
 
