@@ -5,11 +5,15 @@ using DataFrames
 using Dates
 using Printf
 using Statistics
+using Plots
 
 const SCRIPT_STEM = "07_demand_heat_events"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const OUT = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
+
+gr()
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
     path = joinpath(root, producer, script_stem)
@@ -27,6 +31,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     CSV.write(path, frame; missingstring = "")
     println("Saved table: ", path)
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 const HH_COLS_SOL = string.(1:48)
@@ -219,6 +234,110 @@ function main()
         SCRIPT_STEM,
         "demand_heat_event_summary",
     )
+
+    # ====== Figure 1: VIC demand + solar CF time series ======
+    p1 = plot(layout=(2,1), size=(1200, 800))
+
+    if haskey(sol_4006, "Bannerton_SAT")
+        sol_vic = sol_4006["Bannerton_SAT"]
+        sol_vic_daily = daily_cf(sol_vic, HH_COLS_SOL)
+        sol_vic_dates = sol_vic.datetime
+        sol_rolling = [i < 7 ? NaN : mean(sol_vic_daily[max(1,i-6):i]) for i in 1:length(sol_vic_daily)]
+
+        plot!(p1[1], sol_vic_dates, sol_vic_daily, color=:orange, linewidth=0.5, alpha=0.7, label="Solar CF (Bannerton)")
+        plot!(p1[1], sol_vic_dates, sol_rolling, color=:darkred, linewidth=2, label="7-day avg")
+        plot!(p1[1], title="4006 Solar CF — Bannerton VIC (Full Period)", ylabel="Daily Mean CF",
+              ylim=(0, 0.4), legend=:topright, grid=true, gridalpha=0.3)
+    end
+
+    vic_dem_dates = vic_daily.date_only
+    vic_dem_values = vic_daily.demand
+    vic_rolling = [i < 7 ? NaN : mean(vic_dem_values[max(1,i-6):i]) for i in 1:length(vic_dem_values)]
+
+    plot!(p1[2], vic_dem_dates, vic_dem_values, color=:grey, linewidth=0.5, alpha=0.7, label="VIC Demand")
+    plot!(p1[2], vic_dem_dates, vic_rolling, color=:black, linewidth=2, label="7-day avg")
+    plot!(p1[2], title="2030 VIC Daily Mean Demand (MW)", xlabel="Date", ylabel="Demand (MW)",
+          legend=:topright, grid=true, gridalpha=0.3)
+
+    savefig(p1, figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"))
+    println("Saved: 07_vic_demand_solar_4006.png")
+
+    # ====== Figure 2: Scatter plot demand vs solar CF ======
+    p2 = plot(size=(800, 600), title="VIC Demand vs Solar CF (2030, Bannerton)",
+             xlabel="Daily Mean Solar CF", ylabel="Daily Mean Demand (MW)",
+             legend=:bottomright, grid=true, gridalpha=0.3)
+
+    if nrow(merged) > 0
+        scatter!(p2, merged.solar_cf, merged.demand, markersize=2, alpha=0.3, color=:purple, label="")
+
+        threshold_demand = quantile(merged.demand, 0.9)
+        threshold_solar = quantile(merged.solar_cf, 0.1)
+        bad_days = merged[(merged.demand .> threshold_demand) .& (merged.solar_cf .< threshold_solar), :]
+
+        scatter!(p2, bad_days.solar_cf, bad_days.demand, markersize=4, color=:red,
+                label="High demand (>$(round(Int, threshold_demand)) MW) + Low solar (<$(round(threshold_solar, digits=3)) CF)")
+    end
+
+    savefig(p2, figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"))
+    println("Saved: 07_demand_vs_solar_scatter.png")
+
+    # ====== Figure 3: Demand heat events (2x2 subplots) ======
+    p3 = plot(layout=(2,2), size=(1000, 800))
+
+    # Hourly profile for heat days vs normal days
+    hours = 0:23
+    heat_vals = [get(heat_hourly, h, NaN) for h in hours]
+    normal_vals = [get(normal_hourly, h, NaN) for h in hours]
+
+    plot!(p3[1], hours, heat_vals, color=:red, linewidth=2, marker=:o, markersize=3,
+          label="Heat days (>$(round(Int, demand_p95)) MW, n=$(length(heat_days)))")
+    plot!(p3[1], hours, normal_vals, color=:blue, linewidth=2, marker=:s, markersize=3,
+          label="Normal days (<$(round(Int, demand_p90)) MW, n=$(length(normal_days)))")
+    plot!(p3[1], title="VIC Demand: Heat Event Days vs Normal Days", xlabel="Hour", ylabel="Demand (MW)",
+          legend=:topright, grid=true, gridalpha=0.3)
+
+    # Duration curve
+    sorted_demand = sort(vic_daily.demand; rev=true)
+    plot!(p3[2], sorted_demand, color=:grey, linewidth=1.5, label="", legend=false)
+    hline!(p3[2], [demand_p90], color=:blue, linestyle=:dash, label="P90=$(round(Int, demand_p90))")
+    hline!(p3[2], [demand_p95], color=:red, linestyle=:dash, label="P95=$(round(Int, demand_p95))")
+    plot!(p3[2], title="VIC Demand Duration Curve (2030)", xlabel="Day Rank", ylabel="Demand (MW)",
+          legend=:topright, grid=true, gridalpha=0.3)
+
+    # Heatmap: demand by month and hour
+    dem_load_heat = deepcopy(vic_dem)
+    dem_load_heat = transform(dem_load_heat, :date => ByRow(x -> month(x)) => :month_int)
+    dem_load_heat = transform(dem_load_heat, :date => ByRow(x -> hour(x)) => :hour)
+    heatmap_data = zeros(12, 24)
+    counts = zeros(12, 24)
+    for row in eachrow(dem_load_heat)
+        m = row.month_int
+        h = row.hour + 1
+        if 1 <= m <= 12 && 1 <= h <= 24
+            heatmap_data[m, h] += row.value
+            counts[m, h] += 1
+        end
+    end
+    heatmap_data = heatmap_data ./ max.(counts, 1)
+
+    heatmap!(p3[3], 0:23, 1:12, heatmap_data, c=:YlOrRd, title="VIC Demand Heatmap: Month vs Hour",
+            xlabel="Hour", ylabel="Month", legend=false)
+
+    # Normalized demand and solar
+    if nrow(merged) > 0
+        merged_sorted = sort(merged, :demand)
+        day_ranks = 1:nrow(merged_sorted)
+        demand_norm = merged_sorted.demand ./ maximum(merged_sorted.demand)
+        solar_norm = merged_sorted.solar_cf ./ maximum(merged_sorted.solar_cf)
+
+        bar!(p3[4], day_ranks, demand_norm, alpha=0.5, color=:grey, label="VIC Demand (norm)", legend=:topright)
+        plot!(p3[4], day_ranks, solar_norm, color=:orange, linewidth=1, label="Solar CF (norm)")
+        plot!(p3[4], title="Normalized Demand & Solar CF (sorted by demand)", xlabel="Day Rank",
+              grid=true, gridalpha=0.3)
+    end
+
+    savefig(p3, figure_path(SCRIPT_STEM, "07_demand_heat_events.png"))
+    println("Saved: 07_demand_heat_events.png")
 
     println("\nDone.")
 end

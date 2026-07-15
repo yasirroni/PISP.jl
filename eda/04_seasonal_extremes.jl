@@ -5,10 +5,12 @@ using DataFrames
 using Dates
 using Printf
 using Statistics
+using Plots
 
 const SCRIPT_STEM = "04_seasonal_extremes"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
     path = joinpath(root, producer, script_stem)
@@ -26,6 +28,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     CSV.write(path, frame; missingstring = "")
     println("Saved table: ", path)
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 const HH_COLS_SOL = string.(1:48)
@@ -267,12 +280,168 @@ function write_black_summer_table()
 end
 
 function main()
+    gr()  # Select GR backend for static PNG output
+
     write_hot_cool_summary_table()
     write_low_output_events_table()
     worst_rows = write_worst_solar_day_table()
     write_worst_solar_day_profile_table(worst_rows)
     write_monthly_cf_2019_table()
     write_black_summer_table()
+
+    # ====== Figure 1: Hot vs Cool summer solar profiles ======
+    plots_hot_cool = []
+    for (season_type, year_list, color) in [("Hot Summers", HOT_SUMMERS, :darkred), ("Cool Summers", COOL_SUMMERS, :steelblue)]
+        p = plot(legend=false, size=(1400, 400))
+        for yr in year_list
+            df = load_trace("solar", yr, SOLAR_LOC)
+            df === nothing && continue
+            summer_mask = in.(df.Month, Ref((12, 1, 2)))
+            any(summer_mask) || continue
+            summer = df[summer_mask, :]
+            daily = [mean(skipmissing(Vector(summer[i, HH_COLS_SOL]))) for i in 1:nrow(summer)]
+            rolling3 = rolling_mean(daily, 3)
+            plot!(p, summer.datetime, daily, linewidth=0.5, alpha=0.6, color=color, label="$yr")
+            plot!(p, summer.datetime, rolling3, linewidth=1.5, color=:black, alpha=0.8, label="")
+        end
+        plot!(p, title="Solar $(SOLAR_LOC) — $(season_type) Daily Mean CF", ylabel="Daily Mean CF",
+              ylim=(0, 0.5), grid=true, gridalpha=0.3)
+        push!(plots_hot_cool, p)
+    end
+    p_hc = plot(plots_hot_cool..., layout=(2,1), size=(1400, 800))
+    savefig(p_hc, figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"))
+    println("Saved: 04_hot_vs_cool_summer_solar.png")
+
+    # ====== Figure 2: Low output events (2x2 grid) ======
+    # Histogram of solar low events
+    solar_low_events = []
+    wind_low_events = []
+    worst_solar_days_data = Dict()
+    worst_day_profile_data = Dict()
+
+    for yr in 2011:2023
+        df = load_trace("solar", yr, SOLAR_LOC)
+        df === nothing && continue
+        summer_mask = in.(df.Month, Ref((12, 1, 2)))
+        any(summer_mask) || continue
+        summer = df[summer_mask, :]
+        daily = [mean(skipmissing(Vector(summer[i, HH_COLS_SOL]))) for i in 1:nrow(summer)]
+
+        # Find consecutive low output events (< 0.1 for 3+ days)
+        rows = low_output_events_for("solar", SOLAR_LOC, HH_COLS_SOL, 0.1, yr)
+        for row in rows
+            push!(solar_low_events, row.duration)
+        end
+
+        # Find worst day for this year
+        worst_pos = argmin(daily)
+        worst_solar_days_data[yr] = (date = summer.datetime[worst_pos], cf = daily[worst_pos])
+    end
+
+    for yr in 2011:2023
+        df = load_trace("wind", yr, WIND_LOC)
+        df === nothing && continue
+        summer_mask = in.(df.Month, Ref((12, 1, 2)))
+        any(summer_mask) || continue
+        summer = df[summer_mask, :]
+        daily = [mean(skipmissing(Vector(summer[i, HH_COLS_WIND]))) for i in 1:nrow(summer)]
+
+        # Find consecutive low output events (< 0.15 for 3+ days)
+        rows = low_output_events_for("wind", WIND_LOC, HH_COLS_WIND, 0.15, yr)
+        for row in rows
+            push!(wind_low_events, row.duration)
+        end
+    end
+
+    # Plots for the 2x2 grid
+    p_sol_hist = histogram(solar_low_events, bins=1:maximum(solar_low_events)+1, color=:darkorange, alpha=0.7,
+                           legend=false, title="Solar $(SOLAR_LOC) — Duration of Low-Output Events (≥3 days)",
+                           xlabel="Consecutive Days Below Threshold", ylabel="Count", grid=true, gridalpha=0.3)
+
+    p_wind_hist = histogram(wind_low_events, bins=1:maximum(wind_low_events)+1, color=:steelblue, alpha=0.7,
+                            legend=false, title="Wind $(WIND_LOC) — Duration of Low-Output Events (≥3 days)",
+                            xlabel="Consecutive Days Below Threshold", ylabel="Count", grid=true, gridalpha=0.3)
+
+    # Worst days bar chart
+    worst_yrs = sort(collect(keys(worst_solar_days_data)))
+    worst_cfs = [worst_solar_days_data[yr].cf for yr in worst_yrs]
+    p_worst_days = bar(string.(worst_yrs), worst_cfs, color=:darkorange, alpha=0.7, legend=false,
+                       title="Solar $(SOLAR_LOC) — Worst Summer Day by Year (sorted)",
+                       ylabel="Daily Mean CF", grid=true, gridalpha=0.3)
+
+    # Worst day profile
+    if !isempty(worst_rows)
+        best_idx = argmin([r.cf for r in worst_rows])
+        worst = worst_rows[best_idx]
+        yr = worst.year
+        worst_date = Date(worst.date, "yyyy-mm-dd")
+        df = load_trace("solar", yr, SOLAR_LOC)
+        if df !== nothing
+            mask = df.datetime .== worst_date
+            if any(mask)
+                row_idx = findfirst(mask)
+                half_hours = collect(0.5:0.5:24.0)
+                hh_vals = Vector(df[row_idx, HH_COLS_SOL])
+                p_worst_profile = plot(half_hours, hh_vals, linewidth=2, marker=:circle, markersize=3,
+                                      color=:darkred, legend=false,
+                                      title="Worst Solar Day: $(worst.date) (CF=$(round(worst.cf, digits=3)))",
+                                      xlabel="Hour", ylabel="Capacity Factor", ylim=(0, 1),
+                                      grid=true, gridalpha=0.3)
+            else
+                p_worst_profile = plot(legend=false)
+            end
+        else
+            p_worst_profile = plot(legend=false)
+        end
+    else
+        p_worst_profile = plot(legend=false)
+    end
+
+    p_low_out = plot(p_sol_hist, p_wind_hist, p_worst_days, p_worst_profile, layout=(2,2), size=(1400, 1000))
+    savefig(p_low_out, figure_path(SCRIPT_STEM, "04_low_output_events.png"))
+    println("Saved: 04_low_output_events.png")
+
+    # ====== Figure 3: Monthly CF 2019 ======
+    df_2019 = load_trace("solar", 2019, SOLAR_LOC)
+    if df_2019 !== nothing
+        monthly_means = Float64[]
+        monthly_stds = Float64[]
+        months = 1:12
+        for m in months
+            mask = df_2019.Month .== m
+            if any(mask)
+                sub = df_2019[mask, :]
+                col_means = [mean(skipmissing(Vector(sub[i, HH_COLS_SOL]))) for i in 1:nrow(sub)]
+                col_stds = [std(skipmissing(Vector(sub[i, HH_COLS_SOL]))) for i in 1:nrow(sub)]
+                push!(monthly_means, mean(col_means))
+                push!(monthly_stds, mean(col_stds))
+            else
+                push!(monthly_means, 0.0)
+                push!(monthly_stds, 0.0)
+            end
+        end
+        month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        p_monthly = bar(month_labels, monthly_means, yerror=monthly_stds, color=:darkorange, alpha=0.6,
+                        edgecolor=:black, legend=false,
+                        title="Solar $(SOLAR_LOC) 2019 — Monthly Mean CF ± Std",
+                        xlabel="Month", ylabel="Mean Capacity Factor", grid=true, gridalpha=0.3, size=(1200, 500))
+        savefig(p_monthly, figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"))
+        println("Saved: 04_monthly_cf_2019.png")
+    end
+
+    # ====== Figure 4: Summer 2019 Black Summer ======
+    df_2019 = load_trace("solar", 2019, SOLAR_LOC)
+    if df_2019 !== nothing
+        summer_2019 = df_2019[in.(df_2019.Month, Ref((12, 1, 2))), :]
+        daily = [mean(skipmissing(Vector(summer_2019[i, HH_COLS_SOL]))) for i in 1:nrow(summer_2019)]
+        rolling3 = rolling_mean(daily, 3)
+        p_black = plot(summer_2019.datetime, daily, linewidth=0.5, color=:darkorange, alpha=0.7, legend=false)
+        plot!(p_black, summer_2019.datetime, rolling3, linewidth=2, color=:darkred, label="")
+        plot!(p_black, title="Solar $(SOLAR_LOC) — Summer 2019 (Black Summer)", ylabel="Daily Mean CF",
+              ylim=(0, 0.5), grid=true, gridalpha=0.3, size=(1600, 500))
+        savefig(p_black, figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"))
+        println("Saved: 04_summer_2019_black_summer.png")
+    end
 
     println("\nDone.")
 end

@@ -5,10 +5,14 @@ using DataFrames
 using Dates
 using Printf
 using Statistics
+using Plots
 
 const SCRIPT_STEM = "08_4006_composite_map"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
+
+gr()
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
     path = joinpath(root, producer, script_stem)
@@ -26,6 +30,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     CSV.write(path, frame; missingstring = "")
     println("Saved table: ", path)
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 const HH_COLS_SOL = string.(1:48)
@@ -194,6 +209,119 @@ function main()
     println("Total years: ", nrow(mapping))
     println("Unique historical years used: ", sort(unique(mapping.ref_year)))
     write_ref_year_counts_table(mapping)
+
+    # ====== Figure 1: Timeline of historical years in 4006 ======
+    unique_years = sort(unique(mapping.ref_year))
+    color_map = Dict(yr => palette(:tab20)[i % 20 + 1] for (i, yr) in enumerate(unique_years))
+
+    # Create the timeline plot using a bar chart
+    p1 = plot(xlim=(0, nrow(mapping)), ylim=(0.5, 1.5), legend=:none, title="4006 Reference Trace — Historical Year Mapping\n(Each bar = one financial year, color = source historical year)",
+             xlabel="Financial Year", ylabel="", yticks=([1], ["4006 Trace"]), size=(1400, 400), grid=false)
+
+    for (idx, row) in enumerate(eachrow(mapping))
+        color = color_map[row.ref_year]
+        bar!(p1, [idx], [1.0], color=color, alpha=0.8, legend=false, width=1)
+        # Add text label for the reference year
+        if idx % 2 == 1
+            annotate!(p1, idx, 1.1, text("$(row.ref_year)", 7, :center))
+        end
+    end
+
+    savefig(p1, figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"))
+    println("Saved: 08_4006_timeline_map.png")
+
+    # ====== Figure 2: VRE CF by historical year ======
+    write_historical_year_vre_stats_table(mapping)
+    stats = CSV.read(table_path(SCRIPT_STEM, "historical_year_vre_stats"), DataFrame)
+
+    p2 = plot(layout=(1,2), size=(1000, 500))
+
+    for (idx, tech) in enumerate(("solar", "wind"))
+        tech_df = filter(row -> row.tech == tech, stats)
+        sort!(tech_df, :ref_year)
+        colors = [color_map[yr] for yr in tech_df.ref_year]
+
+        years_labels = string.(tech_df.ref_year)
+        for (i, (year, cf, p5_cf)) in enumerate(zip(tech_df.ref_year, tech_df.summer_mean_cf, tech_df.summer_p5_cf))
+            bar!(p2[idx], [i], [cf], color=colors[i], alpha=0.8, legend=false, width=0.8)
+        end
+
+        # Error caps
+        errors = tech_df.summer_mean_cf .- tech_df.summer_p5_cf
+        scatter!(p2[idx], 1:nrow(tech_df), tech_df.summer_mean_cf, color=:black, markersize=3, label="")
+
+        plot!(p2[idx], title="$(uppercase(tech)) $(SOLAR_LOC) — Summer CF by Historical Year",
+              xlabel="Historical Year", ylabel="Summer Daily Mean CF", xticks=(1:nrow(tech_df), years_labels),
+              ylim=(0, 0.5), grid=true, gridalpha=0.3)
+    end
+
+    savefig(p2, figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"))
+    println("Saved: 08_vre_by_historical_year.png")
+
+    # ====== Figure 3: Near-term vs far-term daily CF ======
+    write_near_vs_far_term_table()
+
+    p3 = plot(layout=(2,1), size=(1200, 800))
+
+    for (idx, (tech, loc, hh_cols, color)) in enumerate([("solar", SOLAR_LOC, HH_COLS_SOL, :orange), ("wind", WIND_LOC, HH_COLS_WIND, :steelblue)])
+        near_cf = load_year_cf(NEAR_YEARS, tech, loc, hh_cols)
+        far_cf = load_year_cf(FAR_YEARS, tech, loc, hh_cols)
+
+        ax_idx = idx
+
+        if near_cf !== nothing
+            plot!(p3[ax_idx], near_cf, color=color, linewidth=0.5, alpha=0.5, label="Near-term 2025-2029")
+            near_rolling = [i < 30 ? NaN : mean(near_cf[max(1,i-29):i]) for i in 1:length(near_cf)]
+            plot!(p3[ax_idx], near_rolling, color=color, linewidth=2, label="Near-term 30d avg")
+        end
+
+        if far_cf !== nothing
+            plot!(p3[ax_idx], far_cf, color=:grey, linewidth=0.5, alpha=0.5, label="Far-term 2045-2049")
+            far_rolling = [i < 30 ? NaN : mean(far_cf[max(1,i-29):i]) for i in 1:length(far_cf)]
+            plot!(p3[ax_idx], far_rolling, color=:black, linewidth=2, linestyle=:dash, label="Far-term 30d avg")
+        end
+
+        plot!(p3[ax_idx], title="$(uppercase(tech)) $(loc) — Near-term vs Far-term Daily CF",
+              xlabel="Day of Year", ylabel="Daily Mean CF", ylim=(0, 0.6), legend=:topright, grid=true, gridalpha=0.3)
+    end
+
+    savefig(p3, figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"))
+    println("Saved: 08_near_vs_far_term.png")
+
+    # ====== Figure 4: Year-by-year CF heatmap ======
+    write_vre_heatmap_table(mapping)
+    heatmap_df = CSV.read(table_path(SCRIPT_STEM, "vre_heatmap"), DataFrame)
+
+    years_unique = sort(unique(heatmap_df.ref_year))
+    solar_data = filter(row -> row.tech == "solar", heatmap_df)
+    wind_data = filter(row -> row.tech == "wind", heatmap_df)
+
+    sort!(solar_data, :ref_year)
+    sort!(wind_data, :ref_year)
+
+    solar_vals = solar_data.annual_mean_cf
+    wind_vals = wind_data.annual_mean_cf
+
+    heatmap_matrix = [solar_vals'; wind_vals']
+
+    p4 = heatmap(years_unique, ["Solar", "Wind"], heatmap_matrix, c=:YlOrRd,
+                title="Annual Mean CF by Historical Year and Technology",
+                xlabel="Historical Year", ylabel="", size=(1200, 400), clim=(0, 0.35),
+                colorbar_title="Annual Mean CF")
+
+    # Annotate cells
+    for (i, tech) in enumerate(["Solar", "Wind"])
+        for (j, yr) in enumerate(years_unique)
+            val = heatmap_matrix[i, j]
+            if !ismissing(val) && !isnan(val)
+                text_color = val > 0.25 ? :black : :white
+                annotate!(p4, j - 1, i - 1, text(@sprintf("%.3f", val), 7, text_color), legend=false)
+            end
+        end
+    end
+
+    savefig(p4, figure_path(SCRIPT_STEM, "08_vre_heatmap.png"))
+    println("Saved: 08_vre_heatmap.png")
 
     println("\nDone.")
 end

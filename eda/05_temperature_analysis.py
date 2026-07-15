@@ -16,7 +16,7 @@ from table_utils import write_table
 SCRIPT_STEM = "05_temperature_analysis"
 TRACES = Path("data/2024/pisp-downloads/Traces")
 DOWNLOADS = Path("data/2024/pisp-downloads")
-FIGURES = Path("eda/figures")
+FIGURES = Path("eda/figures/python") / SCRIPT_STEM
 FIGURES.mkdir(parents=True, exist_ok=True)
 
 HH_COLS_SOL = [str(i) for i in range(1, 49)]

@@ -5,10 +5,12 @@ using DataFrames
 using Dates
 using Printf
 using Statistics
+using Plots
 
 const SCRIPT_STEM = "02_plot_4006_traces"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
     path = joinpath(root, producer, script_stem)
@@ -26,6 +28,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     CSV.write(path, frame; missingstring = "")
     println("Saved table: ", path)
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 function read_trace(path)
@@ -248,6 +261,8 @@ function write_annual_cf_by_fy_table(sol_dict, wind_dict)
 end
 
 function main()
+    gr()  # Select GR backend for static PNG output
+
     sol_4006 = load_traces("solar", 4006, last.(SOLAR_LOCATIONS))
     wind_4006 = load_traces("wind", 4006, last.(WIND_LOCATIONS))
 
@@ -259,6 +274,143 @@ function main()
     write_wind_monthly_diurnal_profile_table(wind_4006, "DUNDWF1")
     write_wind_monthly_mean_cf_table(wind_4006, "DUNDWF1")
     write_annual_cf_by_fy_table(sol_4006, wind_4006)
+
+    # ====== Figure 1: Solar 4006 daily CF ======
+    state_names = Dict(v => k for (k, v) in SOLAR_LOCATIONS)
+    plots_sol = []
+    for (loc, df) in sort(sol_4006)
+        state = get(state_names, loc, loc)
+        daily = daily_cf(df, HH_COLS_SOL)
+        rolling7 = rolling_mean(daily, 7)
+        p = plot(df.datetime, daily, linewidth=0.3, alpha=0.7, color=:darkorange, label="", legend=false)
+        plot!(p, df.datetime, rolling7, linewidth=1.5, color=:darkred, label="7-day avg")
+        plot!(p, ylabel="$(state)\nCF", ylim=(0, 1), grid=true, gridalpha=0.3)
+        push!(plots_sol, p)
+    end
+    p_sol = plot(plots_sol..., layout=(length(plots_sol), 1), size=(1600, 300*length(plots_sol)))
+    plot!(p_sol, plot_title="Solar 4006 — Daily Mean Capacity Factor by State")
+    savefig(p_sol, figure_path(SCRIPT_STEM, "02_solar_4006_daily_cf.png"))
+    println("Saved: 02_solar_4006_daily_cf.png")
+
+    # ====== Figure 2: Wind 4006 daily CF ======
+    state_names_w = Dict(v => k for (k, v) in WIND_LOCATIONS)
+    plots_wind = []
+    for (loc, df) in sort(wind_4006)
+        state = get(state_names_w, loc, loc)
+        daily = daily_cf(df, HH_COLS_WIND)
+        rolling7 = rolling_mean(daily, 7)
+        p = plot(df.datetime, daily, linewidth=0.3, alpha=0.7, color=:steelblue, label="", legend=false)
+        plot!(p, df.datetime, rolling7, linewidth=1.5, color=:darkblue, label="7-day avg")
+        plot!(p, ylabel="$(state)\nCF", ylim=(0, 1), grid=true, gridalpha=0.3)
+        push!(plots_wind, p)
+    end
+    p_wind = plot(plots_wind..., layout=(length(plots_wind), 1), size=(1600, 300*length(plots_wind)))
+    plot!(p_wind, plot_title="Wind 4006 — Daily Mean Capacity Factor by State")
+    savefig(p_wind, figure_path(SCRIPT_STEM, "02_wind_4006_daily_cf.png"))
+    println("Saved: 02_wind_4006_daily_cf.png")
+
+    # ====== Figure 3: Solar diurnal (summer vs winter) ======
+    df_prof = sol_4006["Bannerton_SAT"]
+    summer_mask = in.(df_prof.Month, Ref((12, 1, 2)))
+    winter_mask = in.(df_prof.Month, Ref((6, 7, 8)))
+
+    plots_diurnal = []
+    for (season, mask, color) in [("Summer", summer_mask, :darkorange), ("Winter", winter_mask, :steelblue)]
+        df_season = df_prof[mask, :]
+        hh_vals = Matrix(df_season[!, HH_COLS_SOL])
+
+        # Plot all days (up to 200)
+        p = plot(legend=false)
+        for i in 1:min(200, size(hh_vals, 1))
+            plot!(p, HALF_HOURS, hh_vals[i, :], linewidth=0.3, alpha=0.15, color=color, label="")
+        end
+
+        # Mean profile
+        mean_profile = vec(mean(hh_vals, dims=1))
+        plot!(p, HALF_HOURS, mean_profile, linewidth=2.5, color=:black, label="Mean")
+
+        # P10-P90
+        p10 = [quantile(hh_vals[:, j], 0.1) for j in 1:size(hh_vals, 2)]
+        p90 = [quantile(hh_vals[:, j], 0.9) for j in 1:size(hh_vals, 2)]
+        plot!(p, HALF_HOURS, p10, fillrange=p90, alpha=0.3, color=color, label="P10-P90", linewidth=0)
+
+        plot!(p, title="Bannerton_SAT $(season) ($(count(mask)) days)", ylabel="Capacity Factor",
+              ylim=(0, 1.05), xlabel="Hour of day", grid=true, gridalpha=0.3)
+        push!(plots_diurnal, p)
+    end
+    p_diu = plot(plots_diurnal..., layout=(2,1), size=(1400, 800))
+    plot!(p_diu, plot_title="Solar 4006 — Diurnal Profiles: Summer vs Winter")
+    savefig(p_diu, figure_path(SCRIPT_STEM, "02_solar_4006_diurnal.png"))
+    println("Saved: 02_solar_4006_diurnal.png")
+
+    # ====== Figure 4: Wind seasonal analysis ======
+    df_wind_prof = get(wind_4006, "DUNDWF1", nothing)
+    if df_wind_prof !== nothing
+        plots_wind_sea = []
+
+        # Monthly diurnal
+        wind_hh_cols = [lpad(i, 2, '0') for i in 1:48]
+        monthly_cf = combine(groupby(df_wind_prof, :Month), [col => mean => col for col in HH_COLS_WIND])
+
+        p1 = plot(legend=false)
+        for m in 1:12
+            if m in monthly_cf.Month
+                row_idx = findfirst(==(m), monthly_cf.Month)
+                vals = Vector(monthly_cf[row_idx, 2:49])
+                plot!(p1, HALF_HOURS, vals, linewidth=1, alpha=0.8, label="Month $m")
+            end
+        end
+        plot!(p1, title="Wind 4006 — Mean Diurnal Profile by Month: DUNDWF1", ylabel="Capacity Factor",
+              ylim=(0, 1), grid=true, gridalpha=0.3, legend=:topright, legendfontsize=7, ncol=4)
+        push!(plots_wind_sea, p1)
+
+        # Daily and monthly mean
+        daily_wind = daily_cf(df_wind_prof, HH_COLS_WIND)
+        p2 = plot(df_wind_prof.datetime, daily_wind, linewidth=0.3, alpha=0.5, color=:steelblue, label="", legend=false)
+
+        month_dates = df_wind_prof.datetime
+        month_periods = [Date(year(d), month(d), 1) for d in month_dates]
+        grouped = DataFrame(month_start = month_periods, cf = daily_wind)
+        monthly_summary = combine(groupby(grouped, :month_start), :cf => mean => :mean_cf)
+        monthly_dates = monthly_summary.month_start
+        plot!(p2, monthly_dates, monthly_summary.mean_cf, linewidth=1.5, color=:darkblue, label="")
+        plot!(p2, title="Wind 4006 — Daily & Monthly Mean CF: DUNDWF1", ylabel="Capacity Factor",
+              ylim=(0, 1), grid=true, gridalpha=0.3)
+        push!(plots_wind_sea, p2)
+
+        p_wind_sea = plot(plots_wind_sea..., layout=(2,1), size=(1400, 800))
+        savefig(p_wind_sea, figure_path(SCRIPT_STEM, "02_wind_4006_seasonal.png"))
+        println("Saved: 02_wind_4006_seasonal.png")
+    end
+
+    # ====== Figure 5: Annual CF by FY ======
+    p5 = plot(legend=true, size=(1600, 600))
+
+    df_s = get(sol_4006, "Bannerton_SAT", nothing)
+    if df_s !== nothing
+        fy = fy_year.(df_s.datetime)
+        cf_sol = daily_cf(df_s, HH_COLS_SOL)
+        grouped_sol = DataFrame(fy = fy, cf = cf_sol)
+        summary_sol = combine(groupby(grouped_sol, :fy), :cf => mean => :mean_cf)
+        plot!(p5, summary_sol.fy, summary_sol.mean_cf, marker=:circle, color=:darkorange,
+              linewidth=2, markersize=6, label="Solar CF (Bannerton VIC)")
+    end
+
+    df_w = get(wind_4006, "DUNDWF1", nothing)
+    if df_w !== nothing
+        fy = fy_year.(df_w.datetime)
+        cf_wind = daily_cf(df_w, HH_COLS_WIND)
+        grouped_wind = DataFrame(fy = fy, cf = cf_wind)
+        summary_wind = combine(groupby(grouped_wind, :fy), :cf => mean => :mean_cf)
+        plot!(p5, summary_wind.fy, summary_wind.mean_cf, marker=:square, color=:darkblue,
+              linewidth=2, markersize=6, label="Wind CF (DUNDWF1 VIC)")
+    end
+
+    plot!(p5, xlabel="Financial Year (ending)", ylabel="Annual Mean Capacity Factor",
+          title="Trace 4006 — Annual Mean Capacity Factor by Financial Year", ylim=(0, 0.5),
+          grid=true, gridalpha=0.3)
+    savefig(p5, figure_path(SCRIPT_STEM, "02_4006_annual_cf.png"))
+    println("Saved: 02_4006_annual_cf.png")
 
     println("\nDone.")
 end

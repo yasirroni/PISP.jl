@@ -5,11 +5,15 @@ using DataFrames
 using XLSX
 using Printf
 using Statistics
+using Plots
 
 const SCRIPT_STEM = "05_temperature_analysis"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
+
+gr()
 
 const TEMP_KEYWORDS = ["temp", "heat", "thermal", "derate", "pv", "solar", "wind", "rooftop", "inverter"]
 const HH_COLS_SOL = string.(1:48)
@@ -35,6 +39,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     path = table_path(script_stem, table_name; producer = producer, root = root)
     CSV.write(path, frame; missingstring = "")
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 is_keyword_match(name) = any(kw -> occursin(kw, lowercase(name)), TEMP_KEYWORDS)
@@ -318,6 +333,39 @@ function main()
     zone_summary_df = climate_zone_summary()
     path = write_table(zone_summary_df, SCRIPT_STEM, "climate_zone_summer_cf_summary")
     println("Saved table: ", path)
+
+    # ====== Figure: CF distribution by climate zone ======
+    p1 = plot(legend=:topright, title="Summer 2019 — Daily Solar CF Distribution by Climate Zone",
+              xlabel="Daily Mean Capacity Factor", ylabel="Density", size=(800, 600))
+    for (zone, loc) in CLIMATE_ZONES
+        f = joinpath(TRACES, "solar_2019", "$(loc)_RefYear2019.csv")
+        isfile(f) || continue
+        df = CSV.read(f, DataFrame)
+        summer = filter(row -> row.Month in (12, 1, 2), df)
+        nrow(summer) == 0 && continue
+        daily = [mean(row[col] for col in HH_COLS_SOL) for row in eachrow(summer)]
+        histogram!(p1, daily, bins=50, alpha=0.5, label="$(zone) ($(loc))", density=true)
+    end
+    savefig(p1, figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"))
+    println("Saved: 05_cf_by_climate_zone.png")
+
+    # ====== Figure: Midday CF vs daily mean (scatter) ======
+    p2 = plot(layout=(2,2), figsize=(14,10), size=(1000, 800))
+    for (idx, (zone, loc)) in enumerate(CLIMATE_ZONES)
+        f = joinpath(TRACES, "solar_2019", "$(loc)_RefYear2019.csv")
+        isfile(f) || continue
+        df = CSV.read(f, DataFrame)
+        summer = filter(row -> row.Month in (12, 1, 2), df)
+        nrow(summer) == 0 && continue
+        daily = [mean(row[col] for col in HH_COLS_SOL) for row in eachrow(summer)]
+        midday = [mean(row[col] for col in string.(24:35)) for row in eachrow(summer)]
+        scatter!(p2[idx], daily, midday, markersize=2, alpha=0.3, color=:orange, label="", legend=false)
+        plot!(p2[idx], [0, 0.5], [0, 0.5], label="1:1", color=:black, linestyle=:dash, alpha=0.3, linewidth=1)
+        plot!(p2[idx], title="$(zone) ($(loc))", xlabel="Daily Mean CF", ylabel="Midday Mean CF",
+              xlim=(0, 0.5), ylim=(0, 0.8), grid=true, gridstyle=:dash, gridalpha=0.3)
+    end
+    savefig(p2, figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"))
+    println("Saved: 05_midday_vs_daily_scatter.png")
 
     println("\nDone.")
 end

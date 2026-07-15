@@ -4,10 +4,13 @@ using CSV
 using DataFrames
 using Dates
 using Printf
+using Statistics
+using Plots
 
 const SCRIPT_STEM = "01_data_loading"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 const TABLE_ROOT = joinpath(@__DIR__, "tables")
+const FIGURE_ROOT = joinpath(@__DIR__, "figures")
 
 function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
     path = joinpath(root, producer, script_stem)
@@ -24,6 +27,17 @@ function write_table(frame::DataFrame, script_stem, table_name; producer = "juli
     path = table_path(script_stem, table_name; producer = producer, root = root)
     CSV.write(path, frame; missingstring = "")
     return path
+end
+
+function figure_dir(script_stem; producer = "julia", root = FIGURE_ROOT)
+    path = joinpath(root, producer, script_stem)
+    mkpath(path)
+    return path
+end
+
+function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
+    filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
+    return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
 end
 
 function read_trace(path)
@@ -185,6 +199,8 @@ function available_year_rows()
 end
 
 function main()
+    gr()  # Select GR backend for static PNG output
+
     sol_file = joinpath(TRACES, "solar_4006", "Bannerton_SAT_RefYear4006.csv")
     df_sol = read_trace(sol_file)
     println("=== SOLAR TRACE EXAMPLE ===")
@@ -238,6 +254,22 @@ function main()
             println()
         end
     end
+
+    # ---- Plot example traces ----
+    # First 30 days
+    sol_sub = df_sol[1:30, :]
+    sol_datetime = Date.(sol_sub.Year, sol_sub.Month, sol_sub.Day)
+    sol_hourly = vec(mean(Matrix(sol_sub[!, 4:51]), dims=2))
+
+    wind_sub = df_wind[1:30, :]
+    wind_datetime = Date.(wind_sub.Year, wind_sub.Month, wind_sub.Day)
+    wind_hourly = vec(mean(Matrix(wind_sub[!, 4:51]), dims=2))
+
+    p1 = plot(sol_datetime, sol_hourly, linewidth=0.8, color=:orange, label="", title="Solar 4006 — Bannerton_SAT (first 30 days)", ylabel="Mean half-hourly CF", legend=false)
+    p2 = plot(wind_datetime, wind_hourly, linewidth=0.8, color=:steelblue, label="", title="Wind 4006 — ARWF1 (first 30 days)", ylabel="Mean half-hourly CF", legend=false)
+    p = plot(p1, p2, layout=(2,1), size=(1400, 800))
+    savefig(p, figure_path(SCRIPT_STEM, "01_sample_traces.png"))
+    println("Saved: $(figure_path(SCRIPT_STEM, "01_sample_traces.png"))")
 
     write_trace_tables(sol_file, df_sol, wind_file, df_wind, midday_cols, n_low, n_total)
     write_demand_table(demand_dir, dem_files, df_dem)

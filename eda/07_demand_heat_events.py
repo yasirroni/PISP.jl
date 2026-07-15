@@ -17,7 +17,7 @@ SCRIPT_STEM = "07_demand_heat_events"
 
 TRACES = Path("data/2024/pisp-downloads/Traces")
 OUT = Path("data/2024/pisp-datasets/out-ref4006-poe10/csv")
-FIGURES = Path("eda/figures")
+FIGURES = Path("eda/figures/python") / SCRIPT_STEM
 FIGURES.mkdir(parents=True, exist_ok=True)
 
 HH_COLS_SOL = [str(i) for i in range(1, 49)]

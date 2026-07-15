@@ -16,7 +16,7 @@ from table_utils import write_table
 
 SCRIPT_STEM = "08_4006_composite_map"
 TRACES = Path("data/2024/pisp-downloads/Traces")
-FIGURES = Path("eda/figures")
+FIGURES = Path("eda/figures/python") / SCRIPT_STEM
 FIGURES.mkdir(parents=True, exist_ok=True)
 
 HH_COLS_SOL = [str(i) for i in range(1, 49)]
