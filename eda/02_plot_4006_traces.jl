@@ -408,7 +408,7 @@ function main()
 
     plot!(p5, xlabel="Financial Year (ending)", ylabel="Annual Mean Capacity Factor",
           title="Trace 4006 — Annual Mean Capacity Factor by Financial Year", ylim=(0, 0.5),
-          grid=true, gridalpha=0.3)
+          grid=true, gridalpha=0.3, left_margin=12Plots.mm)
     savefig(p5, figure_path(SCRIPT_STEM, "02_4006_annual_cf.png"))
     println("Saved: 02_4006_annual_cf.png")
 
