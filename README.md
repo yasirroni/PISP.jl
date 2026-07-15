@@ -24,11 +24,11 @@ poe             = 10           # Probability of exceedance (POE) for demand
 target_years    = [2030, 2031] # Planning years for which to generate datasets
 
 PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+    downloadpath = joinpath(@__DIR__, "..", "data", "2024", "pisp-downloads"),
     poe          = poe,
     reftrace     = reference_trace,
     years        = target_years,
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "2024", "pisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
@@ -42,57 +42,73 @@ using PISP
 
 # Build datasets for specific date windows instead of full calendar years
 PISP.build_ISP24_datasets(
-    downloadpath = joinpath(@__DIR__, "..", "data", "pisp-downloads"),
+    downloadpath = joinpath(@__DIR__, "..", "data", "2024", "pisp-downloads"),
     poe          = 10,
     reftrace     = 4006,
     drange       = [("01-01-2030", "31-03-2030"), ("01-07-2031", "30-09-2031")],
-    output_root  = joinpath(@__DIR__, "..", "data", "pisp-datasets"),
+    output_root  = joinpath(@__DIR__, "..", "data", "2024", "pisp-datasets"),
     write_csv    = true,
     write_arrow  = false,
     scenarios    = [1,2,3]
     )
 ```
 
-## Download 2024 ISP report PDFs
+## Download ISP report PDFs
 
-Download the ten selected 2024 ISP report PDFs from AEMO with:
+Download selected ISP report PDFs from AEMO:
 
 ```julia
 using PISP
 
-report_paths = PISP.download_isp_reports(
-    outdir    = joinpath(@__DIR__, "..", "data", "pisp-reports"),
+PISP.download_ISP24_reports(
+    outdir    = joinpath(@__DIR__, "..", "data", "2024", "pisp-reports"),
+    overwrite = false,
+    )
+
+PISP.download_ISP26_reports(
+    outdir    = joinpath(@__DIR__, "..", "data", "2026", "pisp-reports"),
     overwrite = false,
     )
 ```
 
-To inspect the ten targets (key, title, filename, source URL) without downloading anything:
+## Download 2026 ISP source data
+
+Download 2026 ISP source assets from AEMO:
 
 ```julia
 using PISP
 
-for target in PISP.ISPReportDownloader.isp_report_targets()
-    println(target.key, " -> ", target.filename)
-end
+isp2026_downloads_dir = joinpath(@__DIR__, "..", "data", "2026", "pisp-downloads")
+source_paths = PISP.download_isp2026_assets(
+    outdir    = isp2026_downloads_dir,
+    overwrite = false,
+    )
+
+PISP.ISPdatabuilder.extract_downloads(
+    data_root = isp2026_downloads_dir,
+)
 ```
+
+> [!NOTE]
+> The 2026 ISP parser is still under review, see [ParseISP.jl](https://github.com/airampg/ParseISP.jl).
 
 ## Optional parameters for PISP.build_ISP24_datasets()
 
 There are multiple parameters that can be adjusted when generating the dataset from the public 2024 Integrated System Plan (ISP) datafiles:
 
-| Parameter           | Default       | Description                                                                                                                        |
-| ------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-|`downloadpath`|"../../data-download"| Path where all files from AEMO's website will be downloaded and extracted
-|`download_from_AEMO`|true| Whether to download files from AEMO's website
-|`poe`|10| Probability of exceedance (POE) for demand: 10% or 50%
-|`reftrace`|4006| Reference weather year trace: select among 2011 - 2023 or 4006 (trace for the Optimal Development Path, ODP from the 2024 ISP)
-|`years`|nothing| Planning years for which to build the time-varying schedules: select among 2025 - 2050. Mutually exclusive with `drange`. Defaults to `[2025]` when neither `years` nor `drange` is provided.
-|`drange`|nothing| Alternative to `years`. An array of 2-tuples `(start, end)` where each element may be a `Date`, `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One dataset is generated per tuple per scenario. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`.
-|`output_name`|"out"| Output folder name
-|`output_root`|nothing| Output folder path
-|`write_csv`|true| Whether to write CSV (.csv) files
-|`write_arrow`|true|Whether to write Arrow (.arrow) files
-|`scenarios`|[1,2,3]|Scenarios to include in the output: 1 for `Progressive Change`, 2 for `Step Change`, 3 for `Green Energy Exports`, from the 2024 ISP
+| Parameter            | Default               | Description                                                                                                                                                                                                                                                                                        |
+| -------------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `downloadpath`       | "../../data-download" | Path where all files from AEMO's website will be downloaded and extracted                                                                                                                                                                                                                          |
+| `download_from_AEMO` | true                  | Whether to download files from AEMO's website                                                                                                                                                                                                                                                      |
+| `poe`                | 10                    | Probability of exceedance (POE) for demand: 10% or 50%                                                                                                                                                                                                                                             |
+| `reftrace`           | 4006                  | Reference weather year trace: select among 2011 - 2023 or 4006 (trace for the Optimal Development Path, ODP from the 2024 ISP)                                                                                                                                                                     |
+| `years`              | nothing               | Planning years for which to build the time-varying schedules: select among 2025 - 2050. Mutually exclusive with `drange`. Defaults to `[2025]` when neither `years` nor `drange` is provided.                                                                                                      |
+| `drange`             | nothing               | Alternative to `years`. An array of 2-tuples `(start, end)` where each element may be a `Date`, `DateTime`, or `AbstractString` in `"DD-MM-YYYY"` format. One dataset is generated per tuple per scenario. Output folders are named `schedule-DDMMYYYY-DDMMYYYY`. Mutually exclusive with `years`. |
+| `output_name`        | "out"                 | Output folder name                                                                                                                                                                                                                                                                                 |
+| `output_root`        | nothing               | Output folder path                                                                                                                                                                                                                                                                                 |
+| `write_csv`          | true                  | Whether to write CSV (.csv) files                                                                                                                                                                                                                                                                  |
+| `write_arrow`        | true                  | Whether to write Arrow (.arrow) files                                                                                                                                                                                                                                                              |
+| `scenarios`          | [1,2,3]               | Scenarios to include in the output: 1 for `Progressive Change`, 2 for `Step Change`, 3 for `Green Energy Exports`, from the 2024 ISP                                                                                                                                                               |
 
 ## Description of dataset formatting
 
@@ -160,101 +176,101 @@ Below, an overview of each of the databases the parser produces is given.
 
 ### Bus
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id_bus`            | id of the bus |
-| `active`        | Active flag (1: active; 0: inactive) |
-| `id_area`       | Area of the 5-bus NEM  market model (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) |
+| Parameter | Description                                                             |
+| --------- | ----------------------------------------------------------------------- |
+| `id_bus`  | id of the bus                                                           |
+| `active`  | Active flag (1: active; 0: inactive)                                    |
+| `id_area` | Area of the 5-bus NEM  market model (1: QLD; 2:NSW; 3:VIC; 4:TAS; 5:SA) |
 
 ### Demand
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id_dem`            | id of the bus |
-| `load_`        | Load (MW) |
+| Parameter      | Description                                                             |
+| -------------- | ----------------------------------------------------------------------- |
+| `id_dem`       | id of the bus                                                           |
+| `load_`        | Load (MW)                                                               |
 | `id_bus`       | Bus the demand is connected to (match with `id_bus` from **Bus** table) |
-| `active`        | Active flag (1:active; 0:inactive) |
-| `controllable`      | Controllable flag (1:controllable; 0:non-controllable) |
-| `voll`       | Value of Lost Load ($/MWh) |
+| `active`       | Active flag (1:active; 0:inactive)                                      |
+| `controllable` | Controllable flag (1:controllable; 0:non-controllable)                  |
+| `voll`         | Value of Lost Load ($/MWh)                                              |
 
 ### DER
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id_der`            | id of the DER |
-| `name`        | Name of the DER |
-| `tech`       | Technology (DSP: demand-side participation) |
-| `id_dem`       | Demand the DER is attached to (match with `id_dem` from **Demand** table) |
-| `active`        | Active flag (1:active; 0:inactive) |
-| `capacity`      | Capacity of the DER service (MW) |
-| `reduct`       | Reduction flag (1:yes, 0:no) |
-| `pred_max`       | Maximum capacity reduction (MW) |
-| `cost_red`       | Cost associated with the reduction ($/MWh) |
+| Parameter  | Description                                                               |
+| ---------- | ------------------------------------------------------------------------- |
+| `id_der`   | id of the DER                                                             |
+| `name`     | Name of the DER                                                           |
+| `tech`     | Technology (DSP: demand-side participation)                               |
+| `id_dem`   | Demand the DER is attached to (match with `id_dem` from **Demand** table) |
+| `active`   | Active flag (1:active; 0:inactive)                                        |
+| `capacity` | Capacity of the DER service (MW)                                          |
+| `reduct`   | Reduction flag (1:yes, 0:no)                                              |
+| `pred_max` | Maximum capacity reduction (MW)                                           |
+| `cost_red` | Cost associated with the reduction ($/MWh)                                |
 
 ### ESS
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id_ess`            | id of the ESS |
-| `tech`            | Technology (BESS: battery; PS: pumped hydro) |
-| `type`       | Type of storage (SHALLOW, MEDIUM, DEEP) |
-| `investment`      | Investment flag (1:investment; 0:non-investment) |
-| `active`        | Active flag (1:active; 0:inactive) |
-| `id_bus`       | Bus the ESS is connected to (match with `id_bus` from **Bus** table) |
-| `ch_eff`       | Charging efficiency (%) |
-| `dch_eff`       | Discharging efficiency (%) |
-| `eini`       | Initial energy capacity (% of `emax`) |
-| `emin`       | Minimum energy capacity (% of `emax`)|
-| `emax`       | Maximum energy capacity (MWh) |
-| `pmin`       | Minimum discharging power (MW) |
-| `pmax`       | Maximum discharging power (MW) |
-| `lmin`       | Minimum charging power (MW) |
-| `lmax`       | Maximum charging power (MW) |
-| `fullout`       | Forced outage rate - full outage (% of time in decimal form)|
-| `partialout`       |  Forced outage rate - partial outage (% of time in decimal form)|
-| `mttrfull`       | Mean time to repair - full outage (hr) |
-| `mttrpart`       | Mean time to repair - partial outage (hr) |
-| `n`       | Maximum number of units online (p.u) |
+| Parameter    | Description                                                          |
+| ------------ | -------------------------------------------------------------------- |
+| `id_ess`     | id of the ESS                                                        |
+| `tech`       | Technology (BESS: battery; PS: pumped hydro)                         |
+| `type`       | Type of storage (SHALLOW, MEDIUM, DEEP)                              |
+| `investment` | Investment flag (1:investment; 0:non-investment)                     |
+| `active`     | Active flag (1:active; 0:inactive)                                   |
+| `id_bus`     | Bus the ESS is connected to (match with `id_bus` from **Bus** table) |
+| `ch_eff`     | Charging efficiency (%)                                              |
+| `dch_eff`    | Discharging efficiency (%)                                           |
+| `eini`       | Initial energy capacity (% of `emax`)                                |
+| `emin`       | Minimum energy capacity (% of `emax`)                                |
+| `emax`       | Maximum energy capacity (MWh)                                        |
+| `pmin`       | Minimum discharging power (MW)                                       |
+| `pmax`       | Maximum discharging power (MW)                                       |
+| `lmin`       | Minimum charging power (MW)                                          |
+| `lmax`       | Maximum charging power (MW)                                          |
+| `fullout`    | Forced outage rate - full outage (% of time in decimal form)         |
+| `partialout` | Forced outage rate - partial outage (% of time in decimal form)      |
+| `mttrfull`   | Mean time to repair - full outage (hr)                               |
+| `mttrpart`   | Mean time to repair - partial outage (hr)                            |
+| `n`          | Maximum number of units online (p.u)                                 |
 
 ### Generator
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id`            | id of the generator |
-| `fuel`        | Fuel type |
-| `tech`            | Generator technology |
-| `type`       | Generator type |
-| `forate`       | Outage rate (%) `forate =` $\ \  1-(\mathcal{F}+\mathcal{P}(1-\alpha))$ ; $\mathcal{F}$, $\mathcal{P}$ full/partial outage rates, $\alpha$ derating factor|
-| `fullout`       | Forced outage rate - full outage (% of time in decimal form)|
-| `partialout`       |  Forced outage rate - partial outage (% of time in decimal form)|
-| `derate`      | Partial outage derating factor (% in decimal form)
-| `mttrfull`       | Mean time to repair - full outage (hr) |
-| `mttrpart`       | Mean time to repair - partial outage (hr) |
-| `bus_id`      | Bus the generator is connected to (match with `id_bus` from **Bus** table) |
-| `pmin`      | Minimum power output (MW)|
-| `pmax`      | Maximum power output (MW)|
-| `rup`      | Ramp-up capacity (MW/min)|
-| `rdw`      | Ramp-down capacity (MW/min)|
-| `investment`      | Investment flag (1:investment; 0:non-investment) |
-| `active`      | Active flag (1:active; 0:inactive) |
-| `cvar`      | Variable cost ($/MWh)|
-| `cfuel`      | Fuel cost ($/GJ)|
-| `cvom`      | Variable operation and maintenance cost ($/MWh)|
-| `cfom`      | Fixed operation and maintenance cost ($/MWh/yr)|
-| `co2`      | CO2 emmissions (kgC02/MWh)|
-| `hrate`      | Heat rate (MWh/GJ) |
-| `pfrmax`      | Maximum headroom (MW) |
-| `ffr` | Fast frequency response provision flag |
-| `pfr` | Primary frequency response provision flag |
-| `res2` | Secondary reserve provision flag |
-| `res3` | Tertiary (Regulation) reserve provision flag |
-| `n`      | Maximum number of units online (p.u.)|
-| `down_time`       | Minimum down time after being shut-down (h) |
-| `up_time`       |  Minimum up time after being started (h)|
-| `start_up_cost`      | Start-up cost ($) |
-| `shut_down_cost`      | Shut-down cost ($)|
-| `start_up_time`      | Time to start-up units (h)|
-| `shut_down_time`      | Time to shut-down units (h)|
+| Parameter        | Description                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | id of the generator                                                                                                                                        |
+| `fuel`           | Fuel type                                                                                                                                                  |
+| `tech`           | Generator technology                                                                                                                                       |
+| `type`           | Generator type                                                                                                                                             |
+| `forate`         | Outage rate (%) `forate =` $\ \  1-(\mathcal{F}+\mathcal{P}(1-\alpha))$ ; $\mathcal{F}$, $\mathcal{P}$ full/partial outage rates, $\alpha$ derating factor |
+| `fullout`        | Forced outage rate - full outage (% of time in decimal form)                                                                                               |
+| `partialout`     | Forced outage rate - partial outage (% of time in decimal form)                                                                                            |
+| `derate`         | Partial outage derating factor (% in decimal form)                                                                                                         |
+| `mttrfull`       | Mean time to repair - full outage (hr)                                                                                                                     |
+| `mttrpart`       | Mean time to repair - partial outage (hr)                                                                                                                  |
+| `bus_id`         | Bus the generator is connected to (match with `id_bus` from **Bus** table)                                                                                 |
+| `pmin`           | Minimum power output (MW)                                                                                                                                  |
+| `pmax`           | Maximum power output (MW)                                                                                                                                  |
+| `rup`            | Ramp-up capacity (MW/min)                                                                                                                                  |
+| `rdw`            | Ramp-down capacity (MW/min)                                                                                                                                |
+| `investment`     | Investment flag (1:investment; 0:non-investment)                                                                                                           |
+| `active`         | Active flag (1:active; 0:inactive)                                                                                                                         |
+| `cvar`           | Variable cost ($/MWh)                                                                                                                                      |
+| `cfuel`          | Fuel cost ($/GJ)                                                                                                                                           |
+| `cvom`           | Variable operation and maintenance cost ($/MWh)                                                                                                            |
+| `cfom`           | Fixed operation and maintenance cost ($/MWh/yr)                                                                                                            |
+| `co2`            | CO2 emmissions (kgC02/MWh)                                                                                                                                 |
+| `hrate`          | Heat rate (MWh/GJ)                                                                                                                                         |
+| `pfrmax`         | Maximum headroom (MW)                                                                                                                                      |
+| `ffr`            | Fast frequency response provision flag                                                                                                                     |
+| `pfr`            | Primary frequency response provision flag                                                                                                                  |
+| `res2`           | Secondary reserve provision flag                                                                                                                           |
+| `res3`           | Tertiary (Regulation) reserve provision flag                                                                                                               |
+| `n`              | Maximum number of units online (p.u.)                                                                                                                      |
+| `down_time`      | Minimum down time after being shut-down (h)                                                                                                                |
+| `up_time`        | Minimum up time after being started (h)                                                                                                                    |
+| `start_up_cost`  | Start-up cost ($)                                                                                                                                          |
+| `shut_down_cost` | Shut-down cost ($)                                                                                                                                         |
+| `start_up_time`  | Time to start-up units (h)                                                                                                                                 |
+| `shut_down_time` | Time to shut-down units (h)                                                                                                                                |
 
 - Forced Outage Rate (%) - The percentage of time per year that a generator is expected to be out of service due to forced outage.
 - Mean time to repair (hrs) - The average time take to return a generating unit to service
@@ -262,20 +278,20 @@ Below, an overview of each of the databases the parser produces is given.
 
 ### Line
 
-| Parameter       | Description |  
-|-----------------|-------------|
-| `id`            | id of the line |
-| `tech`        | Technology |
-| `capacity`            | Maximum capacity |
-| `id_bus_from`       | Bus the line starts (match with `id_bus` from **Bus** table) |
-| `id_bus_to`       | Bus the line ends (match with `id_bus` from **Bus** table) |
-| `investment`      | Investment flag (1:investment; 0:non-investment) |
-| `active`      | Active flag (1:active; 0:inactive) |
-| `rvcap`     | Maximum reverse capacity bus_a $\rightarrow$ bus_b (MW)|
-| `fwcap`     | Maximum forward capacity bus_b $\rightarrow$ bus_a (MW)|
-| `fullout`       | Unplanned outage rate - single credible contingency (% of time in decimal form)|
-| `mttrfull`       | Mean time to repair - single credible contingency (hr) |
-| `n`      | Maximum number of units online (p.u.)|
+| Parameter     | Description                                                                     |
+| ------------- | ------------------------------------------------------------------------------- |
+| `id`          | id of the line                                                                  |
+| `tech`        | Technology                                                                      |
+| `capacity`    | Maximum capacity                                                                |
+| `id_bus_from` | Bus the line starts (match with `id_bus` from **Bus** table)                    |
+| `id_bus_to`   | Bus the line ends (match with `id_bus` from **Bus** table)                      |
+| `investment`  | Investment flag (1:investment; 0:non-investment)                                |
+| `active`      | Active flag (1:active; 0:inactive)                                              |
+| `rvcap`       | Maximum reverse capacity bus_a $\rightarrow$ bus_b (MW)                         |
+| `fwcap`       | Maximum forward capacity bus_b $\rightarrow$ bus_a (MW)                         |
+| `fullout`     | Unplanned outage rate - single credible contingency (% of time in decimal form) |
+| `mttrfull`    | Mean time to repair - single credible contingency (hr)                          |
+| `n`           | Maximum number of units online (p.u.)                                           |
 
 ## Data sources of PISP
 >
