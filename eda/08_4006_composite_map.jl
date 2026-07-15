@@ -227,6 +227,10 @@ function main()
         end
     end
 
+    # Add explicit xticks showing the real financial-year-start year for each bar position
+    fy_labels = [row.fy_start[1:4] for row in eachrow(mapping)]
+    plot!(p1, xticks=(1:nrow(mapping), fy_labels), xrotation=90)
+
     savefig(p1, figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"))
     println("Saved: 08_4006_timeline_map.png")
 
@@ -248,9 +252,10 @@ function main()
 
         # Error caps
         errors = tech_df.summer_mean_cf .- tech_df.summer_p5_cf
-        scatter!(p2[idx], 1:nrow(tech_df), tech_df.summer_mean_cf, color=:black, markersize=3, label="")
+        scatter!(p2[idx], 1:nrow(tech_df), tech_df.summer_mean_cf, yerror=(errors, zeros(length(errors))), color=:black, markersize=3, label="")
 
-        plot!(p2[idx], title="$(uppercase(tech)) $(SOLAR_LOC) — Summer CF by Historical Year",
+        loc = tech == "solar" ? SOLAR_LOC : WIND_LOC
+        plot!(p2[idx], title="$(uppercase(tech)) $(loc) — Summer CF by Historical Year",
               xlabel="Historical Year", ylabel="Summer Daily Mean CF", xticks=(1:nrow(tech_df), years_labels),
               ylim=(0, 0.5), grid=true, gridalpha=0.3)
     end
@@ -261,7 +266,7 @@ function main()
     # ====== Figure 3: Near-term vs far-term daily CF ======
     write_near_vs_far_term_table()
 
-    p3 = plot(layout=(2,1), size=(1200, 800))
+    p3 = plot(layout=(2,1), size=(1200, 800), left_margin=8Plots.mm, bottom_margin=8Plots.mm)
 
     for (idx, (tech, loc, hh_cols, color)) in enumerate([("solar", SOLAR_LOC, HH_COLS_SOL, :orange), ("wind", WIND_LOC, HH_COLS_WIND, :steelblue)])
         near_cf = load_year_cf(NEAR_YEARS, tech, loc, hh_cols)
@@ -304,10 +309,16 @@ function main()
 
     heatmap_matrix = [solar_vals'; wind_vals']
 
+    # Derive color limits from actual data
+    clim_vals = skipmissing(heatmap_matrix)
+    clim_min = minimum(clim_vals)
+    clim_max = maximum(clim_vals)
+    clim = (clim_min, clim_max)
+
     p4 = heatmap(years_unique, ["Solar", "Wind"], heatmap_matrix, c=:YlOrRd,
                 title="Annual Mean CF by Historical Year and Technology",
-                xlabel="Historical Year", ylabel="", size=(1200, 400), clim=(0, 0.35),
-                colorbar_title="Annual Mean CF")
+                xlabel="Historical Year", ylabel="", size=(1200, 400), clim=clim,
+                colorbar_title="Annual Mean CF", xticks=(years_unique, string.(years_unique)), xrotation=45)
 
     # Annotate cells
     for (i, tech) in enumerate(["Solar", "Wind"])
@@ -315,7 +326,7 @@ function main()
             val = heatmap_matrix[i, j]
             if !ismissing(val) && !isnan(val)
                 text_color = val > 0.25 ? :black : :white
-                annotate!(p4, j - 1, i - 1, text(@sprintf("%.3f", val), 7, text_color), legend=false)
+                annotate!(p4, years_unique[j], i, text(@sprintf("%.3f", val), 7, text_color), legend=false)
             end
         end
     end
