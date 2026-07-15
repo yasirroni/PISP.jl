@@ -278,17 +278,30 @@ function main()
     yrs_sol_winter = sort(collect(keys(winter_cfs_sol)))
     yrs_wind_winter = sort(collect(keys(winter_cfs_wind)))
 
-    p1 = @df DataFrame(values=[summer_cfs_sol[yr] for yr in yrs_sol_summer], labels=string.(yrs_sol_summer)) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:darkorange, title="Solar $(SOLAR_LOC) — Summer Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
-    p2 = @df DataFrame(values=[summer_cfs_wind[yr] for yr in yrs_wind_summer], labels=string.(yrs_wind_summer)) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:steelblue, title="Wind $(WIND_LOC) — Summer Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
-    p3 = @df DataFrame(values=[winter_cfs_sol[yr] for yr in yrs_sol_winter], labels=string.(yrs_sol_winter)) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:darkorange, title="Solar $(SOLAR_LOC) — Winter Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
-    p4 = @df DataFrame(values=[winter_cfs_wind[yr] for yr in yrs_wind_winter], labels=string.(yrs_wind_winter)) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:steelblue, title="Wind $(WIND_LOC) — Winter Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
+    # Helper function to flatten Dict{Int, Vector{Float64}} to long-form data
+    function long_form(cf_dict, years)
+        labels = String[]
+        values = Float64[]
+        for yr in years
+            for v in cf_dict[yr]
+                push!(labels, string(yr))
+                push!(values, v)
+            end
+        end
+        return DataFrame(labels=labels, values=values)
+    end
 
-    p_bp = plot(p1, p2, p3, p4, layout=(2,2), size=(1400, 1000))
+    p1 = @df long_form(summer_cfs_sol, yrs_sol_summer) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:darkorange, title="Solar $(SOLAR_LOC) — Summer Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
+    p2 = @df long_form(summer_cfs_wind, yrs_wind_summer) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:steelblue, title="Wind $(WIND_LOC) — Summer Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
+    p3 = @df long_form(winter_cfs_sol, yrs_sol_winter) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:darkorange, title="Solar $(SOLAR_LOC) — Winter Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
+    p4 = @df long_form(winter_cfs_wind, yrs_wind_winter) boxplot(:labels, :values, legend=false, fillalpha=0.3, color=:steelblue, title="Wind $(WIND_LOC) — Winter Daily Mean CF by Year", ylabel="Daily Mean Capacity Factor", ylim=(0,1))
+
+    p_bp = plot(p1, p2, p3, p4, layout=(2,2), size=(1400, 1000), left_margin=8Plots.mm, bottom_margin=8Plots.mm)
     savefig(p_bp, figure_path(SCRIPT_STEM, "03_year_comparison_boxplot.png"))
     println("Saved: 03_year_comparison_boxplot.png")
 
     # ====== Figure 2: Annual CF trend ======
-    p_trend = plot(legend=true, size=(1200, 500))
+    p_trend = plot(legend=true, size=(1200, 600), left_margin=8Plots.mm, bottom_margin=8Plots.mm)
 
     annual_means_sol = []
     yrs_list_sol = []
@@ -336,7 +349,7 @@ function main()
 
     p_worst = bar(string.(yrs_worst), cfs_worst, color=:darkorange, alpha=0.7, legend=false,
                   title="Solar $(SOLAR_LOC) — Worst Summer Day (Midday Max CF) by Year",
-                  ylabel="Midday Max Capacity Factor", ylim=(0,1), size=(1200, 500))
+                  ylabel="Midday Max Capacity Factor", ylim=(0,1), size=(1200, 600), left_margin=8Plots.mm, bottom_margin=8Plots.mm)
     for (i, (yr, cf)) in enumerate(zip(yrs_worst, cfs_worst))
         annotate!(p_worst, i, cf + 0.02, text(string(round(cf, digits=2)), 8, :center))
     end
@@ -376,12 +389,12 @@ function main()
 
     p_low1 = bar(string.(yrs_sol_low), [sol_low[yr] for yr in yrs_sol_low], color=:darkorange, alpha=0.7,
                  legend=false, title="Solar $(SOLAR_LOC) — % Summer Days with Midday Max CF < 0.05",
-                 ylabel="% of Summer Days", size=(700, 500))
+                 ylabel="% of Summer Days")
     p_low2 = bar(string.(yrs_wind_low), [wind_low[yr] for yr in yrs_wind_low], color=:steelblue, alpha=0.7,
                  legend=false, title="Wind $(WIND_LOC) — % Summer Days with Daily Mean CF < 0.05",
-                 ylabel="% of Summer Days", size=(700, 500))
+                 ylabel="% of Summer Days")
 
-    p_zero = plot(p_low1, p_low2, layout=(1,2), size=(1400, 500))
+    p_zero = plot(p_low1, p_low2, layout=(1,2), size=(1800, 600), left_margin=10Plots.mm, bottom_margin=10Plots.mm, top_margin=20Plots.mm)
     savefig(p_zero, figure_path(SCRIPT_STEM, "03_zero_output_days.png"))
     println("Saved: 03_zero_output_days.png")
 
