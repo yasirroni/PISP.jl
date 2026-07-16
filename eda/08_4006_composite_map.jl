@@ -238,7 +238,11 @@ function main()
     write_historical_year_vre_stats_table(mapping)
     stats = CSV.read(table_path(SCRIPT_STEM, "historical_year_vre_stats"), DataFrame)
 
-    p2 = plot(layout=(1,2), size=(1000, 500))
+    p2 = plot(
+        layout=(1,2), size=(1400, 650),
+        left_margin=10Plots.mm, right_margin=10Plots.mm,
+        top_margin=12Plots.mm, bottom_margin=16Plots.mm,
+    )
 
     for (idx, tech) in enumerate(("solar", "wind"))
         tech_df = filter(row -> row.tech == tech, stats)
@@ -255,9 +259,9 @@ function main()
         scatter!(p2[idx], 1:nrow(tech_df), tech_df.summer_mean_cf, yerror=(errors, zeros(length(errors))), color=:black, markersize=3, label="")
 
         loc = tech == "solar" ? SOLAR_LOC : WIND_LOC
-        plot!(p2[idx], title="$(uppercase(tech)) $(loc) — Summer CF by Historical Year",
+        plot!(p2[idx], title="$(uppercase(tech)) $(loc)\n— Summer CF by Historical Year", titlefont=font(12),
               xlabel="Historical Year", ylabel="Summer Daily Mean CF", xticks=(1:nrow(tech_df), years_labels),
-              ylim=(0, 0.5), grid=true, gridalpha=0.3)
+              xrotation=45, xtickfont=font(8), ylim=(0, 0.5), grid=true, gridalpha=0.3)
     end
 
     savefig(p2, figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"))
