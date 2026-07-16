@@ -36,3 +36,4 @@ AGENTS*
 
 eda/figures/
 eda/tables/
+docs/literate/**/*.png
