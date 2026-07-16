@@ -63,12 +63,10 @@ id = "source-data-inventory"
 title = "Source-data inventory"
 kind = "validation"
 data_layer = "source-data"
-source = "literate/eda_09_download_inventory.jl"
+source = "literate/validation/source_data_inventory.jl"
 output = "generated/validation/source-data-inventory.md"
 status = "published"
 nav_order = 10
-evidence_dir = "eda/tables/julia/09_download_inventory"
-producer = "eda/09_download_inventory.jl"
 snapshot = true
 related_reference_pages = ["generated/reference/data-sources.md"]
 
@@ -169,16 +167,40 @@ snapshot = true
 related_reference_pages = ["generated/reference/parameters-and-mappings.md", "assumptions.md"]
 
 [[page]]
+id = "iasr-build-cost-trajectories"
+title = "IASR build-cost trajectories by technology"
+kind = "analysis"
+data_layer = "source-data"
+source = "literate/analysis/iasr_build_cost_trajectories.jl"
+output = "generated/analyses/iasr-build-cost-trajectories.md"
+status = "published"
+nav_order = 60
+snapshot = true
+data_requirements = ["data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx"]
+related_reference_pages = ["generated/reference/data-sources.md", "generated/reference/parameters-and-mappings.md", "assumptions.md"]
+
+[[page]]
 id = "rez-resource-versus-connection-cost"
 title = "REZ resource potential versus connection cost"
 kind = "analysis"
 data_layer = "source-data"
-source = "literate/eda_11_rez_resource_vs_cost.jl"
+source = "literate/analysis/rez_resource_versus_connection_cost.jl"
 output = "generated/analyses/rez-resource-versus-connection-cost.md"
 status = "published"
 nav_order = 70
 snapshot = true
-evidence_dir = "eda/tables/julia/11_rez_resource_vs_cost"
-producer = "eda/11_rez_resource_vs_cost.jl"
+data_requirements = ["data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx"]
+related_reference_pages = ["generated/reference/data-sources.md", "generated/reference/parameters-and-mappings.md", "assumptions.md"]
+
+[[page]]
+id = "storage-characteristics"
+title = "PHES and battery storage characteristics"
+kind = "analysis"
+data_layer = "source-data"
+source = "literate/analysis/storage_characteristics.jl"
+output = "generated/analyses/storage-characteristics.md"
+status = "published"
+nav_order = 80
+snapshot = true
 data_requirements = ["data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx"]
 related_reference_pages = ["generated/reference/data-sources.md", "generated/reference/parameters-and-mappings.md", "assumptions.md"]

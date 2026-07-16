@@ -1,40 +1,32 @@
-#!/usr/bin/env julia
+# # PHES and battery storage characteristics
+#
+# This analysis asks what storage-duration, efficiency, and build-limit information is actually available for battery storage and pumped hydro energy storage (PHES) in the IASR workbook's "Storage properties" and "Build limits - PHES" sheets, and where those two storage classes are not directly comparable.
+#
+# The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx`, computed live on this page.
+# The workbook gives battery round-trip efficiency directly, but the PHES block gives only "Pumping efficiency" -- not round-trip efficiency. "BOTN - Cethana" in "Build limits - PHES" is a named option column, not a duration class like the 8hrs/24hrs/48hrs columns.
+#
+# No AEMO report-PDF page citation is currently verified for this question, so this page cites only the local workbook-derived evidence.
 
 using CSV
 using DataFrames
 using Printf
 using XLSX
 
+const REPO_ROOT = normpath(get(
+    ENV,
+    "PISP_DOCS_REPO_ROOT",
+    joinpath(@__DIR__, "..", "..", ".."),
+))
+
+include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+using .EdaSupport
+
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES")
+
 const SCRIPT_STEM = "12_storage_characteristics"
-const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
+const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded below
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
-const TABLE_ROOT = joinpath(@__DIR__, "tables")
-
-# Question: in the IASR workbook's "Storage properties" and "Build limits - PHES" sheets,
-# what storage-duration, efficiency, and build-limit information is actually available for
-# battery storage and pumped hydro energy storage, and where are those concepts not directly comparable?
-#
-# Interpretation note: the workbook gives battery round-trip efficiency directly, but the PHES block gives
-# "Pumping efficiency" only. "BOTN - Cethana" in "Build limits - PHES" is a named option column, not a
-# duration class like the 8hrs/24hrs/48hrs columns.
-
-function table_dir(script_stem; producer = "julia", root = TABLE_ROOT)
-    path = joinpath(root, producer, script_stem)
-    mkpath(path)
-    return path
-end
-
-function table_path(script_stem, table_name; producer = "julia", root = TABLE_ROOT)
-    filename = endswith(table_name, ".csv") ? table_name : "$(table_name).csv"
-    return joinpath(table_dir(script_stem; producer = producer, root = root), filename)
-end
-
-function write_table(frame::DataFrame, script_stem, table_name; producer = "julia", root = TABLE_ROOT)
-    path = table_path(script_stem, table_name; producer = producer, root = root)
-    CSV.write(path, frame; missingstring = "")
-    println("Saved table: ", path, " (", nrow(frame), " rows)")
-    return path
-end
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a DOWNLOADS-relative path to an absolute location for reading
 
 function trim_sheet(matrix)
     nrows, ncols = size(matrix)
@@ -306,50 +298,67 @@ function phes_concentration(build_limits_df)
     end
     return sort(DataFrame(rows), [:concentration_axis, order(:total_phes_build_limit_mw, rev = true), :label])
 end
+nothing #hide
 
-function main()
-    println("Workbook exists: ", isfile(IASR_WORKBOOK))
-    isfile(IASR_WORKBOOK) || error("IASR workbook not found at $IASR_WORKBOOK")
+# ## Step 1 — load and trim the "Storage properties" and "Build limits - PHES" sheets
 
-    storage_matrix, phes_limit_matrix = XLSX.openxlsx(IASR_WORKBOOK) do xf
-        trim_sheet(xf["Storage properties"][:]), trim_sheet(xf["Build limits - PHES"][:])
-    end
-    println("Trimmed \"Storage properties\" sheet shape: ", size(storage_matrix))
-    println("Trimmed \"Build limits - PHES\" sheet shape: ", size(phes_limit_matrix))
+println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
+isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
 
-    battery_df = battery_properties(storage_matrix)
-    write_table(battery_df, SCRIPT_STEM, "battery_properties")
-
-    phes_scheme_df = phes_scheme_properties(storage_matrix)
-    write_table(phes_scheme_df, SCRIPT_STEM, "phes_scheme_properties")
-
-    phes_limits_df = phes_build_limits(phes_limit_matrix)
-    write_table(phes_limits_df, SCRIPT_STEM, "phes_build_limits")
-
-    comparison_df = comparison_summary(battery_df, phes_scheme_df, phes_limits_df)
-    write_table(comparison_df, SCRIPT_STEM, "storage_class_availability_summary")
-
-    concentration_df = phes_concentration(phes_limits_df)
-    write_table(concentration_df, SCRIPT_STEM, "phes_regional_category_concentration")
-
-    total_phes_build_limit = sum(coalesce.(phes_limits_df.phes_8hrs_storage_mw, 0.0)) +
-        sum(coalesce.(phes_limits_df.phes_24hrs_storage_mw, 0.0)) +
-        sum(coalesce.(phes_limits_df.phes_48hrs_storage_mw, 0.0)) +
-        sum(coalesce.(phes_limits_df.botn_cethana_mw, 0.0))
-    category_rows = filter(:concentration_axis => ==("category"), concentration_df)
-    subregion_rows = filter(:concentration_axis => ==("isp_subregion"), concentration_df)
-    top_category = first(category_rows)
-    top_subregion = first(subregion_rows)
-
-    println("\n=== Storage characteristic summary ===")
-    println("Battery rows: ", nrow(battery_df), "; PHES scheme rows: ", nrow(phes_scheme_df), "; PHES build-limit rows: ", nrow(phes_limits_df))
-    @printf("Total PHES build limit: %.0f MW\n", total_phes_build_limit)
-    @printf("Largest PHES category: %s (%.0f MW, %.1f%% of total)\n", top_category.label, top_category.total_phes_build_limit_mw, top_category.share_of_total_phes_build_limit_pct)
-    @printf("Largest PHES ISP sub-region: %s/%s (%.0f MW, %.1f%% of total)\n", top_subregion.region, top_subregion.isp_subregion, top_subregion.total_phes_build_limit_mw, top_subregion.share_of_total_phes_build_limit_pct)
-    println("PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.")
-    println("Battery buildable capacity: unavailable in general Build limits; not fabricated.")
-
-    return battery_df, phes_scheme_df, phes_limits_df, comparison_df, concentration_df
+storage_matrix, phes_limit_matrix = XLSX.openxlsx(abs_path(IASR_WORKBOOK)) do xf
+    trim_sheet(xf["Storage properties"][:]), trim_sheet(xf["Build limits - PHES"][:])
 end
+println("Trimmed \"Storage properties\" sheet shape: ", size(storage_matrix))
+println("Trimmed \"Build limits - PHES\" sheet shape: ", size(phes_limit_matrix))
+nothing #hide
 
-main()
+# ## Step 2 — battery and PHES scheme properties
+
+battery_df = battery_properties(storage_matrix)
+write_table(battery_df, SCRIPT_STEM, "battery_properties")
+battery_df
+
+#-
+
+phes_scheme_df = phes_scheme_properties(storage_matrix)
+write_table(phes_scheme_df, SCRIPT_STEM, "phes_scheme_properties")
+phes_scheme_df
+
+# ## Step 3 — PHES regional build limits
+
+phes_limits_df = phes_build_limits(phes_limit_matrix)
+write_table(phes_limits_df, SCRIPT_STEM, "phes_build_limits")
+phes_limits_df
+
+# ## Step 4 — storage-class comparison summary
+
+comparison_df = comparison_summary(battery_df, phes_scheme_df, phes_limits_df)
+write_table(comparison_df, SCRIPT_STEM, "storage_class_availability_summary")
+comparison_df
+
+# ## Step 5 — regional and category concentration of PHES build limits
+
+concentration_df = phes_concentration(phes_limits_df)
+write_table(concentration_df, SCRIPT_STEM, "phes_regional_category_concentration")
+concentration_df
+
+# ## Interpreting the evidence
+
+total_phes_build_limit = sum(coalesce.(phes_limits_df.phes_8hrs_storage_mw, 0.0)) +
+    sum(coalesce.(phes_limits_df.phes_24hrs_storage_mw, 0.0)) +
+    sum(coalesce.(phes_limits_df.phes_48hrs_storage_mw, 0.0)) +
+    sum(coalesce.(phes_limits_df.botn_cethana_mw, 0.0))
+category_rows = filter(:concentration_axis => ==("category"), concentration_df)
+subregion_rows = filter(:concentration_axis => ==("isp_subregion"), concentration_df)
+top_category = first(category_rows)
+top_subregion = first(subregion_rows)
+
+@printf("Battery rows: %d; PHES scheme rows: %d; PHES build-limit rows: %d\n", nrow(battery_df), nrow(phes_scheme_df), nrow(phes_limits_df))
+@printf("Total PHES build limit: %.0f MW\n", total_phes_build_limit)
+@printf("Largest PHES category: %s (%.0f MW, %.1f%% of total)\n", top_category.label, top_category.total_phes_build_limit_mw, top_category.share_of_total_phes_build_limit_pct)
+@printf("Largest PHES ISP sub-region: %s/%s (%.0f MW, %.1f%% of total)\n", top_subregion.region, top_subregion.isp_subregion, top_subregion.total_phes_build_limit_mw, top_subregion.share_of_total_phes_build_limit_pct)
+println("PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.")
+println("Battery buildable capacity: unavailable in general Build limits; not fabricated.")
+
+# Battery storage and PHES are not directly comparable on every axis: batteries carry a directly reported round-trip efficiency while PHES schemes report only pumping efficiency, and only PHES has a subregional buildable-capacity figure in the general Build limits sheet -- battery buildable capacity is unavailable there and is not fabricated above.
+# "BOTN - Cethana" is a named, scheme-specific build-limit column and is kept separate from the 8hrs/24hrs/48hrs PHES duration classes rather than folded into them.

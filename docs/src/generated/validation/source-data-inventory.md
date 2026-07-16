@@ -1,10 +1,10 @@
 ```@meta
-EditURL = "../../../literate/eda_09_download_inventory.jl"
+EditURL = "../../../literate/validation/source_data_inventory.jl"
 ```
 
 # Source-data inventory
 
-This page lists the files and directories present under the selected PISP download root. The snapshot metadata identifies the inspected path and generation time.
+This page walks the local PISP download root directly, producing a file inventory, a top-level summary, an extension summary, and a depth-limited directory tree, all computed live on this page.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -13,17 +13,30 @@ This page lists the files and directories present under the selected PISP downlo
 ````julia
 using CSV
 using DataFrames
+using Printf
 
-const EDA09_EVIDENCE_DIR = joinpath(
-    normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, "..", ".."))),
-    "eda", "tables", "julia", "09_download_inventory",
-)
+const REPO_ROOT = normpath(get(
+    ENV,
+    "PISP_DOCS_REPO_ROOT",
+    joinpath(@__DIR__, "..", "..", ".."),
+))
 
-function read_eda09(table_name)
-    path = joinpath(EDA09_EVIDENCE_DIR, "$(table_name).csv")
-    isfile(path) || error("missing EDA evidence table: $path")
-    # keep empty-string cells as empty strings, not `missing`
-    return CSV.read(path, DataFrame; missingstring = nothing)
+include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+using .EdaSupport
+
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "local PISP download tree inventory")
+
+const SCRIPT_STEM = "09_download_inventory"
+const DOWNLOAD_ROOT = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded in the tables below
+const MAX_TREE_DEPTH = 3
+const MAX_TREE_CHILDREN_PER_DIR = 3
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a DOWNLOAD_ROOT-relative path to an absolute location for reading
+
+to_forward_slashes(path) = replace(path, "\\" => "/")
+
+function lowercase_extension(name)
+    ext = lowercase(splitext(name)[2])
+    return isempty(ext) ? "" : ext[2:end]
 end
 ````
 
@@ -32,75 +45,150 @@ end
 ```
 
 ````
-read_eda09 (generic function with 1 method)
+Snapshot: PISP.jl commit 53d7330+dirty, generated 2026-07-17 — local PISP download tree inventory
+
 ````
 
-## Inventory snapshot
+Single recursive walk of the download tree that produces both a flat file
+inventory (every depth) and a depth-limited directory-tree listing, so the
+tree structure does not need a second filesystem walk.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
 ```
 
 ````julia
-snapshot_metadata = read_eda09("snapshot_metadata")
-snapshot_metadata
+function walk_download_root(root; max_tree_depth = MAX_TREE_DEPTH, max_children_per_dir = MAX_TREE_CHILDREN_PER_DIR)
+    files = NamedTuple[]
+    tree_rows = NamedTuple[]
+
+    for (dirpath, dirnames, filenames) in walkdir(root)
+        filter!(name -> !startswith(name, "."), dirnames)
+        filter!(name -> !startswith(name, "."), filenames)
+        rel_dir = dirpath == root ? "" : to_forward_slashes(relpath(dirpath, root))
+        dir_depth = isempty(rel_dir) ? 0 : length(splitpath(rel_dir))
+        child_depth = dir_depth + 1
+
+        if child_depth <= max_tree_depth
+            for name in sort(dirnames)
+                push!(
+                    tree_rows,
+                    (depth = child_depth, parent_relative_path = rel_dir, name = name, kind = "directory"),
+                )
+            end
+            # Depth alone does not bound how many files sit in one directory
+            # (e.g. a single Traces/<tech>_<year>/ folder holds hundreds of
+            # per-location trace CSVs); cap the listed files per directory so
+            # the rendered tree stays readable, and record how many were
+            # omitted rather than silently truncating.
+            sorted_filenames = sort(filenames)
+            shown_filenames = first(sorted_filenames, min(length(sorted_filenames), max_children_per_dir))
+            for name in shown_filenames
+                push!(
+                    tree_rows,
+                    (depth = child_depth, parent_relative_path = rel_dir, name = name, kind = "file"),
+                )
+            end
+            omitted = length(sorted_filenames) - length(shown_filenames)
+            if omitted > 0
+                push!(
+                    tree_rows,
+                    (
+                        depth = child_depth,
+                        parent_relative_path = rel_dir,
+                        name = "... ($(omitted) more file$(omitted == 1 ? "" : "s") omitted)",
+                        kind = "note",
+                    ),
+                )
+            end
+        end
+
+        for filename in sort(filenames)
+            full_path = joinpath(dirpath, filename)
+            rel_path = isempty(rel_dir) ? filename : rel_dir * "/" * filename
+            push!(
+                files,
+                (
+                    relative_path = rel_path,
+                    size_bytes = filesize(full_path),
+                    extension = lowercase_extension(filename),
+                    depth = length(splitpath(rel_path)),
+                ),
+            )
+        end
+    end
+
+    return files, tree_rows
+end
+
+function summarize_extensions(files)
+    counts = Dict{String, Int}()
+    bytes = Dict{String, Int}()
+    for f in files
+        counts[f.extension] = get(counts, f.extension, 0) + 1
+        bytes[f.extension] = get(bytes, f.extension, 0) + f.size_bytes
+    end
+    exts = sort(collect(keys(counts)))
+    rows = [(extension = ext, file_count = counts[ext], total_bytes = bytes[ext]) for ext in exts]
+    return DataFrame(rows)
+end
 ````
 
 ```@raw html
 </details>
 ```
 
-```@raw html
-<div><div style = "float: left;"><span>1×5 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">download_root</th><th style = "text-align: left;">total_files</th><th style = "text-align: left;">total_bytes</th><th style = "text-align: left;">tree_depth</th><th style = "text-align: left;">max_files_per_directory</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "InlineStrings.String31" style = "text-align: left;">String31</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">data/2024/pisp-downloads</td><td style = "text-align: right;">8250</td><td style = "text-align: right;">69981235354</td><td style = "text-align: right;">3</td><td style = "text-align: right;">3</td></tr></tbody></table></div>
-```
-
-## Top-level summary
-
-One row per immediate child of the download root, whether a plain file or a directory.
-`file_count` and `total_bytes` are recursive for directories; `extensions` lists the distinct file extensions found under a directory (empty for a plain file, since a file has no children to list extensions for).
+One row per immediate child of the download root, whether a file or a
+directory. Directory rows aggregate recursively over `files`; a plain
+file's own extension is not repeated in `extensions` since that column
+describes what is found *under* an entry, not the entry itself.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
 ```
 
 ````julia
-top_level_summary = read_eda09("top_level_summary")
-top_level_summary
+function summarize_top_level(root, files)
+    rows = NamedTuple[]
+    for name in sort(filter(n -> !startswith(n, "."), readdir(root)))
+        full_path = joinpath(root, name)
+        if isdir(full_path)
+            prefix = name * "/"
+            matching = filter(f -> startswith(f.relative_path, prefix), files)
+            total_bytes = isempty(matching) ? 0 : sum(f.size_bytes for f in matching)
+            exts = sort(unique(f.extension for f in matching if !isempty(f.extension)))
+            push!(
+                rows,
+                (
+                    name = name,
+                    kind = "directory",
+                    file_count = length(matching),
+                    total_bytes = total_bytes,
+                    extensions = join(exts, ","),
+                ),
+            )
+        else
+            push!(
+                rows,
+                (
+                    name = name,
+                    kind = "file",
+                    file_count = 1,
+                    total_bytes = filesize(full_path),
+                    extensions = "",
+                ),
+            )
+        end
+    end
+    return DataFrame(rows)
+end
 ````
 
 ```@raw html
 </details>
 ```
 
-```@raw html
-<div><div style = "float: left;"><span>9×5 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">name</th><th style = "text-align: left;">kind</th><th style = "text-align: left;">file_count</th><th style = "text-align: left;">total_bytes</th><th style = "text-align: left;">extensions</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "InlineStrings.String15" style = "text-align: left;">String15</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "InlineStrings.String7" style = "text-align: left;">String7</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">25926656</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">2023-iasr-ev-workbook.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">505291</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">2024 ISP Model</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">90</td><td style = "text-align: right;">495584080</td><td style = "text-align: left;">csv,xml</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">2024-isp-inputs-and-assumptions-workbook.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">11339818</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">Auxiliary</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">7</td><td style = "text-align: right;">6282064</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">Core</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">3</td><td style = "text-align: right;">27871688</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">Sensitivities</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">9</td><td style = "text-align: right;">31047416</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">Traces</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">8074</td><td style = "text-align: right;">50348183696</td><td style = "text-align: left;">csv</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">zip</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">64</td><td style = "text-align: right;">19034494645</td><td style = "text-align: left;">zip</td></tr></tbody></table></div>
-```
-
-## Extension summary
-
-One row per distinct file extension across the whole tree, with the total file count and byte size for that extension.
-
-```@raw html
-<details class="source-code"><summary>Show source code</summary>
-```
-
-````julia
-extension_summary = read_eda09("extension_summary")
-extension_summary
-````
-
-```@raw html
-</details>
-```
-
-```@raw html
-<div><div style = "float: left;"><span>4×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">extension</th><th style = "text-align: left;">file_count</th><th style = "text-align: left;">total_bytes</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "InlineStrings.String7" style = "text-align: left;">String7</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">csv</td><td style = "text-align: right;">8158</td><td style = "text-align: right;">50752303703</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">xlsx</td><td style = "text-align: right;">22</td><td style = "text-align: right;">102972933</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">xml</td><td style = "text-align: right;">6</td><td style = "text-align: right;">91464073</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">64</td><td style = "text-align: right;">19034494645</td></tr></tbody></table></div>
-```
-
-## Directory tree (depth ≤ 3)
-
-The tree below mirrors the on-disk folder layout down to three levels deep.
-Some folders hold far more files than are useful to list one by one — a single `Traces/<tech>_<year>/` folder holds hundreds of near-identical per-location trace CSVs — so a folder with many files shows only its first several, followed by a line stating how many more were left out.
+Renders the depth-limited directory-tree rows as an indented plain-text tree, root-first.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -131,8 +219,127 @@ function render_tree(tree::DataFrame; root_label = "pisp-downloads")
     emit("", "  ")
     return String(take!(io))
 end
+````
 
-directory_tree = read_eda09("directory_tree")
+```@raw html
+</details>
+```
+
+## Step 1 — walk the local download tree
+
+A single recursive walk over the download root produces a flat file inventory (every file, at every depth) and a depth-limited directory-tree listing in the same pass.
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+isdir(abs_path(DOWNLOAD_ROOT)) || error(
+    "expected local download tree at \"$DOWNLOAD_ROOT\"; " *
+    "run the PISP downloader to populate $(DOWNLOAD_ROOT)/ before rendering this page",
+)
+
+files, tree_rows = walk_download_root(abs_path(DOWNLOAD_ROOT))
+println("Total files discovered under ", DOWNLOAD_ROOT, ": ", length(files))
+````
+
+```@raw html
+</details>
+```
+
+````
+Total files discovered under data/2024/pisp-downloads: 8250
+
+````
+
+## Step 2 — file inventory, top-level summary, and extension summary
+
+`file_inventory` lists every discovered file; the full inventory is written as evidence, while the table below previews only the ten largest files by size. `top_level_summary` aggregates by immediate child of the download root, and `extension_summary` aggregates by file extension across the whole tree.
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+file_inventory = DataFrame(files)
+write_table(file_inventory, SCRIPT_STEM, "file_inventory")
+println("Full file inventory written: ", nrow(file_inventory), " rows (previewing the ten largest files below)")
+
+largest_files = first(sort(file_inventory, :size_bytes; rev = true), 10)
+largest_files
+````
+
+```@raw html
+</details>
+```
+
+```@raw html
+<div><div style = "float: left;"><span>10×4 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">relative_path</th><th style = "text-align: left;">size_bytes</th><th style = "text-align: left;">extension</th><th style = "text-align: left;">depth</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">zip/Traces/57_ISP_Wind_Traces_r2018.zip</td><td style = "text-align: right;">361191687</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">zip/Traces/53_ISP_Wind_Traces_r2014.zip</td><td style = "text-align: right;">361112039</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">zip/Traces/51_ISP_Wind_Traces_r2012.zip</td><td style = "text-align: right;">361090963</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">zip/Traces/52_ISP_Wind_Traces_r2013.zip</td><td style = "text-align: right;">360736109</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">zip/Traces/58_ISP_Wind_Traces_r2019.zip</td><td style = "text-align: right;">360572827</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">zip/Traces/50_ISP_Wind_Traces_r2011.zip</td><td style = "text-align: right;">359615789</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">zip/Traces/55_ISP_Wind_Traces_r2016.zip</td><td style = "text-align: right;">359156768</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">zip/Traces/56_ISP_Wind_Traces_r2017.zip</td><td style = "text-align: right;">358943761</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">zip/Traces/54_ISP_Wind_Traces_r2015.zip</td><td style = "text-align: right;">358554638</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">10</td><td style = "text-align: left;">zip/Traces/60_ISP_Wind_Traces_r2021.zip</td><td style = "text-align: right;">342367162</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">3</td></tr></tbody></table></div>
+```
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+top_level_summary = summarize_top_level(abs_path(DOWNLOAD_ROOT), files)
+write_table(top_level_summary, SCRIPT_STEM, "top_level_summary")
+top_level_summary
+````
+
+```@raw html
+</details>
+```
+
+```@raw html
+<div><div style = "float: left;"><span>9×5 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">name</th><th style = "text-align: left;">kind</th><th style = "text-align: left;">file_count</th><th style = "text-align: left;">total_bytes</th><th style = "text-align: left;">extensions</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String" style = "text-align: left;">String</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">25926656</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">2023-iasr-ev-workbook.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">505291</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">2024 ISP Model</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">90</td><td style = "text-align: right;">495584080</td><td style = "text-align: left;">csv,xml</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">2024-isp-inputs-and-assumptions-workbook.xlsx</td><td style = "text-align: left;">file</td><td style = "text-align: right;">1</td><td style = "text-align: right;">11339818</td><td style = "text-align: left;"></td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">5</td><td style = "text-align: left;">Auxiliary</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">7</td><td style = "text-align: right;">6282064</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">6</td><td style = "text-align: left;">Core</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">3</td><td style = "text-align: right;">27871688</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">7</td><td style = "text-align: left;">Sensitivities</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">9</td><td style = "text-align: right;">31047416</td><td style = "text-align: left;">xlsx</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">8</td><td style = "text-align: left;">Traces</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">8074</td><td style = "text-align: right;">50348183696</td><td style = "text-align: left;">csv</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">9</td><td style = "text-align: left;">zip</td><td style = "text-align: left;">directory</td><td style = "text-align: right;">64</td><td style = "text-align: right;">19034494645</td><td style = "text-align: left;">zip</td></tr></tbody></table></div>
+```
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+extension_summary = summarize_extensions(files)
+write_table(extension_summary, SCRIPT_STEM, "extension_summary")
+extension_summary
+````
+
+```@raw html
+</details>
+```
+
+```@raw html
+<div><div style = "float: left;"><span>4×3 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">extension</th><th style = "text-align: left;">file_count</th><th style = "text-align: left;">total_bytes</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">csv</td><td style = "text-align: right;">8158</td><td style = "text-align: right;">50752303703</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">2</td><td style = "text-align: left;">xlsx</td><td style = "text-align: right;">22</td><td style = "text-align: right;">102972933</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">3</td><td style = "text-align: left;">xml</td><td style = "text-align: right;">6</td><td style = "text-align: right;">91464073</td></tr><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">4</td><td style = "text-align: left;">zip</td><td style = "text-align: right;">64</td><td style = "text-align: right;">19034494645</td></tr></tbody></table></div>
+```
+
+## Step 3 — directory tree (depth ≤ 3)
+
+The tree below mirrors the on-disk folder layout down to three levels deep. Some folders hold far more files than are useful to list one by one — a single `Traces/<tech>_<year>/` folder holds hundreds of near-identical per-location trace CSVs — so a folder with many files shows only its first several, followed by a line stating how many more were left out.
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+directory_tree = DataFrame(tree_rows)
+write_table(directory_tree, SCRIPT_STEM, "directory_tree")
+nrow(directory_tree)
+````
+
+```@raw html
+</details>
+```
+
+````
+359
+````
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
 tree_text = render_tree(directory_tree);
 
 ````
@@ -505,22 +712,27 @@ pisp-downloads/
 
 ````
 
-## Inventory totals
+## Step 4 — inventory totals
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
 ```
 
 ````julia
+total_bytes = isempty(files) ? 0 : sum(f.size_bytes for f in files)
 inventory_summary = DataFrame([
     (
-        total_files = snapshot_metadata.total_files[1],
-        total_bytes = snapshot_metadata.total_bytes[1],
+        download_root = DOWNLOAD_ROOT,
+        total_files = length(files),
+        total_bytes = total_bytes,
+        tree_depth = MAX_TREE_DEPTH,
+        max_files_per_directory = MAX_TREE_CHILDREN_PER_DIR,
         top_level_entries = nrow(top_level_summary),
         largest_entry = top_level_summary.name[argmax(top_level_summary.total_bytes)],
         largest_entry_bytes = maximum(top_level_summary.total_bytes),
     ),
 ])
+write_table(inventory_summary, SCRIPT_STEM, "inventory_summary")
 inventory_summary
 ````
 
@@ -529,6 +741,28 @@ inventory_summary
 ```
 
 ```@raw html
-<div><div style = "float: left;"><span>1×5 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">total_files</th><th style = "text-align: left;">total_bytes</th><th style = "text-align: left;">top_level_entries</th><th style = "text-align: left;">largest_entry</th><th style = "text-align: left;">largest_entry_bytes</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: right;">8250</td><td style = "text-align: right;">69981235354</td><td style = "text-align: right;">9</td><td style = "text-align: left;">Traces</td><td style = "text-align: right;">50348183696</td></tr></tbody></table></div>
+<div><div style = "float: left;"><span>1×8 DataFrame</span></div><div style = "clear: both;"></div></div><div class = "data-frame" style = "overflow-x: scroll;"><table class = "data-frame" style = "margin-bottom: 6px;"><thead><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;">Row</th><th style = "text-align: left;">download_root</th><th style = "text-align: left;">total_files</th><th style = "text-align: left;">total_bytes</th><th style = "text-align: left;">tree_depth</th><th style = "text-align: left;">max_files_per_directory</th><th style = "text-align: left;">top_level_entries</th><th style = "text-align: left;">largest_entry</th><th style = "text-align: left;">largest_entry_bytes</th></tr><tr class = "columnLabelRow"><th class = "stubheadLabel" style = "font-weight: bold; text-align: right;"></th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "Int64" style = "text-align: left;">Int64</th><th title = "String" style = "text-align: left;">String</th><th title = "Int64" style = "text-align: left;">Int64</th></tr></thead><tbody><tr class = "dataRow"><td class = "rowLabel" style = "font-weight: bold; text-align: right;">1</td><td style = "text-align: left;">data/2024/pisp-downloads</td><td style = "text-align: right;">8250</td><td style = "text-align: right;">69981235354</td><td style = "text-align: right;">3</td><td style = "text-align: right;">3</td><td style = "text-align: right;">9</td><td style = "text-align: left;">Traces</td><td style = "text-align: right;">50348183696</td></tr></tbody></table></div>
 ```
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+@printf("Total: %d files, %.2f MB under %s\n", length(files), total_bytes / (1024^2), DOWNLOAD_ROOT)
+````
+
+```@raw html
+</details>
+```
+
+````
+Total: 8250 files, 66739.31 MB under data/2024/pisp-downloads
+
+````
+
+## Summary
+
+- The download root currently holds the file counts and sizes shown in `inventory_summary` above, broken down by top-level entry and by file extension.
+- The full per-file inventory (`file_inventory.csv`) and the depth-limited directory tree (`directory_tree.csv`) are both written as evidence for downstream inspection, even though only bounded previews are rendered on this page.
 

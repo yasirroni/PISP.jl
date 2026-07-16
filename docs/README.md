@@ -19,14 +19,12 @@ PISP documentation uses two source types:
 | `docs/literate/tutorials/` | Executable package and dataset workflows. |
 | `docs/literate/validation/` | Executable validation pages that load their own source data, compute their own evidence, and build their own figures directly on the page — the page itself is the analysis, not a consumer of a separate producer script. |
 | `docs/literate/analysis/` | Executable analysis pages following the same self-contained pattern as `docs/literate/validation/`. |
-| `docs/literate/eda_09_download_inventory.jl`, `docs/literate/eda_11_rez_resource_vs_cost.jl` | Two remaining pages that still follow the older producer-consumer model: a registered `eda/*.jl` producer writes evidence tables that the page then reads and displays. |
 | `docs/src/generated/` | Static Markdown and figures generated from all active Literate sources. |
-| `eda/eda_support.jl` | Shared table/figure-writer helper used by every self-contained page under `docs/literate/validation/` and `docs/literate/analysis/`. |
-| `eda/09_download_inventory.jl`, `eda/11_rez_resource_vs_cost.jl` | The two remaining standalone producer scripts, for the two pages listed above. |
-| `eda/compare_tables.jl` | Regression harness comparing Julia-produced evidence tables against the archived Python baseline under `eda/archive/`. |
+| `eda/eda_support.jl` | Shared table/figure-writer helper used by every page under `docs/literate/validation/` and `docs/literate/analysis/`. |
+| `eda/compare_tables.jl` | Regression harness comparing Julia-produced evidence tables against the archived Python baseline under `eda/archive/`, for the pages ported from an original Python analysis. |
 | `eda/tables/julia/<script-stem>/` | Current EDA evidence location. |
 
-The public navigation follows reader purpose: reference, tutorial, validation, or analysis. Not every page in `docs/page-registry.toml` sets a `producer`/`evidence_dir` — only the two pages named above do; every other executable page computes its own evidence at render time.
+The public navigation follows reader purpose: reference, tutorial, validation, or analysis. No page in `docs/page-registry.toml` currently sets a `producer`/`evidence_dir`: every executable page computes its own evidence at render time.
 
 ## Complete local build
 
@@ -38,7 +36,7 @@ julia --project=docs docs/build_all.jl
 
 The complete build performs these lifecycle stages in order:
 
-1. run each unique `eda/*.jl` producer registered by an active page (only `source-data-inventory` and `rez-resource-versus-connection-cost` currently register one — every other page computes its own evidence when its Literate source executes);
+1. run each unique `eda/*.jl` producer registered by an active page (no page currently registers one — every page computes its own evidence when its Literate source executes);
 2. execute every active Literate source and regenerate its static Markdown and figures;
 3. build the Documenter site from the generated files.
 
@@ -74,7 +72,7 @@ julia --project=docs docs/make.jl
 
 ### Full render (slower, occasional use)
 
-Render every active Literate page and rerun every registered producer (`source-data-inventory` and `rez-resource-versus-connection-cost` are the only two that currently have one). Reach for this before a release, or whenever a change could plausibly affect pages beyond the ones just edited (for example, a shared helper such as `eda/eda_support.jl`), rather than as the routine way to check one edit:
+Render every active Literate page and rerun every registered producer (none currently registers one, so this step is a no-op today). Reach for this before a release, or whenever a change could plausibly affect pages beyond the ones just edited (for example, a shared helper such as `eda/eda_support.jl`), rather than as the routine way to check one edit:
 
 ```sh
 julia --project=docs docs/render_literate.jl
@@ -118,7 +116,7 @@ Each `[[page]]` entry in `docs/page-registry.toml` contains:
 
 ## Evidence and rendering contract
 
-Two flows exist. The self-contained flow is now the default for every page under `docs/literate/validation/` and `docs/literate/analysis/`:
+Every page under `docs/literate/validation/` and `docs/literate/analysis/` is self-contained: the Literate page owns everything reader-facing about its topic, in one place — it loads its own source data, computes its own evidence, builds its own figures, and states its own interpretation:
 
 ```text
 source data or PISP datasets
@@ -127,17 +125,7 @@ source data or PISP datasets
             -> docs/src/generated/<role>/<topic>.md
 ```
 
-The legacy producer-consumer flow remains for the two pages that still use it (`source-data-inventory`, `rez-resource-versus-connection-cost`):
-
-```text
-source data or PISP datasets
-    -> eda/<producer>.jl
-        -> eda/tables/julia/<script-stem>/
-            -> docs/literate/<page>.jl
-                -> docs/src/generated/<role>/<topic>.md
-```
-
-In the self-contained flow, the Literate page owns everything: calculations, evidence tables, figures, reader framing, and interpretation boundaries. In the legacy flow, the registered producer owns calculations and evidence tables, and the Literate page owns reader framing, visible evidence, interpretation boundaries, and links to stable package references. Prefer the self-contained flow for new pages; the legacy flow is not being expanded.
+An earlier producer-consumer split existed for a few pages, where a separate `eda/<stem>.jl` script computed the evidence tables and the Literate page only read and displayed them. That split has been fully retired: no page currently registers a `producer` or `evidence_dir`, and `eda/` holds only the shared table/figure-writer helper (`eda/eda_support.jl`) and the Python-comparison regression harness (`eda/compare_tables.jl`), not any per-topic analysis script. Keep new pages self-contained rather than reintroducing a separate producer script.
 
 Snapshot pages must display their input or build identity (which download root, output root, or schedule directory was inspected) — every self-contained page under `docs/literate/validation/` and `docs/literate/analysis/` does this via `EdaSupport.snapshot_metadata_line`, printing the PISP.jl commit, generation date, and a page-specific description of the dated source/build it describes. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
 
