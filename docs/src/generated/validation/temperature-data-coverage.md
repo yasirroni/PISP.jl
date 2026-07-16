@@ -4,7 +4,7 @@ EditURL = "../../../literate/eda/05_temperature_analysis.jl"
 
 # Assessing temperature-related information and climate-zone variation
 
-Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the ISP assumptions workbook, PISP's own output files, and summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/05_temperature_analysis/`, computed live on this page rather than read back from that evidence afterwards.
+Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the ISP assumptions workbook, PISP's own output files, and summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present.
 
 No observed temperature time series is loaded, and no causal temperature-response model is estimated. Climate-zone comparisons are descriptive solar-trace comparisons, not direct measurements of thermal derating.
 
@@ -33,30 +33,16 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
+EdaSupport.snapshot_metadata_line(
+    REPO_ROOT;
+    context = "2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces",
+)
+
 const SCRIPT_STEM = "05_temperature_analysis"
-const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
-const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")
-````
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below
+const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")  # kept relative, same reason as TRACES
 
-```@raw html
-</details>
-```
-
-````
-"data/2024/pisp-downloads"
-````
-
-Literate executes each code block with the working directory changed to the
-page's own output directory, so file reads must go through an absolute path;
-recorded table values still use the `TRACES`/`DOWNLOADS`-relative form above so they
-stay byte-identical to the archived Python baseline's own recorded paths.
-
-```@raw html
-<details class="source-code"><summary>Show source code</summary>
-```
-
-````julia
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a relative path above to an absolute file location for reading
 
 const TEMP_KEYWORDS = ["temp", "heat", "thermal", "derate", "pv", "solar", "wind", "rooftop", "inverter"]
 const HH_COLS_SOL = string.(1:48)
@@ -80,16 +66,16 @@ end
 ```
 
 ````
-is_reliability_match (generic function with 1 method)
+Snapshot: PISP.jl commit 0d31fb4+dirty, generated 2026-07-16 — 2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces
+
 ````
 
 Trim a raw XLSX matrix down to the bounding box of non-missing cells. A
 worksheet's declared dimension (and hence XLSX.jl's `sheet[:]`) can report
-extra trailing all-empty rows/columns beyond the sheet's real content;
-pandas' openpyxl-based reader trims these trailing empties before
-`pd.read_excel(header=None)` reports its shape. Verified against this
-workbook: e.g. "Rooftop PV" raw is
-(64, 35) but both pandas and this trim give (62, 33) — rows 63-64 and columns
+extra trailing all-empty rows/columns beyond the sheet's real content, so
+this drops trailing rows/columns that hold no value before reporting a
+sheet's shape. Verified against this workbook: e.g. "Rooftop PV" has a raw
+shape of (64, 35) but a trimmed shape of (62, 33) — rows 63-64 and columns
 34-35 are entirely `missing`.
 
 ```@raw html
@@ -120,11 +106,7 @@ end
 </details>
 ```
 
-````
-trim_sheet (generic function with 1 method)
-````
-
-Mirrors pandas' "Unnamed: N" convention (0-based column index) for blank header cells.
+A blank header cell gets a placeholder name using its 0-based column index.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -143,10 +125,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-empty_df (generic function with 1 method)
-````
 
 ## Step 1 — inventory the ISP assumptions workbook's sheets
 
@@ -563,5 +541,4 @@ cp(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"), joinpath(normpath
 
 - The ISP assumptions workbook and PISP's own output files contain some temperature-, derating-, and reliability-adjacent fields, but a keyword match only flags material for review, it does not establish a usable temperature dependency.
 - No observed temperature series is loaded here; the climate-zone comparison is a descriptive summer solar-trace comparison across four representative sites, not a measurement of thermal derating.
-- The regression-comparison evidence this page also writes — `eda/tables/julia/05_temperature_analysis/*.csv` — is produced by the same code shown above, not read back from a separate script.
 

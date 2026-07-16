@@ -1,6 +1,6 @@
 # # Comparing historical solar and wind reference years
 #
-# A single reference year can conceal substantial interannual variation in renewable availability. This page loads the full historical solar and wind trace archive directly, computes annual and seasonal capacity factors, low-output-day frequencies, and the most adverse summer solar day across the available historical years, and builds the comparison figures — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/03_year_comparison/`, computed live on this page rather than read back from that evidence afterwards.
+# A single reference year can conceal substantial interannual variation in renewable availability. This page loads the full historical solar and wind trace archive directly, computes annual and seasonal capacity factors, low-output-day frequencies, and the most adverse summer solar day across the available historical years, and builds the comparison figures.
 #
 # The comparison is location-specific: solar uses `Bannerton_SAT` and wind uses `DUNDWF1`. Results should not be generalised to all Victorian renewable resources without additional spatial analysis.
 
@@ -24,26 +24,23 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads, historical years 2011-2023")
+
 const SCRIPT_STEM = "03_year_comparison"
-const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the output tables
 const YEARS = 2011:2023
 const HH_COLS_SOL = string.(1:48)
 const HH_COLS_WIND = [lpad(i, 2, '0') for i in 1:48]
 const MIDDAY_COLS = string.(24:35)  # hours 12-18
-
-# Representative locations
 const SOLAR_LOC = "Bannerton_SAT"  # VIC solar
 const WIND_LOC = "DUNDWF1"         # VIC wind
-
-# Literate executes each code block with the working directory changed to the page's own output directory, so file reads must go through an absolute path; `TRACES` itself stays relative (it is never recorded into any of this page's output tables) to match the same relative-path convention used across the other EDA pages.
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES-relative path to an absolute file location for reading
 
 function add_datetime!(df::DataFrame)
     df.datetime = Date.(df.Year, df.Month, df.Day)
     return df
 end
 
-# Load a single location's traces across all historical reference years.
 function load_location_all_years(tech, location, years)
     dfs = Dict{Int, DataFrame}()
     for yr in years
@@ -59,6 +56,7 @@ end
 
 row_mean(df::DataFrame, cols) = [mean(row[col] for col in cols) for row in eachrow(df)]
 row_max(df::DataFrame, cols) = [maximum(row[col] for col in cols) for row in eachrow(df)]
+nothing #hide
 
 # ## Step 1 — load solar and wind traces across all historical reference years
 #
@@ -143,7 +141,7 @@ annual_cf_by_year
 
 # ## Step 4 — worst summer solar day per year
 #
-# For each year, this finds the summer day with the lowest midday (hour 12-18) maximum capacity factor — an event-screening metric rather than a complete adequacy or energy-shortfall measure. Ties resolve to the first occurrence, matching pandas `idxmin`.
+# For each year, this finds the summer day with the lowest midday (hour 12-18) maximum capacity factor — an event-screening metric rather than a complete adequacy or energy-shortfall measure. Ties resolve to the first occurrence.
 
 worst_summer_day_rows = NamedTuple[]
 for yr in sort(collect(keys(sol_years)))
@@ -152,7 +150,7 @@ for yr in sort(collect(keys(sol_years)))
     any(summer_mask) || continue
     summer = df[summer_mask, :]
     midday_max = row_max(summer, MIDDAY_COLS)
-    worst_pos = argmin(midday_max)  # first occurrence on ties, matching pandas idxmin
+    worst_pos = argmin(midday_max)  # first occurrence on ties
     worst_cf = midday_max[worst_pos]
     worst_date = summer.datetime[worst_pos]
     push!(worst_summer_day_rows, (year = yr, date = Dates.format(worst_date, "yyyy-mm-dd"), midday_max_cf = worst_cf))
@@ -216,7 +214,7 @@ low_output_days_by_year
 
 # ## Step 6 — annual CF variability summary
 #
-# This summarises the spread of annual mean capacity factor across all loaded years for each technology. It matches Python's `np.std(vals)` (population std, ddof=0) — distinct from the sample std (ddof=1) used by pandas `Series.std()` in `seasonal_cf_by_year` above.
+# This summarises the spread of annual mean capacity factor across all loaded years for each technology, using the population standard deviation (dividing by n, not n-1) — a different convention from the sample standard deviation used for `std_cf` in the seasonal summary above (Step 2), which divides by n-1.
 
 variability_rows = NamedTuple[]
 for (tech, loc, hh_cols, data) in (
@@ -278,7 +276,6 @@ yrs_wind_summer = sort(collect(keys(summer_cfs_wind)))
 yrs_sol_winter = sort(collect(keys(winter_cfs_sol)))
 yrs_wind_winter = sort(collect(keys(winter_cfs_wind)))
 
-# Flatten a Dict{Int, Vector{Float64}} of per-year daily CF samples into long-form data for the boxplot.
 function long_form(cf_dict, years)
     labels = String[]
     values = Float64[]
@@ -441,4 +438,3 @@ nothing #hide
 #
 # - Solar (`Bannerton_SAT`) and wind (`DUNDWF1`) show materially different year-to-year and season-to-season capacity factor variability across the 2011-2023 historical reference years.
 # - The worst-summer-day and near-zero-output-day tables and figures identify specific adverse years rather than a single averaged risk figure, and the two technologies use different low-output metrics that are not directly interchangeable.
-# - The regression-comparison evidence this page also writes — `eda/tables/julia/03_year_comparison/*.csv` — is produced by the same code shown above, not read back from a separate script.

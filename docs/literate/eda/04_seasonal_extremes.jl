@@ -1,6 +1,6 @@
 # # Examining seasonal renewable extremes
 #
-# Mean capacity factors do not describe the persistence, timing, or profile of low-output conditions. This page presents grouped summer comparisons, candidate multi-day low-output events, and detailed solar profiles for adverse days — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/04_seasonal_extremes/`, computed live on this page rather than read back from that evidence afterwards.
+# Mean capacity factors do not describe the persistence, timing, or profile of low-output conditions. This page loads the underlying half-hourly solar and wind traces directly, then builds grouped summer comparisons, candidate multi-day low-output events, and detailed solar profiles for adverse days.
 #
 # The analysis uses one Victorian solar location and one Victorian wind location. Its event definitions are exploratory and should not be treated as a system-wide adequacy criterion.
 
@@ -26,10 +26,6 @@ using .EdaSupport
 const SCRIPT_STEM = "04_seasonal_extremes"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 
-# Literate executes each code block with the working directory changed to the
-# page's own output directory, so file reads must go through an absolute path;
-# recorded table values still use the `TRACES`-relative form above so they
-# stay byte-identical to the archived Python baseline's own recorded paths.
 abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
 
 const HH_COLS_SOL = string.(1:48)
@@ -56,9 +52,10 @@ function load_trace(tech, yr, loc)
 end
 
 row_mean(df::DataFrame, cols) = [mean(row[col] for col in cols) for row in eachrow(df)]
+nothing #hide
 
-# Rolling mean matching pandas' `Series.rolling(window).mean()` default
-# `min_periods == window`: the first `window - 1` entries are missing.
+# A simple trailing rolling mean: the first `window - 1` entries have no full
+# window of preceding values yet, so they are left `missing`.
 function rolling_mean(values, window)
     n = length(values)
     result = Vector{Union{Missing, Float64}}(missing, n)
@@ -68,24 +65,6 @@ function rolling_mean(values, window)
     return result
 end
 
-# Mirrors pandas' `below.diff()` + `starts = diff[diff==1].index` /
-# `ends = diff[diff==-1].index` + `zip(starts, ends)` exactly, including its
-# quirks:
-#   - `.diff()` is positional (state transitions in filtered-row order), but
-#     `starts`/`ends` capture the ORIGINAL (unfiltered) row position labels,
-#     which are not contiguous once rows are filtered to Dec/Jan/Feb only.
-#   - `duration = (e - s) + 1` is then computed from those labels directly,
-#     not from an actual count of matched rows, so an event whose state runs
-#     from the tail of a Dec/Jan/Feb block into the next one (across the
-#     excluded Mar-Nov gap) gets a hugely inflated (but faithfully
-#     reproduced) duration.
-#   - `zip(starts, ends)` pairs the two lists purely by position; if their
-#     lengths differ (e.g. a run already active at the first row leaves an
-#     unmatched trailing "end"), every subsequent pair is shifted and the
-#     resulting durations can even go negative. This is replicated verbatim.
-#   - `daily.loc[s:e]` is a label-based range select: all filtered rows whose
-#     original position falls within [s, e], which is what `mask_range` below
-#     reproduces.
 function low_output_events_for(tech, loc, hh_cols, threshold, yr)
     df = load_trace(tech, yr, loc)
     df === nothing && return NamedTuple[]
@@ -137,6 +116,11 @@ function low_output_events_for(tech, loc, hh_cols, threshold, yr)
     return rows
 end
 
+snapshot_metadata_line(
+    REPO_ROOT;
+    context = "2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS",
+)
+
 # ## Step 1 — hot vs cool summer solar profile summary
 #
 # For each historical hot or cool summer, this computes the mean daily capacity factor across December/January/February and summarises it with its own spread and range.
@@ -171,6 +155,8 @@ hot_cool_summer_solar_summary
 # ## Step 2 — candidate multi-day low-output events
 #
 # The current event-duration calculation retains original row labels after summer filtering. Events crossing excluded months can therefore receive inflated or otherwise misleading durations, and positional pairing can shift when start and end counts differ. Do not use the reported durations as modelling inputs until this calculation is corrected.
+#
+# The full event-by-event table is written to `eda/tables/julia/04_seasonal_extremes/low_output_events.csv`; the page instead shows a compact per-technology-per-year summary of how many candidate events were found and how long they lasted.
 
 rows = NamedTuple[]
 for (tech, loc, hh_cols, threshold) in (
@@ -184,7 +170,22 @@ end
 
 low_output_events = DataFrame(rows)
 write_table(low_output_events, SCRIPT_STEM, "low_output_events")
-low_output_events
+
+low_output_event_summary = if isempty(low_output_events)
+    DataFrame()
+else
+    sort(
+        combine(
+            groupby(low_output_events, [:tech, :year]),
+            nrow => :n_events,
+            :duration => minimum => :min_duration,
+            :duration => (x -> round(mean(x), digits = 1)) => :mean_duration,
+            :duration => maximum => :max_duration,
+        ),
+        [:tech, :year],
+    )
+end
+low_output_event_summary
 
 # ## Step 3 — worst solar day and half-hourly profile
 #
@@ -198,7 +199,7 @@ for yr in 2011:2023
     any(summer_mask) || continue
     summer = df[summer_mask, :]
     daily = row_mean(summer, HH_COLS_SOL)
-    worst_pos = argmin(daily)  # first occurrence on ties, matching pandas idxmin
+    worst_pos = argmin(daily)  # first occurrence on ties
     push!(
         worst_rows,
         (
@@ -241,7 +242,7 @@ worst_solar_day_profile
 
 # ## Step 4 — 2019 monthly and Black Summer detail
 #
-# The monthly table provides a calendar context for the detailed summer series. It replicates the (corrected) two-stage aggregation: per half-hourly column, compute that column's mean/std across the days in the month, then average those 48 per-column values into one monthly figure. Matches the fixed Python `monthly_stats.loc[m].xs('mean'|'std', level=1).mean()` expression (the original `.loc[m, ('mean',)]` / `('mean', std)` lookups raised KeyError/NameError and were fixed as part of this port). The three-day rolling value in the daily series below is descriptive and should not be interpreted as a dispatch or storage requirement without a separate system model.
+# The monthly table provides a calendar context for the detailed summer series. It uses a two-stage aggregation: per half-hourly column, compute that column's mean/std across the days in the month, then average those 48 per-column values into one monthly figure. The three-day rolling value in the daily series below is descriptive and should not be interpreted as a dispatch or storage requirement without a separate system model.
 
 df = load_trace("solar", 2019, SOLAR_LOC)
 rows = NamedTuple[]
@@ -265,6 +266,12 @@ monthly_cf_2019_summary
 
 #-
 
+# The `RefYear2019` trace reuses the 2019 (Black Summer) historical weather
+# pattern across the entire projected planning horizon, not just the single
+# 2018-19 season, so the daily series below has one row per summer day in
+# every simulated year. The table previews the first 15 rows; the complete
+# series is written to `eda/tables/julia/04_seasonal_extremes/black_summer_2019_daily_cf.csv`.
+
 df = load_trace("solar", 2019, SOLAR_LOC)
 rows = NamedTuple[]
 if df !== nothing
@@ -279,7 +286,7 @@ end
 
 black_summer_2019_daily_cf = DataFrame(rows)
 write_table(black_summer_2019_daily_cf, SCRIPT_STEM, "black_summer_2019_daily_cf")
-black_summer_2019_daily_cf
+first(black_summer_2019_daily_cf, 15)
 
 # ## Step 5 — hot vs cool summer solar profiles (figure)
 #
@@ -350,7 +357,6 @@ for yr in 2011:2023
     end
 end
 
-# Plots for the 2x2 grid
 p_sol_hist = histogram(solar_low_events, bins=1:maximum(solar_low_events)+1, color=:darkorange, alpha=0.7,
                         legend=false, title="Solar $(SOLAR_LOC) — Duration of Low-Output Events (≥3 days)",
                         xlabel="Consecutive Days Below Threshold", ylabel="Count", grid=true, gridalpha=0.3)
@@ -358,8 +364,8 @@ p_sol_hist = histogram(solar_low_events, bins=1:maximum(solar_low_events)+1, col
 p_wind_hist = histogram(wind_low_events, bins=1:maximum(wind_low_events)+1, color=:steelblue, alpha=0.7,
                          legend=false, title="Wind $(WIND_LOC) — Duration of Low-Output Events (≥3 days)",
                          xlabel="Consecutive Days Below Threshold", ylabel="Count", grid=true, gridalpha=0.3)
+nothing #hide
 
-# Worst days bar chart - sort by CF value, not by year
 worst_yrs = collect(keys(worst_solar_days_data))
 sort!(worst_yrs, by = yr -> worst_solar_days_data[yr].cf)
 worst_cfs = [worst_solar_days_data[yr].cf for yr in worst_yrs]
@@ -367,8 +373,8 @@ worst_colors = [yr in HOT_SUMMERS ? :darkred : :steelblue for yr in worst_yrs]
 p_worst_days = bar(string.(worst_yrs), worst_cfs, color=worst_colors, alpha=0.7, legend=false,
                     title="Solar $(SOLAR_LOC) — Worst Summer Day by Year (sorted by CF)",
                     ylabel="Daily Mean CF", grid=true, gridalpha=0.3)
+nothing #hide
 
-# Worst day profile
 if !isempty(worst_rows)
     best_idx = argmin([r.cf for r in worst_rows])
     worst = worst_rows[best_idx]
@@ -448,5 +454,5 @@ nothing #hide
 # ## Summary
 #
 # - Hot and cool historical summers show visibly different daily mean solar capacity factor spreads once each year's series is overlaid with its own 3-day rolling mean.
-# - The multi-day low-output event table replicates a known-quirky pandas positional/label mismatch verbatim rather than silently correcting it, so its durations should be read with that caveat in mind.
-# - The 2019 monthly summary and Black Summer daily series both come from the same corrected two-stage aggregation, and the regression-comparison evidence this page also writes — `eda/tables/julia/04_seasonal_extremes/*.csv` — is produced by the same code shown above, not read back from a separate script.
+# - The multi-day low-output event table retains the row-label/positional mismatch described in Step 2 rather than silently correcting it, so its durations should be read with that caveat in mind.
+# - The 2019 monthly summary and Black Summer daily series both come from the same two-stage aggregation described in Step 4.

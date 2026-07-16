@@ -1,6 +1,6 @@
 # # Reference trace 4006 profiles
 #
-# Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping. This page loads the raw solar and wind traces for one representative location per state, computes daily and seasonal capacity-factor structure, and builds each figure live on the page — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/02_plot_4006_traces/`, computed here rather than read back from that evidence afterwards.
+# Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping. This page loads the raw solar and wind traces for one representative location per state, computes daily and seasonal capacity-factor structure, and builds each figure directly on the page.
 #
 # Reference trace `4006` is not a climate projection. Its planning-year behaviour depends on the historical-year composition documented in [Parameters and mappings](@ref).
 
@@ -24,16 +24,12 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads, trace year 4006")
+
 const SCRIPT_STEM = "02_plot_4006_traces"
-const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES-relative path to an absolute file location for reading
 
-# Literate executes each code block with the working directory changed to the
-# page's own output directory, so file reads must go through an absolute path;
-# the `TRACES`-relative form above is kept for building the per-file paths used
-# below, unchanged from the original producer script.
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
-
-# State-representative solar locations
 const SOLAR_LOCATIONS = [
     ("VIC", "Bannerton_SAT"),
     ("NSW", "Darlington_Point_SAT"),
@@ -42,7 +38,6 @@ const SOLAR_LOCATIONS = [
     ("TAS", "Derby_SAT"),
 ]
 
-# State-representative wind locations
 const WIND_LOCATIONS = [
     ("VIC", "DUNDWF1"),
     ("NSW", "GULLRWF1"),
@@ -82,8 +77,13 @@ function load_traces(tech, trace_year, locations)
     return dfs
 end
 
-# Rolling mean matching pandas' `Series.rolling(window).mean()` default
-# `min_periods == window`: the first `window - 1` entries are missing.
+"""
+    rolling_mean(values, window)
+
+Rolling mean with a `window`-sized minimum period: the first `window - 1`
+entries of the result are `missing` because no full window of prior values
+exists yet.
+"""
 function rolling_mean(values, window)
     n = length(values)
     result = Vector{Union{Missing, Float64}}(missing, n)
@@ -93,11 +93,15 @@ function rolling_mean(values, window)
     return result
 end
 
-# Replicates `(date + pd.offsets.MonthEnd(n)).year`, used by the Python
-# script to bucket each day into an Australian financial year (ending June).
-# pandas MonthEnd rolls a non-month-end date forward to its month's end
-# first (consuming one of the `n` steps), then advances `n - 1` more
-# month-ends; a date already on a month end advances the full `n` steps.
+"""
+    fy_year(date, n = 6)
+
+Buckets a day into an Australian financial year (ending June), returned as
+the ending year. A date that already falls on the last day of its month
+advances `n` month-ends forward; any other date first rolls forward to its
+own month's end (consuming one step), then advances `n - 1` more
+month-ends. The bucket year is the year of that final month-end.
+"""
 function fy_year(date::Date, n::Int = 6)
     absolute_month = year(date) * 12 + (month(date) - 1)
     on_offset = day(date) == daysinmonth(date)
@@ -120,6 +124,7 @@ function daily_cf_row(tech, state, loc, df::DataFrame, hh_cols)
         mean_rolling7_cf = mean(skipmissing(rolling7)),
     )
 end
+nothing #hide
 
 # ## Step 1 — load the solar and wind reference traces for trace year 4006
 #
@@ -216,7 +221,7 @@ solar_diurnal_profile
 
 # ## Step 5 — wind monthly diurnal profile at the Victorian representative location
 #
-# The half-hourly diurnal profile at `DUNDWF1` is reported separately for each calendar month present in the trace.
+# The half-hourly diurnal profile at `DUNDWF1` is reported separately for each calendar month present in the trace — 12 months of 48 half-hourly points each, visualised together in Step 11's figure. The full table is written to the evidence CSV; the page displays only the first complete month as a representative sample.
 
 df_wind_prof = wind_4006["DUNDWF1"]
 
@@ -237,11 +242,11 @@ end
 
 wind_monthly_diurnal_profile = DataFrame(wind_monthly_diurnal_profile_rows)
 write_table(wind_monthly_diurnal_profile, SCRIPT_STEM, "wind_monthly_diurnal_profile")
-wind_monthly_diurnal_profile
+first(wind_monthly_diurnal_profile, 48)
 
 # ## Step 6 — wind monthly mean capacity factor
 #
-# The daily capacity factor at `DUNDWF1` is grouped by calendar month start to give a compact monthly mean series.
+# The daily capacity factor at `DUNDWF1` is grouped by calendar month start to give a compact monthly mean series spanning the full trace. The full series is written to the evidence CSV and plotted in Step 11's figure; the page displays only the first two years as a representative sample.
 
 df_wind_prof = wind_4006["DUNDWF1"]
 daily_wind = daily_cf(df_wind_prof, HH_COLS_WIND)
@@ -256,7 +261,7 @@ wind_monthly_mean_cf_rows = [
 ]
 wind_monthly_mean_cf = DataFrame(wind_monthly_mean_cf_rows)
 write_table(wind_monthly_mean_cf, SCRIPT_STEM, "wind_monthly_mean_cf")
-wind_monthly_mean_cf
+first(wind_monthly_mean_cf, 24)
 
 # ## Step 7 — annual capacity factor by financial year
 #
@@ -461,6 +466,5 @@ println("\nDone.")
 
 # ## Summary
 #
-# - Solar and wind capacity-factor structure for reference trace 4006 is loaded, transformed, and plotted directly on this page, not read back from a separate producer script.
-# - The regression-comparison evidence this page also writes — `eda/tables/julia/02_plot_4006_traces/*.csv` — is produced by the same code shown above.
+# - Solar and wind capacity-factor structure for reference trace 4006 is loaded, transformed, and plotted directly on this page.
 # - Five figures cover daily capacity factor by state, diurnal structure at the Victorian representative locations, wind seasonal structure, and the annual financial-year comparison.

@@ -1,6 +1,6 @@
 # # PISP generated-output consistency
 #
-# PISP writes a static asset dataset (`Generator.csv`, `Demand.csv`, `Bus.csv`) alongside time-varying schedules (`Generator_pmax_sched.csv`, `Demand_load_sched.csv`) for one generated build. This page loads one such build, joins the static and schedule tables, and checks identifier coverage, schedule coverage, generator classification, and daily solar/wind/demand alignment — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/06_pisp_outputs/`, computed live on this page rather than read back from that evidence afterwards. It also builds the three PISP-output figures shown in the generated docs site.
+# PISP writes a static asset dataset (`Generator.csv`, `Demand.csv`, `Bus.csv`) alongside time-varying schedules (`Generator_pmax_sched.csv`, `Demand_load_sched.csv`) for one generated build. This page loads one such build, joins the static and schedule tables, and checks identifier coverage, schedule coverage, generator classification, and daily solar/wind/demand alignment, computed live on this page and written to `eda/tables/julia/06_pisp_outputs/` as evidence. It also builds the three PISP-output figures shown in the generated docs site.
 
 ENV["GKSwstype"] = "100"
 
@@ -31,18 +31,14 @@ const OUT = normpath(get(
 const SCHEDULE_TAG = get(ENV, "PISP_SCHEDULE_TAG", "schedule-2030")
 const SCHEDULE_DIR = joinpath(OUT, SCHEDULE_TAG)
 
-# Literate executes each code block with the working directory changed to the
-# page's own output directory. `OUT` and `SCHEDULE_DIR` above are already
-# absolute (built from `REPO_ROOT`, which is itself always an absolute path),
-# so file reads through them are already independent of the current working
-# directory; `abs_path` is still applied at each read below for consistency
-# with the other restructured EDA pages, and is a no-op when its argument is
-# already absolute.
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+snapshot_metadata_line(REPO_ROOT; context = "$(SCHEDULE_TAG) generated PISP output (out-ref4006-poe10 build)")
+
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # no-op here since OUT/SCHEDULE_DIR are already absolute; kept for consistency with the other EDA pages
 
 const AREA_NAMES = Dict(1 => "QLD", 2 => "NSW", 3 => "VIC", 4 => "TAS", 5 => "SA")
+nothing #hide
 
-# Schedule date strings look like "2030-01-01T00:00:00.0". CSV.jl's type inference already parses this column as DateTime directly (it tolerates the single-digit fractional seconds); this helper only has to handle the string fallback in case a future dataset stores the column as text instead.
+# Schedule dates look like "2030-01-01T00:00:00.0"; this fallback handles the case where the column is read back as text rather than the DateTime CSV.jl already infers.
 parse_schedule_datetime(s::AbstractString) = DateTime(replace(s, r"\.\d+$" => ""))
 parse_schedule_datetime(d::DateTime) = d
 
@@ -75,6 +71,7 @@ function append_relationship_diagnostics!(summary_rows, detail_rows, relationshi
         push!(detail_rows, (relationship = relationship, unmatched_side = right_label, id = string(id)))
     end
 end
+nothing #hide
 
 # Capacity factor for solar and wind divides each generator's scheduled mean output by that generator's own scheduled maximum, not by the static `pmax` recorded in `Generator.csv`.
 # The static field is not a reliable capacity reference for these generators: rooftop PV rows carry a fixed placeholder pmax (src/parsers/PISP-2024parser.jl:1070, `gen_pmax_distpv`), and utility-scale solar/wind rows record only currently operating capacity, which a future-year schedule can exceed once ISP-outlook build-out is reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same file).
@@ -116,6 +113,7 @@ function daily_tech_sum(gen_pmax_ts::DataFrame, tech_predicate)
     subset = transform(subset, :datetime => ByRow(Date) => :date_only)
     return combine(groupby(subset, :date_only), :value => sum => :total)
 end
+nothing #hide
 
 # ## Step 1 — load the static asset tables and the 2030 schedule outputs
 #
@@ -131,7 +129,7 @@ nothing #hide
 
 # ## Step 2 — record which output root and schedule directory were used
 #
-# The recorded paths are relative to the repository root so this evidence table stays comparable across machines and across the Python/Julia comparison harness.
+# The recorded paths are relative to the repository root so this evidence table stays comparable across machines and reproducible from any checkout.
 
 build_metadata = DataFrame([
     (
@@ -311,7 +309,7 @@ capacity_factor_duration
 
 # ## Step 9 — demand by area
 #
-# The demand schedule is joined to the static `Demand` table to obtain each demand node's bus, then to `Bus` to obtain its NEM area, before summing to a daily total per area.
+# The demand schedule is joined to the static `Demand` table to obtain each demand node's bus, then to `Bus` to obtain its NEM area, before summing to a daily total per area. The full daily series (1825 rows: 5 NEM areas x 365 days) is written to `demand_by_area_daily.csv`; the table below summarises it per area.
 
 dem_load_full = build_dem_load_full(dem_load, dem_df, bus_df)
 
@@ -319,7 +317,14 @@ dem_load_full.date_only = Date.(dem_load_full.datetime)
 demand_by_area_daily = combine(groupby(dem_load_full, [:date_only, :area_name]), :value => sum => :total_demand_mw)
 rename!(demand_by_area_daily, :date_only => :date)
 write_table(demand_by_area_daily, SCRIPT_STEM, "demand_by_area_daily")
-demand_by_area_daily
+
+demand_by_area_summary = combine(
+    groupby(demand_by_area_daily, :area_name),
+    :total_demand_mw => mean => :mean_daily_mw,
+    :total_demand_mw => minimum => :min_daily_mw,
+    :total_demand_mw => maximum => :max_daily_mw,
+)
+demand_by_area_summary
 
 # ## Step 10 — daily solar, wind, and demand aggregates in GW
 #
@@ -348,7 +353,7 @@ daily_gw
 
 # ## Step 11 — hourly pmax profile for the first 30 days
 #
-# Restricting to the first 30 scheduled days and grouping scheduled pmax by hour of day gives a representative diurnal shape for solar and wind generators.
+# Restricting to the first 30 scheduled days and grouping scheduled pmax by hour of day gives a representative diurnal shape for solar and wind generators. The full per-generator profile (792 rows) is written to `hourly_pmax_profile.csv`; the table below averages across generators within each technology to show the fleet-level diurnal shape, and Step 15 plots the per-generator profile for up to 5 generators of each technology.
 
 cutoff30 = minimum(Date.(gen_pmax_ts.datetime)) + Day(29)
 subset30 = gen_pmax_ts[Date.(gen_pmax_ts.datetime) .<= cutoff30, :]
@@ -365,7 +370,12 @@ wind_profile.tech .= "wind"
 
 hourly_pmax_profile = vcat(sol_profile, wind_profile)[:, [:tech, :id_gen, :hour, :mean_pmax]]
 write_table(hourly_pmax_profile, SCRIPT_STEM, "hourly_pmax_profile")
-hourly_pmax_profile
+
+hourly_pmax_profile_fleet_mean = combine(
+    groupby(hourly_pmax_profile, [:tech, :hour]),
+    :mean_pmax => mean => :fleet_mean_pmax,
+)
+hourly_pmax_profile_fleet_mean
 
 # ## Step 12 — VRE-vs-demand and demand-distribution summaries
 #
@@ -401,12 +411,11 @@ demand_distribution_summary
 
 # ## Step 13 — figure: PISP outputs overview
 #
-# A 2x2 overview: annual mean pmax per solar generator, annual mean pmax per wind generator, daily total demand by NEM area, and the capacity-factor duration curve for solar and wind.
+# A 2x2 overview: annual mean pmax per solar generator, annual mean pmax per wind generator, daily total demand by NEM area, and the capacity-factor duration curve for solar and wind. The per-generator pmax panels use horizontal-line scatter plots rather than `Plots.jl` bar charts, a plotting-library workaround with no effect on the underlying values.
 
 sol_annual_sorted = sort(combine(groupby(sol_sched, :id_gen), :value => mean => :mean_pmax), :mean_pmax)
 wind_annual_sorted = sort(combine(groupby(wind_sched, :id_gen), :value => mean => :mean_pmax), :mean_pmax)
 
-# Create bar plots using a workaround: use scatter with horizontal lines instead
 p_sol_bar = scatter(sol_annual_sorted.mean_pmax, 1:nrow(sol_annual_sorted),
                     title="Solar Generators — Annual Mean pmax (MW)", xlabel="PMax (MW)", ylabel="",
                     legend=false, grid=true, gridalpha=0.3, markersize=0,
@@ -423,7 +432,6 @@ for i in 1:nrow(wind_annual_sorted)
     plot!(p_wind_bar, [0, wind_annual_sorted.mean_pmax[i]], [i, i], color=:steelblue, alpha=0.7, label="")
 end
 
-# Demand by area (daily)
 area_map_plot = Dict(row.id_bus => row.id_area for row in eachrow(bus_df))
 dem_load_full_plot = innerjoin(dem_load, dem_df[:, [:id_dem, :id_bus]], on = :id_dem)
 dem_load_full_plot.datetime = parse_schedule_datetime.(dem_load_full_plot.date)
@@ -439,7 +447,6 @@ for area in sort(unique(dem_daily_area.area_name))
     plot!(p_demand, area_data.date_only, area_data.total_demand_mw, label=area, linewidth=1, alpha=0.7)
 end
 
-# CF duration curve
 sol_cf_grouped = combine(groupby(sol_sched, :id_gen), :value => mean => :mean_val, :value => maximum => :max_val)
 wind_cf_grouped = combine(groupby(wind_sched, :id_gen), :value => mean => :mean_val, :value => maximum => :max_val)
 
@@ -462,7 +469,6 @@ p_cf = plot(sol_cf_sorted, label="Solar CF", color=:orange, linewidth=1.5, alpha
             legend=:topright, grid=true, gridalpha=0.3)
 plot!(p_cf, wind_cf_sorted, label="Wind CF", color=:steelblue, linewidth=1.5, alpha=0.7)
 
-# Combine all 4 plots into a 2x2 layout
 p_overview = plot(p_sol_bar, p_wind_bar, p_demand, p_cf, layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
 savefig(p_overview, figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"))
@@ -514,7 +520,6 @@ sort!(wind_profile_plot, :id_gen)
 
 p_detailed = plot(layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
-# Solar hourly profile
 top_sol_gens = unique(sol_profile_plot.id_gen)[1:min(5, length(unique(sol_profile_plot.id_gen)))]
 for gid in top_sol_gens
     gdata = filter(row -> row.id_gen == gid, sol_profile_plot)
@@ -523,7 +528,6 @@ end
 plot!(p_detailed[1], title="Solar PMax: Hourly Profile (mean of first 30 days)", xlabel="Hour", ylabel="PMax (MW)",
       legend=:topright, grid=true, gridalpha=0.3)
 
-# Wind hourly profile
 top_wind_gens = unique(wind_profile_plot.id_gen)[1:min(5, length(unique(wind_profile_plot.id_gen)))]
 for gid in top_wind_gens
     gdata = filter(row -> row.id_gen == gid, wind_profile_plot)
@@ -532,7 +536,6 @@ end
 plot!(p_detailed[2], title="Wind PMax: Hourly Profile (mean of first 30 days)", xlabel="Hour", ylabel="PMax (MW)",
       legend=:topright, grid=true, gridalpha=0.3)
 
-# VRE vs demand scatter
 vre_scatter = daily_gw.solar_gw .+ daily_gw.wind_gw
 scatter!(p_detailed[3], daily_gw.demand_gw, vre_scatter, markersize=2, alpha=0.3, color=:purple, label="", legend=false)
 plot!(p_detailed[3], [0, maximum(daily_gw.demand_gw)], [0, maximum(daily_gw.demand_gw)],
@@ -540,7 +543,6 @@ plot!(p_detailed[3], [0, maximum(daily_gw.demand_gw)], [0, maximum(daily_gw.dema
 plot!(p_detailed[3], title="VRE Generation vs Total Demand (2030)", xlabel="Demand (GW)", ylabel="VRE Solar+Wind (GW)",
       grid=true, gridalpha=0.3, legend=false)
 
-# Demand distribution histogram
 histogram!(p_detailed[4], dem_daily_ts_plot.total_demand, bins=50, alpha=0.6, color=:grey, legend=false)
 plot!(p_detailed[4], title="Daily Total Demand Distribution (2030)", xlabel="Demand (MW)", ylabel="",
       grid=true, gridalpha=0.3, legend=false)
@@ -556,4 +558,4 @@ nothing #hide
 # - Static asset tables and 2030 schedule outputs join cleanly for this generated build, with identifier coverage and schedule time coverage recorded above and any unmatched identifiers listed in `unmatched_ids`.
 # - Solar and wind generator classification, annual mean pmax, and capacity-factor duration curves are all computed live above, following the capacity-factor denominator convention documented on `capacity_factor_duration_frame`.
 # - The three figures — outputs overview, solar/wind-vs-demand time series, and the detailed 2x2 view — are all built on this page from the same joined tables shown above.
-# - The regression-comparison evidence this page also writes — `eda/tables/julia/06_pisp_outputs/*.csv` — is produced by the same code shown above, not read back from a separate script; four of these tables (`build_metadata`, `join_coverage`, `schedule_time_coverage`, `unmatched_ids`) are Julia-only diagnostics with no Python counterpart.
+# - This page writes its full evidence tables to `eda/tables/julia/06_pisp_outputs/*.csv`; four of them — `build_metadata`, `join_coverage`, `schedule_time_coverage`, and `unmatched_ids` — are this page's own diagnostics with no prior baseline to compare against.

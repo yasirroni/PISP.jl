@@ -4,7 +4,7 @@ EditURL = "../../../literate/eda/01_data_loading.jl"
 
 # Trace data availability and structure
 
-PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. This page loads the raw trace files directly from local downloads and shows their shape, date coverage, value ranges, and one demand-trace example — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/01_data_loading/`, computed live on this page rather than read back from that evidence afterwards.
+PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. This page loads the raw trace files directly from local downloads and shows their shape, date coverage, value ranges, and one demand-trace example.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -31,29 +31,11 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads")
+
 const SCRIPT_STEM = "01_data_loading"
-const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
-````
-
-```@raw html
-</details>
-```
-
-````
-"data/2024/pisp-downloads/Traces"
-````
-
-Literate executes each code block with the working directory changed to the
-page's own output directory, so file reads must go through an absolute path;
-recorded table values still use the `TRACES`-relative form above so they
-stay byte-identical to the archived Python baseline's own recorded paths.
-
-```@raw html
-<details class="source-code"><summary>Show source code</summary>
-```
-
-````julia
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES-relative path to an absolute file location for reading
 
 function column_preview(df::DataFrame, n = 10)
     cols = names(df)
@@ -116,7 +98,8 @@ end
 ```
 
 ````
-trace_value_range_row (generic function with 1 method)
+Snapshot: PISP.jl commit 0d31fb4+dirty, generated 2026-07-16 — 2024 ISP raw trace downloads
+
 ````
 
 ## Step 1 — load the solar and wind reference traces for trace year 4006
@@ -391,5 +374,4 @@ cp(CANONICAL_FIGURE_PATH, EMBEDDED_FIGURE_PATH; force = true)
 ## Summary
 
 - Solar and wind traces share one schema (three metadata columns plus half-hourly value columns); demand traces use a different, per-node file family.
-- The regression-comparison evidence this page also writes — `eda/tables/julia/01_data_loading/*.csv` — is produced by the same code shown above, not read back from a separate script.
 

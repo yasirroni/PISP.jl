@@ -1,6 +1,6 @@
 # # The 4006 composite reference-trace mapping
 #
-# Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year, not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/08_4006_composite_map/`, computed live on this page rather than read back from that evidence afterwards.
+# Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year, not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences.
 
 ENV["GKSwstype"] = "100"
 
@@ -10,6 +10,7 @@ using Dates
 using Printf
 using Statistics
 using Plots
+using PISP
 
 gr();
 
@@ -22,11 +23,11 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads")
+
 const SCRIPT_STEM = "08_4006_composite_map"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
-
-# Literate executes each code block with the working directory changed to the page's own output directory, so file reads must go through an absolute path; none of this page's recorded tables store a raw trace path, so there is no recorded-string byte-identity concern here, but existence checks and reads still need to resolve correctly regardless of Literate's working directory.
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES-relative path to an absolute file location for reading
 
 const HH_COLS_SOL = string.(1:48)
 const HH_COLS_WIND = [lpad(i, 2, '0') for i in 1:48]
@@ -36,47 +37,28 @@ const WIND_LOC = "DUNDWF1"
 
 const NEAR_YEARS = [2025, 2026, 2027, 2028, 2029]
 const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
+nothing #hide
 
-# The hardcoded DATE_RANGES_REFYEARS mapping from PISP.jl
+# The financial-year-to-historical-year mapping is read directly from `PISP.WEATHER_YEARS_ISP` rather than restated here, so this page cannot drift from the package's own mapping. An invariant check confirms every financial-year range is contiguous.
+
 const DATE_RANGES_REFYEARS = [
-    ("2024-07-01", "2025-06-30", 2019),
-    ("2025-07-01", "2026-06-30", 2020),
-    ("2026-07-01", "2027-06-30", 2021),
-    ("2027-07-01", "2028-06-30", 2022),
-    ("2028-07-01", "2029-06-30", 2023),
-    ("2029-07-01", "2030-06-30", 2015),
-    ("2030-07-01", "2031-06-30", 2011),
-    ("2031-07-01", "2032-06-30", 2012),
-    ("2032-07-01", "2033-06-30", 2013),
-    ("2033-07-01", "2034-06-30", 2014),
-    ("2034-07-01", "2035-06-30", 2015),
-    ("2035-07-01", "2036-06-30", 2016),
-    ("2036-07-01", "2037-06-30", 2017),
-    ("2037-07-01", "2038-06-30", 2018),
-    ("2038-07-01", "2039-06-30", 2019),
-    ("2039-07-01", "2040-06-30", 2020),
-    ("2040-07-01", "2041-06-30", 2021),
-    ("2041-07-01", "2042-06-30", 2022),
-    ("2042-07-01", "2043-06-30", 2023),
-    ("2043-07-01", "2044-06-30", 2015),
-    ("2044-07-01", "2045-06-30", 2011),
-    ("2045-07-01", "2046-06-30", 2012),
-    ("2046-07-01", "2047-06-30", 2013),
-    ("2047-07-01", "2048-06-30", 2014),
-    ("2048-07-01", "2049-06-30", 2015),
-    ("2049-07-01", "2050-06-30", 2016),
-    ("2050-07-01", "2051-06-30", 2017),
-    ("2051-07-01", "2052-06-30", 2018),
+    (fy_range[1], fy_range[2], parse(Int, ref_year))
+    for (fy_range, ref_year) in sort(collect(PISP.WEATHER_YEARS_ISP); by = first)
 ]
 
-# `read_trace`, `trace_path`, `daily_cf`, `ref_year_for_fy_end`, and `load_year_cf` are shared by several steps below: they resolve a technology/reference-year/location combination to a trace file, load it, and reduce it to one daily capacity-factor value per row.
+for i in 1:(length(DATE_RANGES_REFYEARS) - 1)
+    this_fy_end = Date(DATE_RANGES_REFYEARS[i][2])
+    next_fy_start = Date(DATE_RANGES_REFYEARS[i + 1][1])
+    @assert next_fy_start == this_fy_end + Day(1) "PISP.WEATHER_YEARS_ISP financial-year ranges are not contiguous between row $i and $(i + 1)"
+end
+
+# `read_trace`, `trace_path`, `daily_cf`, `ref_year_for_fy_end`, and `load_year_cf` are shared by several steps below: they resolve a technology/reference-year/location combination to a trace file, load it, and reduce it to one daily capacity-factor value per row. `ref_year_for_fy_end`'s argument (`yr`) is always a financial-year-END year (e.g. 2025, 2045), not a historical/ref year, and must be translated through the mapping table before a trace file can be loaded for it.
 read_trace(path) = CSV.read(abs_path(path), DataFrame)
 
 trace_path(tech, yr, loc) = joinpath(TRACES, "$(tech)_$(yr)", "$(loc)_RefYear$(yr).csv")
 
 daily_cf(df::DataFrame, hh_cols) = [mean(row[col] for col in hh_cols) for row in eachrow(df)]
 
-# Mirrors `mapping_df[mapping_df['fy_end'].str.startswith(str(yr))]['ref_year'].values[0]`: `yr` is a financial-year-END year (e.g. 2025, 2045), not a historical/ref year, and must be translated through the mapping table before loading a trace file.
 function ref_year_for_fy_end(yr::Int)
     idx = findfirst(t -> startswith(t[2], string(yr)), DATE_RANGES_REFYEARS)
     idx === nothing && return nothing
@@ -96,6 +78,7 @@ function load_year_cf(years, tech, loc, hh_cols)
     n = length(all_cfs[1])
     return [mean(cfs[i] for cfs in all_cfs) for i in 1:n]
 end
+nothing #hide
 
 # ## Step 1 — build the financial-year to historical-year mapping table
 #
@@ -156,7 +139,7 @@ historical_year_vre_stats
 
 # ## Step 3 — near-term vs far-term daily capacity factor
 #
-# The near-term group (financial years ending 2025-2029) and far-term group (financial years ending 2045-2049) are each translated through the mapping to their historical reference years, then averaged day-by-day across the group's traces.
+# The near-term group (financial years ending 2025-2029) and far-term group (financial years ending 2045-2049) are each translated through the mapping to their historical reference years, then averaged day-by-day across the group's traces. Each historical reference trace covers many years of half-hourly data reduced to one capacity-factor value per day, so the resulting near/far series run to tens of thousands of rows per technology; the full daily series is written to file as complete evidence, and the table below summarises it by technology and term.
 
 near_vs_far_term_rows = NamedTuple[]
 for (tech, loc, hh_cols) in (("solar", SOLAR_LOC, HH_COLS_SOL), ("wind", WIND_LOC, HH_COLS_WIND))
@@ -175,7 +158,16 @@ for (tech, loc, hh_cols) in (("solar", SOLAR_LOC, HH_COLS_SOL), ("wind", WIND_LO
 end
 near_vs_far_term_daily_cf = DataFrame(near_vs_far_term_rows)
 write_table(near_vs_far_term_daily_cf, SCRIPT_STEM, "near_vs_far_term_daily_cf")
-first(near_vs_far_term_daily_cf, 20)
+
+near_vs_far_term_summary = combine(
+    groupby(near_vs_far_term_daily_cf, [:tech, :term]),
+    :daily_cf => mean => :mean_cf,
+    :daily_cf => minimum => :min_cf,
+    :daily_cf => maximum => :max_cf,
+    nrow => :n_days,
+)
+sort!(near_vs_far_term_summary, [:tech, :term])
+near_vs_far_term_summary
 
 # ## Step 4 — year-by-year renewable matrix
 #
@@ -352,4 +344,3 @@ nothing #hide
 # ## Summary
 #
 # - Reference trace 4006 reuses a fixed set of historical solar and wind years across the planning horizon; several historical years are reused more than once, so later financial years are not new weather draws.
-# - The timeline, summer-statistics, near/far-term, and heatmap figures above are all built live from the mapping and trace data on this page, the same code that also writes the regression-comparison evidence under `eda/tables/julia/08_4006_composite_map/*.csv`.

@@ -1,6 +1,6 @@
 # # Demand stress and low-solar coincidence
 #
-# High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and the event definition. This page loads the Victorian demand schedule and the Bannerton 4006 solar trace directly, then builds the demand distributions, demand-defined stress days, hourly demand profiles, and solar-availability-on-stress-days summaries live — the same analysis that produces the regression-comparison evidence under `eda/tables/julia/07_demand_heat_events/`, computed here rather than read back from that evidence afterwards.
+# High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and the event definition. This page loads the Victorian demand schedule and the Bannerton 4006 solar trace directly, then builds the demand distributions, demand-defined stress days, hourly demand profiles, and solar-availability-on-stress-days summaries live.
 #
 # Here, `heat event` is an operational label for days at or above the 95th percentile of demand. It does not use air temperature, an excess-heat factor, or a meteorological heatwave definition.
 
@@ -24,15 +24,13 @@ const REPO_ROOT = normpath(get(
 include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
 using .EdaSupport
 
-const SCRIPT_STEM = "07_demand_heat_events"
-const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
-const OUT = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv")
+EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "VIC demand schedule from the schedule-2030 generated PISP output; Bannerton 4006 solar reference trace from the 2024 ISP raw trace downloads")
 
-# Literate executes each code block with the working directory changed to the
-# page's own output directory, so file reads must go through an absolute path;
-# recorded table values still use the `TRACES`/`OUT`-relative form above so
-# they stay consistent with the archived Python baseline's own convention.
-abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)
+const SCRIPT_STEM = "07_demand_heat_events"
+const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below
+const OUT = joinpath("data", "2024", "pisp-datasets", "out-ref4006-poe10", "csv")  # kept relative, same reason
+
+abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES/OUT-relative path to an absolute file location for reading
 
 const HH_COLS_SOL = string.(1:48)
 
@@ -48,12 +46,17 @@ function load_solar_4006(loc)
     return df
 end
 
-# Maps each exact calendar date in a composite RefYear4006 trace to its
-# half-hourly-mean solar capacity factor for that date.
+"""
+    solar_cf_by_date(df)
+
+Maps each exact calendar date in a composite RefYear4006 trace to its
+half-hourly-mean solar capacity factor for that date.
+"""
 function solar_cf_by_date(df::DataFrame)
     cfs = daily_cf(df, HH_COLS_SOL)
     return Dict(zip(df.datetime, cfs))
 end
+nothing #hide
 
 # ## Step 1 — demand trace inventory
 #
@@ -69,7 +72,7 @@ demand_trace_inventory
 
 # ## Step 2 — load the demand schedule and aggregate daily demand by area
 #
-# The PISP model output records each network node's half-hourly demand schedule and its bus, and each bus's NEM area; joining these mappings lets the schedule be aggregated to a daily mean demand per area.
+# The PISP model output records each network node's half-hourly demand schedule and its bus, and each bus's NEM area; joining these mappings lets the schedule be aggregated to a daily mean demand per area. The full daily-by-area table (one row per area per calendar date) is written in full below for regression evidence; the page displays one summary row per area instead of every row.
 
 dem_load = CSV.read(abs_path(joinpath(OUT, "schedule-2030", "Demand_load_sched.csv")), DataFrame)
 dem_df = CSV.read(abs_path(joinpath(OUT, "Demand.csv")), DataFrame)
@@ -84,7 +87,16 @@ dem_load.date_only = Date.(dem_load.date)
 dem_daily = combine(groupby(dem_load, [:date_only, :area]), :value => mean => :demand_mw)
 rename!(dem_daily, :date_only => :date)
 write_table(dem_daily, SCRIPT_STEM, "demand_by_area_daily")
-dem_daily
+
+area_demand_summary = combine(
+    groupby(dem_daily, :area),
+    :demand_mw => mean => :mean_demand_mw,
+    :demand_mw => minimum => :min_demand_mw,
+    :demand_mw => maximum => :max_demand_mw,
+    nrow => :n_days,
+)
+sort!(area_demand_summary, :area)
+area_demand_summary
 
 # ## Step 3 — load the solar 4006 reference traces for candidate VIC solar sites
 #
@@ -105,10 +117,11 @@ println("Loaded $(length(sol_4006)) solar locations for 4006")
 vic_dem = dem_load[dem_load.area .== 3, :]
 vic_daily = combine(groupby(vic_dem, :date_only), :value => mean => :demand)
 sort!(vic_daily, :date_only)
+nothing #hide
 
 # ## Step 5 — merge VIC demand with the Bannerton solar capacity factor by date
 #
-# Only calendar dates present in both the VIC demand schedule and the Bannerton 4006 solar trace are kept, so the merged sample can be smaller than either input series.
+# Only calendar dates present in both the VIC demand schedule and the Bannerton 4006 solar trace are kept, so the merged sample can be smaller than either input series. The full merged series is written in full below for regression evidence; the page displays a single summary row describing its coverage and range instead of every day.
 
 merged = DataFrame(date = Date[], demand = Float64[], solar_cf = Float64[])
 if haskey(sol_4006, "Bannerton_SAT")
@@ -119,7 +132,19 @@ if haskey(sol_4006, "Bannerton_SAT")
     end
     write_table(merged, SCRIPT_STEM, "vic_demand_solar_merged")
 end
-merged
+
+merged_summary = DataFrame(
+    matched_days = nrow(merged),
+    date_min = isempty(merged.date) ? missing : minimum(merged.date),
+    date_max = isempty(merged.date) ? missing : maximum(merged.date),
+    demand_mean_mw = isempty(merged.demand) ? missing : mean(merged.demand),
+    demand_min_mw = isempty(merged.demand) ? missing : minimum(merged.demand),
+    demand_max_mw = isempty(merged.demand) ? missing : maximum(merged.demand),
+    solar_cf_mean = isempty(merged.solar_cf) ? missing : mean(merged.solar_cf),
+    solar_cf_min = isempty(merged.solar_cf) ? missing : minimum(merged.solar_cf),
+    solar_cf_max = isempty(merged.solar_cf) ? missing : maximum(merged.solar_cf),
+)
+merged_summary
 
 # ## Step 6 — high-demand and low-solar threshold screen
 #
@@ -181,16 +206,29 @@ heat_normal_hourly_profile
 
 # ## Step 9 — demand duration curve
 #
-# Sorting daily VIC demand from highest to lowest gives the demand duration curve, independent of chronology.
+# Sorting daily VIC demand from highest to lowest gives the demand duration curve, independent of chronology. The full 365-day curve is written in full below for regression evidence and shown as a figure in Step 16; the page displays the curve's value at a handful of quantile marks instead.
 
 sorted_demand = sort(vic_daily.demand; rev = true)
 demand_duration_curve = DataFrame(day_rank = 1:length(sorted_demand), demand_mw = sorted_demand)
 write_table(demand_duration_curve, SCRIPT_STEM, "demand_duration_curve")
-demand_duration_curve
+
+duration_curve_quantile_marks = DataFrame(
+    quantile_label = ["max", "p95", "p90", "p75", "median", "p25", "min"],
+    demand_mw = [
+        maximum(vic_daily.demand),
+        demand_p95,
+        demand_p90,
+        quantile(vic_daily.demand, 0.75),
+        quantile(vic_daily.demand, 0.5),
+        quantile(vic_daily.demand, 0.25),
+        minimum(vic_daily.demand),
+    ],
+)
+duration_curve_quantile_marks
 
 # ## Step 10 — normalized VRE vs demand summary, sorted by demand
 #
-# Demand and Bannerton solar capacity factor from the merged sample are each normalized by their own maximum and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale.
+# Demand and Bannerton solar capacity factor from the merged sample are each normalized by their own maximum and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale. The full 365-day normalized series is written in full below for regression evidence and shown as a figure in Step 16; the page instead reports how closely the two normalized series track each other.
 
 if nrow(merged) > 0
     merged_sorted = sort(merged, :demand)
@@ -200,7 +238,12 @@ if nrow(merged) > 0
         solar_norm = merged_sorted.solar_cf ./ maximum(merged_sorted.solar_cf),
     )
     write_table(normalized_vre_demand_summary, SCRIPT_STEM, "normalized_vre_demand_summary")
-    normalized_vre_demand_summary
+
+    normalized_demand_solar_correlation = DataFrame(
+        day_count = nrow(normalized_vre_demand_summary),
+        demand_solar_correlation = cor(normalized_vre_demand_summary.demand_norm, normalized_vre_demand_summary.solar_norm),
+    )
+    normalized_demand_solar_correlation
 end
 
 # ## Step 11 — key summary statistics
@@ -326,7 +369,6 @@ nothing #hide
 month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 p3 = plot(layout=(2,2), size=(1200, 1000), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
 
-# Hourly profile for heat days vs normal days
 hours = 0:23
 heat_vals = [get(heat_hourly, h, NaN) for h in hours]
 normal_vals = [get(normal_hourly, h, NaN) for h in hours]
@@ -338,7 +380,6 @@ plot!(p3[1], hours, normal_vals, color=:blue, linewidth=2, marker=:s, markersize
 plot!(p3[1], title="VIC Demand: Heat Event Days vs Normal Days", xlabel="Hour", ylabel="Demand (MW)",
       legend=:topright, grid=true, gridalpha=0.3)
 
-# Duration curve
 sorted_demand = sort(vic_daily.demand; rev=true)
 plot!(p3[2], sorted_demand, color=:grey, linewidth=1.5, label="", legend=false)
 hline!(p3[2], [demand_p90], color=:blue, linestyle=:dash, label="P90=$(round(Int, demand_p90))")
@@ -346,7 +387,6 @@ hline!(p3[2], [demand_p95], color=:red, linestyle=:dash, label="P95=$(round(Int,
 plot!(p3[2], title="VIC Demand Duration Curve (2030)", xlabel="Day Rank", ylabel="Demand (MW)",
       legend=:topright, grid=true, gridalpha=0.3)
 
-# Heatmap: demand by month and hour
 dem_load_heat = deepcopy(vic_dem)
 dem_load_heat = transform(dem_load_heat, :date => ByRow(x -> month(x)) => :month_int)
 dem_load_heat = transform(dem_load_heat, :date => ByRow(x -> hour(x)) => :hour)
@@ -365,7 +405,6 @@ heatmap_data = heatmap_data ./ max.(counts, 1)
 heatmap!(p3[3], 0:23, 1:12, heatmap_data, c=:YlOrRd, title="VIC Demand Heatmap: Month vs Hour",
         xlabel="Hour", ylabel="Month", yticks=(1:12, month_labels), legend=false)
 
-# Normalized demand and solar
 if nrow(merged) > 0
     merged_sorted = sort(merged, :demand)
     day_ranks = 1:nrow(merged_sorted)
@@ -391,4 +430,3 @@ println("\nDone.")
 #
 # - VIC daily demand and the Bannerton 4006 solar capacity factor are merged by date, then used to define demand-defined heat-event days (>=P95) and normal days (<P90) and to screen for high-demand, low-solar coincidence days.
 # - Three figures are built live on this page: the demand/solar time series, the demand-vs-solar scatter, and the combined heat-event overview panel.
-# - The regression-comparison evidence this page also writes — `eda/tables/julia/07_demand_heat_events/*.csv` — is produced by the same code shown above, not read back from a separate script.
