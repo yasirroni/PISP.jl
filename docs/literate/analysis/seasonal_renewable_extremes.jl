@@ -313,7 +313,7 @@ end
 p_hc = plot(plots_hot_cool..., layout=(2,1), size=(1400, 800),
             left_margin=5Plots.mm, bottom_margin=5Plots.mm)
 savefig(p_hc, figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"))
-cp(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_hot_vs_cool_summer_solar.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"), "04_hot_vs_cool_summer_solar.png")
 nothing #hide
 
 # ![Daily mean solar capacity factor across historical hot summers versus cool summers](04_hot_vs_cool_summer_solar.png)
@@ -405,7 +405,7 @@ end
 p_low_out = plot(p_sol_hist, p_wind_hist, p_worst_days, p_worst_profile, layout=(2,2), size=(1400, 1000),
                   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
 savefig(p_low_out, figure_path(SCRIPT_STEM, "04_low_output_events.png"))
-cp(figure_path(SCRIPT_STEM, "04_low_output_events.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_low_output_events.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_low_output_events.png"), "04_low_output_events.png")
 nothing #hide
 
 # ![Low-output event durations, worst-day ranking, and the worst day's half-hourly profile](04_low_output_events.png)
@@ -424,7 +424,7 @@ if isfile(monthly_table_path)
                     xlabel="Month", ylabel="Mean Capacity Factor", grid=true, gridalpha=0.3, size=(1200, 500),
                     left_margin=5Plots.mm, bottom_margin=5Plots.mm)
     savefig(p_monthly, figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"))
-    cp(figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_monthly_cf_2019.png"); force = true)
+    EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"), "04_monthly_cf_2019.png")
 end
 nothing #hide
 
@@ -445,7 +445,7 @@ if df_2019 !== nothing
           ylim=(0, 0.5), grid=true, gridalpha=0.3, size=(1600, 500),
           left_margin=5Plots.mm, bottom_margin=5Plots.mm)
     savefig(p_black, figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"))
-    cp(figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_summer_2019_black_summer.png"); force = true)
+    EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"), "04_summer_2019_black_summer.png")
 end
 nothing #hide
 

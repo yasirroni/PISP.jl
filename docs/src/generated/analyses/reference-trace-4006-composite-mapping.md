@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/08_4006_composite_map.jl"
+EditURL = "../../../literate/analysis/reference_trace_4006_mapping.jl"
 ```
 
 # The 4006 composite reference-trace mapping
@@ -53,7 +53,7 @@ const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads
 
 ````
 
@@ -375,7 +375,7 @@ fy_labels = [row.fy_start[1:4] for row in eachrow(mapping_table)]
 plot!(p1, xticks=(1:nrow(mapping_table), fy_labels), xrotation=90)
 
 savefig(p1, figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"))
-cp(figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_4006_timeline_map.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"), "08_4006_timeline_map.png")
 ````
 
 ```@raw html
@@ -421,7 +421,7 @@ for (idx, tech) in enumerate(("solar", "wind"))
 end
 
 savefig(p2, figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"))
-cp(figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_vre_by_historical_year.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"), "08_vre_by_historical_year.png")
 ````
 
 ```@raw html
@@ -464,7 +464,7 @@ for (idx, (tech, loc, hh_cols, color)) in enumerate([("solar", SOLAR_LOC, HH_COL
 end
 
 savefig(p3, figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"))
-cp(figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_near_vs_far_term.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"), "08_near_vs_far_term.png")
 ````
 
 ```@raw html
@@ -517,7 +517,7 @@ for (i, tech) in enumerate(["Solar", "Wind"])
 end
 
 savefig(p4, figure_path(SCRIPT_STEM, "08_vre_heatmap.png"))
-cp(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_vre_heatmap.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), "08_vre_heatmap.png")
 ````
 
 ```@raw html

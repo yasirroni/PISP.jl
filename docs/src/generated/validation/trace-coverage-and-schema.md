@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/01_data_loading.jl"
+EditURL = "../../../literate/validation/trace_coverage_and_schema.jl"
 ```
 
 # Trace data availability and structure
@@ -98,7 +98,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP raw trace downloads
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads
 
 ````
 
@@ -361,8 +361,7 @@ fig = plot(p1, p2, layout = (2, 1), size = (1600, 900), left_margin = 5Plots.mm,
 const CANONICAL_FIGURE_PATH = figure_path(SCRIPT_STEM, "01_sample_traces.png")
 savefig(fig, CANONICAL_FIGURE_PATH)
 
-const EMBEDDED_FIGURE_PATH = joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "01_sample_traces.png")
-cp(CANONICAL_FIGURE_PATH, EMBEDDED_FIGURE_PATH; force = true)
+EdaSupport.embed_figure(CANONICAL_FIGURE_PATH, "01_sample_traces.png")
 ````
 
 ```@raw html

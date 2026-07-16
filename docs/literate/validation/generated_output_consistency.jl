@@ -472,7 +472,7 @@ plot!(p_cf, wind_cf_sorted, label="Wind CF", color=:steelblue, linewidth=1.5, al
 p_overview = plot(p_sol_bar, p_wind_bar, p_demand, p_cf, layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
 savefig(p_overview, figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"))
-cp(figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_pisp_outputs_overview.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"), "06_pisp_outputs_overview.png")
 nothing #hide
 
 # ![PISP outputs overview: annual mean pmax by generator for solar and wind, daily demand by NEM area, and the solar/wind capacity-factor duration curve](06_pisp_outputs_overview.png)
@@ -496,7 +496,7 @@ plot!(p_ts, wind_daily_ts.date_only, wind_daily_ts.total ./ 1000, label="Wind PM
 plot!(p_ts, dem_daily_ts_plot.date_only, dem_daily_ts_plot.total_demand ./ 1000, label="Total Demand (GW)", color=:grey, linewidth=1, alpha=0.7)
 
 savefig(p_ts, figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"))
-cp(figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_solar_wind_vs_demand_ts.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"), "06_solar_wind_vs_demand_ts.png")
 nothing #hide
 
 # ![Daily solar PMax, wind PMax, and total demand over the scheduled horizon, each in GW](06_solar_wind_vs_demand_ts.png)
@@ -548,7 +548,7 @@ plot!(p_detailed[4], title="Daily Total Demand Distribution (2030)", xlabel="Dem
       grid=true, gridalpha=0.3, legend=false)
 
 savefig(p_detailed, figure_path(SCRIPT_STEM, "06_pisp_detailed.png"))
-cp(figure_path(SCRIPT_STEM, "06_pisp_detailed.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_pisp_detailed.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_pisp_detailed.png"), "06_pisp_detailed.png")
 nothing #hide
 
 # ![PISP detailed view: hourly pmax profiles for solar and wind generators, VRE-vs-demand scatter, and daily demand distribution](06_pisp_detailed.png)

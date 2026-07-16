@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/06_pisp_outputs.jl"
+EditURL = "../../../literate/validation/generated_output_consistency.jl"
 ```
 
 # PISP generated-output consistency
@@ -52,7 +52,7 @@ const AREA_NAMES = Dict(1 => "QLD", 2 => "NSW", 3 => "VIC", 4 => "TAS", 5 => "SA
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — schedule-2030 generated PISP output (out-ref4006-poe10 build)
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — schedule-2030 generated PISP output (out-ref4006-poe10 build)
 
 ````
 
@@ -738,7 +738,7 @@ plot!(p_cf, wind_cf_sorted, label="Wind CF", color=:steelblue, linewidth=1.5, al
 p_overview = plot(p_sol_bar, p_wind_bar, p_demand, p_cf, layout=(2,2), size=(1200, 1000), left_margin=8Plots.mm, top_margin=8Plots.mm)
 
 savefig(p_overview, figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"))
-cp(figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_pisp_outputs_overview.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_pisp_outputs_overview.png"), "06_pisp_outputs_overview.png")
 ````
 
 ```@raw html
@@ -771,7 +771,7 @@ plot!(p_ts, wind_daily_ts.date_only, wind_daily_ts.total ./ 1000, label="Wind PM
 plot!(p_ts, dem_daily_ts_plot.date_only, dem_daily_ts_plot.total_demand ./ 1000, label="Total Demand (GW)", color=:grey, linewidth=1, alpha=0.7)
 
 savefig(p_ts, figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"))
-cp(figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_solar_wind_vs_demand_ts.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_solar_wind_vs_demand_ts.png"), "06_solar_wind_vs_demand_ts.png")
 ````
 
 ```@raw html
@@ -832,7 +832,7 @@ plot!(p_detailed[4], title="Daily Total Demand Distribution (2030)", xlabel="Dem
       grid=true, gridalpha=0.3, legend=false)
 
 savefig(p_detailed, figure_path(SCRIPT_STEM, "06_pisp_detailed.png"))
-cp(figure_path(SCRIPT_STEM, "06_pisp_detailed.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "06_pisp_detailed.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "06_pisp_detailed.png"), "06_pisp_detailed.png")
 ````
 
 ```@raw html

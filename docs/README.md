@@ -17,11 +17,11 @@ PISP documentation uses two source types:
 | `docs/src/api.md` | Public API reference. |
 | `docs/literate/reference/` | Executable reference pages generated from package constants, schemas, downloader targets, and filesystem checks. |
 | `docs/literate/tutorials/` | Executable package and dataset workflows. |
-| `docs/literate/validation/` | Executable validation pages. |
-| `docs/literate/eda/` | Executable analysis and validation pages that load their own source data, compute their own evidence, and build their own figures directly on the page — the page itself is the analysis, not a consumer of a separate producer script. |
+| `docs/literate/validation/` | Executable validation pages that load their own source data, compute their own evidence, and build their own figures directly on the page — the page itself is the analysis, not a consumer of a separate producer script. |
+| `docs/literate/analysis/` | Executable analysis pages following the same self-contained pattern as `docs/literate/validation/`. |
 | `docs/literate/eda_09_download_inventory.jl`, `docs/literate/eda_11_rez_resource_vs_cost.jl` | Two remaining pages that still follow the older producer-consumer model: a registered `eda/*.jl` producer writes evidence tables that the page then reads and displays. |
 | `docs/src/generated/` | Static Markdown and figures generated from all active Literate sources. |
-| `eda/eda_support.jl` | Shared table/figure-writer helper used by every page under `docs/literate/eda/`. |
+| `eda/eda_support.jl` | Shared table/figure-writer helper used by every self-contained page under `docs/literate/validation/` and `docs/literate/analysis/`. |
 | `eda/09_download_inventory.jl`, `eda/11_rez_resource_vs_cost.jl` | The two remaining standalone producer scripts, for the two pages listed above. |
 | `eda/compare_tables.jl` | Regression harness comparing Julia-produced evidence tables against the archived Python baseline under `eda/archive/`. |
 | `eda/tables/julia/<script-stem>/` | Current EDA evidence location. |
@@ -50,13 +50,31 @@ Open `docs/build/index.html` after the build completes.
 
 ## Run stages separately
 
-Render one page (and rerun its registered producer, if it has one):
+### Re-render only what changed (recommended)
+
+After editing one or more Literate sources, render just the affected pages by passing their registry `id`s as a comma-separated list through `PISP_LITERATE_PAGES`. This is the default way to re-render: it is much faster than a full render because it skips every page you did not touch, and it still reruns any registered producer required by the pages you selected.
+
+One page:
 
 ```sh
 PISP_LITERATE_PAGES=historical-trace-years julia --project=docs docs/render_literate.jl
 ```
 
-Render every active Literate page and rerun every registered producer (`source-data-inventory` and `rez-resource-versus-connection-cost` are the only two that currently have one):
+Several pages:
+
+```sh
+PISP_LITERATE_PAGES=trace-coverage-and-schema,temperature-data-coverage,generated-output-consistency julia --project=docs docs/render_literate.jl
+```
+
+Then build Documenter from the generated files:
+
+```sh
+julia --project=docs docs/make.jl
+```
+
+### Full render (slower, occasional use)
+
+Render every active Literate page and rerun every registered producer (`source-data-inventory` and `rez-resource-versus-connection-cost` are the only two that currently have one). Reach for this before a release, or whenever a change could plausibly affect pages beyond the ones just edited (for example, a shared helper such as `eda/eda_support.jl`), rather than as the routine way to check one edit:
 
 ```sh
 julia --project=docs docs/render_literate.jl
@@ -74,7 +92,7 @@ Build Documenter from the committed generated files:
 julia --project=docs docs/make.jl
 ```
 
-`docs/render_literate.jl` defaults to every non-archived registry entry and reruns the unique producers required by the selected pages. A complete render writes all pages to a temporary staging tree and replaces `docs/src/generated/` only after every page succeeds. This removes stale renamed pages without destroying the previous generated site when one page fails. Explicit page IDs can be supplied as a comma-separated list through `PISP_LITERATE_PAGES`. Set `PISP_RUN_PRODUCERS=false` only to reuse an already current evidence bundle. The renderer executes each selected source, writes its registered output path, and collapses Julia source blocks behind a **Show source code** disclosure while leaving rendered tables and figures visible.
+`docs/render_literate.jl` defaults to every non-archived registry entry and reruns the unique producers required by the selected pages. A complete render writes all pages to a temporary staging tree and replaces `docs/src/generated/` only after every page succeeds. This removes stale renamed pages without destroying the previous generated site when one page fails. Explicit page IDs can be supplied as a comma-separated list through `PISP_LITERATE_PAGES`, as shown above. Set `PISP_RUN_PRODUCERS=false` only to reuse an already current evidence bundle. The renderer executes each selected source, writes its registered output path, and collapses Julia source blocks behind a **Show source code** disclosure while leaving rendered tables and figures visible.
 
 ## Page registry
 
@@ -100,11 +118,11 @@ Each `[[page]]` entry in `docs/page-registry.toml` contains:
 
 ## Evidence and rendering contract
 
-Two flows exist. The self-contained flow is now the default for every page under `docs/literate/eda/`:
+Two flows exist. The self-contained flow is now the default for every page under `docs/literate/validation/` and `docs/literate/analysis/`:
 
 ```text
 source data or PISP datasets
-    -> docs/literate/eda/<page>.jl   (loads data, computes evidence, builds figures, on the page)
+    -> docs/literate/{validation,analysis}/<page>.jl   (loads data, computes evidence, builds figures, on the page)
         -> eda/tables/julia/<script-stem>/   (the same code also writes this, for the regression harness)
             -> docs/src/generated/<role>/<topic>.md
 ```
@@ -121,7 +139,7 @@ source data or PISP datasets
 
 In the self-contained flow, the Literate page owns everything: calculations, evidence tables, figures, reader framing, and interpretation boundaries. In the legacy flow, the registered producer owns calculations and evidence tables, and the Literate page owns reader framing, visible evidence, interpretation boundaries, and links to stable package references. Prefer the self-contained flow for new pages; the legacy flow is not being expanded.
 
-Snapshot pages must display their input or build identity (which download root, output root, or schedule directory was inspected) — every page under `docs/literate/eda/` does this via `EdaSupport.snapshot_metadata_line`, printing the PISP.jl commit, generation date, and a page-specific description of the dated source/build it describes. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
+Snapshot pages must display their input or build identity (which download root, output root, or schedule directory was inspected) — every self-contained page under `docs/literate/validation/` and `docs/literate/analysis/` does this via `EdaSupport.snapshot_metadata_line`, printing the PISP.jl commit, generation date, and a page-specific description of the dated source/build it describes. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
 
 ## Adding a page
 

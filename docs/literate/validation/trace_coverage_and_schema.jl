@@ -236,8 +236,7 @@ fig = plot(p1, p2, layout = (2, 1), size = (1600, 900), left_margin = 5Plots.mm,
 const CANONICAL_FIGURE_PATH = figure_path(SCRIPT_STEM, "01_sample_traces.png")
 savefig(fig, CANONICAL_FIGURE_PATH)
 
-const EMBEDDED_FIGURE_PATH = joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "01_sample_traces.png")
-cp(CANONICAL_FIGURE_PATH, EMBEDDED_FIGURE_PATH; force = true)
+EdaSupport.embed_figure(CANONICAL_FIGURE_PATH, "01_sample_traces.png")
 nothing #hide
 
 # ![First 30 days of the solar and wind 4006 reference traces](01_sample_traces.png)

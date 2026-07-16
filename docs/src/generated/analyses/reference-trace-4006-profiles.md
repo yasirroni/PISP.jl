@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/02_plot_4006_traces.jl"
+EditURL = "../../../literate/analysis/reference_trace_profile.jl"
 ```
 
 # Reference trace 4006 profiles
@@ -140,7 +140,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP raw trace downloads, trace year 4006
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads, trace year 4006
 
 ````
 
@@ -436,7 +436,7 @@ p_sol = plot(plots_sol..., layout=(length(plots_sol), 1), size=(1800, 300*length
 plot!(p_sol, plot_title="Solar 4006 — Daily Mean Capacity Factor by State")
 savefig(p_sol, figure_path(SCRIPT_STEM, "02_solar_4006_daily_cf.png"))
 println("Saved: 02_solar_4006_daily_cf.png")
-cp(figure_path(SCRIPT_STEM, "02_solar_4006_daily_cf.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "02_solar_4006_daily_cf.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "02_solar_4006_daily_cf.png"), "02_solar_4006_daily_cf.png")
 ````
 
 ```@raw html
@@ -474,7 +474,7 @@ p_wind = plot(plots_wind..., layout=(length(plots_wind), 1), size=(1800, 300*len
 plot!(p_wind, plot_title="Wind 4006 — Daily Mean Capacity Factor by State")
 savefig(p_wind, figure_path(SCRIPT_STEM, "02_wind_4006_daily_cf.png"))
 println("Saved: 02_wind_4006_daily_cf.png")
-cp(figure_path(SCRIPT_STEM, "02_wind_4006_daily_cf.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "02_wind_4006_daily_cf.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "02_wind_4006_daily_cf.png"), "02_wind_4006_daily_cf.png")
 ````
 
 ```@raw html
@@ -526,7 +526,7 @@ p_diu = plot(plots_diurnal..., layout=(2,1), size=(1600, 1000), left_margin=6Plo
 plot!(p_diu, plot_title="Solar 4006 — Diurnal Profiles: Summer vs Winter")
 savefig(p_diu, figure_path(SCRIPT_STEM, "02_solar_4006_diurnal.png"))
 println("Saved: 02_solar_4006_diurnal.png")
-cp(figure_path(SCRIPT_STEM, "02_solar_4006_diurnal.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "02_solar_4006_diurnal.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "02_solar_4006_diurnal.png"), "02_solar_4006_diurnal.png")
 ````
 
 ```@raw html
@@ -584,7 +584,7 @@ if df_wind_prof !== nothing
     p_wind_sea = plot(plots_wind_sea..., layout=(2,1), size=(1600, 900), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=4Plots.mm)
     savefig(p_wind_sea, figure_path(SCRIPT_STEM, "02_wind_4006_seasonal.png"))
     println("Saved: 02_wind_4006_seasonal.png")
-    cp(figure_path(SCRIPT_STEM, "02_wind_4006_seasonal.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "02_wind_4006_seasonal.png"); force = true)
+    EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "02_wind_4006_seasonal.png"), "02_wind_4006_seasonal.png")
 end
 ````
 
@@ -635,7 +635,7 @@ plot!(p5, xlabel="Financial Year (ending)", ylabel="Annual Mean Capacity Factor"
       grid=true, gridalpha=0.3, left_margin=12Plots.mm)
 savefig(p5, figure_path(SCRIPT_STEM, "02_4006_annual_cf.png"))
 println("Saved: 02_4006_annual_cf.png")
-cp(figure_path(SCRIPT_STEM, "02_4006_annual_cf.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "02_4006_annual_cf.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "02_4006_annual_cf.png"), "02_4006_annual_cf.png")
 ````
 
 ```@raw html

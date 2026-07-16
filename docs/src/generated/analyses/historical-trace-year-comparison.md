@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/03_year_comparison.jl"
+EditURL = "../../../literate/analysis/historical_trace_years.jl"
 ```
 
 # Comparing historical solar and wind reference years
@@ -72,7 +72,7 @@ row_max(df::DataFrame, cols) = [maximum(row[col] for col in cols) for row in eac
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP raw trace downloads, historical years 2011-2023
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads, historical years 2011-2023
 
 ````
 
@@ -404,7 +404,7 @@ p4 = @df long_form(winter_cfs_wind, yrs_wind_winter) boxplot(:labels, :values, l
 
 p_bp = plot(p1, p2, p3, p4, layout = (2, 2), size = (1400, 1000), left_margin = 8Plots.mm, bottom_margin = 8Plots.mm)
 savefig(p_bp, figure_path(SCRIPT_STEM, "03_year_comparison_boxplot.png"))
-cp(figure_path(SCRIPT_STEM, "03_year_comparison_boxplot.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "03_year_comparison_boxplot.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_year_comparison_boxplot.png"), "03_year_comparison_boxplot.png")
 ````
 
 ```@raw html
@@ -446,7 +446,7 @@ plot!(p_trend, yrs_list_wind, annual_means_wind, marker = :square, color = :stee
 
 plot!(p_trend, xlabel = "Reference Year", ylabel = "Annual Mean Capacity Factor", title = "Annual Mean CF: Solar ($(SOLAR_LOC)) vs Wind ($(WIND_LOC))", grid = true, gridalpha = 0.3)
 savefig(p_trend, figure_path(SCRIPT_STEM, "03_annual_cf_trend.png"))
-cp(figure_path(SCRIPT_STEM, "03_annual_cf_trend.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "03_annual_cf_trend.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_annual_cf_trend.png"), "03_annual_cf_trend.png")
 ````
 
 ```@raw html
@@ -489,7 +489,7 @@ for (i, (yr, cf)) in enumerate(zip(yrs_worst, cfs_worst))
     annotate!(p_worst, i, cf + 0.02, text(string(round(cf, digits = 2)), 8, :center))
 end
 savefig(p_worst, figure_path(SCRIPT_STEM, "03_worst_summer_day.png"))
-cp(figure_path(SCRIPT_STEM, "03_worst_summer_day.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "03_worst_summer_day.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_worst_summer_day.png"), "03_worst_summer_day.png")
 ````
 
 ```@raw html
@@ -565,7 +565,7 @@ end
 
 p_zero = plot(p_low1, p_low2, layout = (1, 2), size = (1800, 600), left_margin = 10Plots.mm, bottom_margin = 10Plots.mm, top_margin = 20Plots.mm)
 savefig(p_zero, figure_path(SCRIPT_STEM, "03_zero_output_days.png"))
-cp(figure_path(SCRIPT_STEM, "03_zero_output_days.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "03_zero_output_days.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_zero_output_days.png"), "03_zero_output_days.png")
 ````
 
 ```@raw html

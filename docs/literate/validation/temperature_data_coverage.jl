@@ -350,7 +350,7 @@ for (zone, loc) in CLIMATE_ZONES
     histogram!(p1, daily, bins=50, alpha=0.5, label="$(zone) ($(loc))", normalize=:pdf)
 end
 savefig(p1, figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"))
-cp(figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "05_cf_by_climate_zone.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"), "05_cf_by_climate_zone.png")
 nothing #hide
 
 # ![Summer daily solar capacity-factor distribution by climate zone](05_cf_by_climate_zone.png)
@@ -374,7 +374,7 @@ for (idx, (zone, loc)) in enumerate(CLIMATE_ZONES)
           xlim=(0, 0.5), ylim=(0, 0.8), grid=true, gridstyle=:dash, gridalpha=0.3)
 end
 savefig(p2, figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"))
-cp(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "05_midday_vs_daily_scatter.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"), "05_midday_vs_daily_scatter.png")
 nothing #hide
 
 # ![Midday capacity factor against daily mean capacity factor by climate zone](05_midday_vs_daily_scatter.png)

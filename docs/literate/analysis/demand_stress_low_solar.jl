@@ -331,7 +331,7 @@ plot!(p1[2], title="2030 VIC Daily Mean Demand (MW)", xlabel="Date", ylabel="Dem
 
 savefig(p1, figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"))
 println("Saved: 07_vic_demand_solar_4006.png")
-cp(figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_vic_demand_solar_4006.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"), "07_vic_demand_solar_4006.png")
 nothing #hide
 
 # ![VIC daily solar capacity factor and daily mean demand over the full period, each with a 7-day rolling average](07_vic_demand_solar_4006.png)
@@ -357,7 +357,7 @@ end
 
 savefig(p2, figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"))
 println("Saved: 07_demand_vs_solar_scatter.png")
-cp(figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_demand_vs_solar_scatter.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"), "07_demand_vs_solar_scatter.png")
 nothing #hide
 
 # ![VIC daily demand plotted against Bannerton solar capacity factor, with high-demand/low-solar days highlighted](07_demand_vs_solar_scatter.png)
@@ -419,7 +419,7 @@ end
 
 savefig(p3, figure_path(SCRIPT_STEM, "07_demand_heat_events.png"))
 println("Saved: 07_demand_heat_events.png")
-cp(figure_path(SCRIPT_STEM, "07_demand_heat_events.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_demand_heat_events.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_demand_heat_events.png"), "07_demand_heat_events.png")
 nothing #hide
 
 # ![Hourly heat-vs-normal demand profile, demand duration curve, month-by-hour demand heatmap, and normalized demand/solar comparison](07_demand_heat_events.png)

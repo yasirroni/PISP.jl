@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/04_seasonal_extremes.jl"
+EditURL = "../../../literate/analysis/seasonal_renewable_extremes.jl"
 ```
 
 # Examining seasonal renewable extremes
@@ -209,7 +209,7 @@ snapshot_metadata_line(
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS
 
 ````
 
@@ -490,7 +490,7 @@ end
 p_hc = plot(plots_hot_cool..., layout=(2,1), size=(1400, 800),
             left_margin=5Plots.mm, bottom_margin=5Plots.mm)
 savefig(p_hc, figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"))
-cp(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_hot_vs_cool_summer_solar.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"), "04_hot_vs_cool_summer_solar.png")
 ````
 
 ```@raw html
@@ -499,15 +499,15 @@ cp(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.png"), joinpath(normpat
 
 ````
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:5
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:5
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:7
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:7
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:9
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:9
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:10
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:10
 ┌ Warning: Assignment to `rolling3` in soft scope is ambiguous because a global variable by the same name exists: `rolling3` will be treated as a new local. Disambiguate by using `local rolling3` to suppress this warning or `global rolling3` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:11
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:11
 
 ````
 
@@ -603,7 +603,7 @@ end
 p_low_out = plot(p_sol_hist, p_wind_hist, p_worst_days, p_worst_profile, layout=(2,2), size=(1400, 1000),
                   left_margin=5Plots.mm, bottom_margin=5Plots.mm)
 savefig(p_low_out, figure_path(SCRIPT_STEM, "04_low_output_events.png"))
-cp(figure_path(SCRIPT_STEM, "04_low_output_events.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_low_output_events.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_low_output_events.png"), "04_low_output_events.png")
 ````
 
 ```@raw html
@@ -612,21 +612,21 @@ cp(figure_path(SCRIPT_STEM, "04_low_output_events.png"), joinpath(normpath(get(E
 
 ````
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:6
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:6
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:8
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:8
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:10
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:10
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:11
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:11
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:23
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:23
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:25
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:25
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:27
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:27
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-ufyBqP/src/generated/analyses/04_seasonal_extremes.md:28
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-CAjrlD/src/generated/analyses/seasonal_renewable_extremes.md:28
 
 ````
 
@@ -651,7 +651,7 @@ if isfile(monthly_table_path)
                     xlabel="Month", ylabel="Mean Capacity Factor", grid=true, gridalpha=0.3, size=(1200, 500),
                     left_margin=5Plots.mm, bottom_margin=5Plots.mm)
     savefig(p_monthly, figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"))
-    cp(figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_monthly_cf_2019.png"); force = true)
+    EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_monthly_cf_2019.png"), "04_monthly_cf_2019.png")
 end
 ````
 
@@ -681,7 +681,7 @@ if df_2019 !== nothing
           ylim=(0, 0.5), grid=true, gridalpha=0.3, size=(1600, 500),
           left_margin=5Plots.mm, bottom_margin=5Plots.mm)
     savefig(p_black, figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"))
-    cp(figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "04_summer_2019_black_summer.png"); force = true)
+    EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_summer_2019_black_summer.png"), "04_summer_2019_black_summer.png")
 end
 ````
 

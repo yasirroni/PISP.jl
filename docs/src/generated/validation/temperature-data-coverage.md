@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/05_temperature_analysis.jl"
+EditURL = "../../../literate/validation/temperature_data_coverage.jl"
 ```
 
 # Assessing temperature-related information and climate-zone variation
@@ -66,7 +66,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — 2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — 2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces
 
 ````
 
@@ -495,7 +495,7 @@ for (zone, loc) in CLIMATE_ZONES
     histogram!(p1, daily, bins=50, alpha=0.5, label="$(zone) ($(loc))", normalize=:pdf)
 end
 savefig(p1, figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"))
-cp(figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "05_cf_by_climate_zone.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"), "05_cf_by_climate_zone.png")
 ````
 
 ```@raw html
@@ -528,7 +528,7 @@ for (idx, (zone, loc)) in enumerate(CLIMATE_ZONES)
           xlim=(0, 0.5), ylim=(0, 0.8), grid=true, gridstyle=:dash, gridalpha=0.3)
 end
 savefig(p2, figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"))
-cp(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "05_midday_vs_daily_scatter.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png"), "05_midday_vs_daily_scatter.png")
 ````
 
 ```@raw html

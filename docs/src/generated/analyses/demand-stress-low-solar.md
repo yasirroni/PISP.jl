@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/eda/07_demand_heat_events.jl"
+EditURL = "../../../literate/analysis/demand_stress_low_solar.jl"
 ```
 
 # Demand stress and low-solar coincidence
@@ -72,7 +72,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit 70ebf60+dirty, generated 2026-07-16 — VIC demand schedule from the schedule-2030 generated PISP output; Bannerton 4006 solar reference trace from the 2024 ISP raw trace downloads
+Snapshot: PISP.jl commit fb28c62+dirty, generated 2026-07-17 — VIC demand schedule from the schedule-2030 generated PISP output; Bannerton 4006 solar reference trace from the 2024 ISP raw trace downloads
 
 ````
 
@@ -542,7 +542,7 @@ plot!(p1[2], title="2030 VIC Daily Mean Demand (MW)", xlabel="Date", ylabel="Dem
 
 savefig(p1, figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"))
 println("Saved: 07_vic_demand_solar_4006.png")
-cp(figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_vic_demand_solar_4006.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_vic_demand_solar_4006.png"), "07_vic_demand_solar_4006.png")
 ````
 
 ```@raw html
@@ -582,7 +582,7 @@ end
 
 savefig(p2, figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"))
 println("Saved: 07_demand_vs_solar_scatter.png")
-cp(figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_demand_vs_solar_scatter.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_demand_vs_solar_scatter.png"), "07_demand_vs_solar_scatter.png")
 ````
 
 ```@raw html
@@ -658,7 +658,7 @@ end
 
 savefig(p3, figure_path(SCRIPT_STEM, "07_demand_heat_events.png"))
 println("Saved: 07_demand_heat_events.png")
-cp(figure_path(SCRIPT_STEM, "07_demand_heat_events.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "07_demand_heat_events.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "07_demand_heat_events.png"), "07_demand_heat_events.png")
 ````
 
 ```@raw html

@@ -221,7 +221,7 @@ fy_labels = [row.fy_start[1:4] for row in eachrow(mapping_table)]
 plot!(p1, xticks=(1:nrow(mapping_table), fy_labels), xrotation=90)
 
 savefig(p1, figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"))
-cp(figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_4006_timeline_map.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_4006_timeline_map.png"), "08_4006_timeline_map.png")
 nothing #hide
 
 # ![Timeline of the 4006 composite mapping, one bar per financial year coloured by source historical year](08_4006_timeline_map.png)
@@ -258,7 +258,7 @@ for (idx, tech) in enumerate(("solar", "wind"))
 end
 
 savefig(p2, figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"))
-cp(figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_vre_by_historical_year.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_by_historical_year.png"), "08_vre_by_historical_year.png")
 nothing #hide
 
 # ![Summer mean capacity factor by historical year for solar and wind, with downward error bars to the summer 5th percentile](08_vre_by_historical_year.png)
@@ -292,7 +292,7 @@ for (idx, (tech, loc, hh_cols, color)) in enumerate([("solar", SOLAR_LOC, HH_COL
 end
 
 savefig(p3, figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"))
-cp(figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_near_vs_far_term.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_near_vs_far_term.png"), "08_near_vs_far_term.png")
 nothing #hide
 
 # ![Near-term versus far-term daily capacity factor for solar and wind, raw series and 30-day rolling averages](08_near_vs_far_term.png)
@@ -336,7 +336,7 @@ for (i, tech) in enumerate(["Solar", "Wind"])
 end
 
 savefig(p4, figure_path(SCRIPT_STEM, "08_vre_heatmap.png"))
-cp(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), joinpath(normpath(get(ENV, "PISP_LITERATE_OUTPUT_DIR", @__DIR__)), "08_vre_heatmap.png"); force = true)
+EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), "08_vre_heatmap.png")
 nothing #hide
 
 # ![Annual mean capacity factor by historical year and technology, coloured and annotated per cell](08_vre_heatmap.png)

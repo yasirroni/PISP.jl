@@ -1,5 +1,5 @@
 ```@meta
-EditURL = "../../../literate/problem_table.jl"
+EditURL = "../../../literate/tutorials/problem_table.jl"
 ```
 
 # Building a `PISPtimeConfig` problem table

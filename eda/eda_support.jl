@@ -5,7 +5,7 @@ using DataFrames
 using Dates
 using Pkg
 
-export TABLE_ROOT, FIGURE_ROOT, table_dir, table_path, write_table, figure_dir, figure_path, snapshot_metadata_line
+export TABLE_ROOT, FIGURE_ROOT, table_dir, table_path, write_table, figure_dir, figure_path, snapshot_metadata_line, embed_figure
 
 const TABLE_ROOT = joinpath(normpath(joinpath(@__DIR__, "..")), "eda", "tables")
 const FIGURE_ROOT = joinpath(normpath(joinpath(@__DIR__, "..")), "eda", "figures")
@@ -37,6 +37,20 @@ end
 function figure_path(script_stem, figure_name; producer = "julia", root = FIGURE_ROOT)
     filename = endswith(figure_name, ".png") ? figure_name : "$(figure_name).png"
     return joinpath(figure_dir(script_stem; producer = producer, root = root), filename)
+end
+
+# Copies a canonical figure next to the Documenter-generated Markdown page,
+# but only when running through docs/render_literate.jl (which sets
+# PISP_LITERATE_OUTPUT_DIR). When a Literate source is run standalone, this
+# env var is unset and there is no generated Markdown for an embedded copy
+# to sit next to, so this is a no-op — nothing is ever written beside the
+# Literate source itself.
+function embed_figure(canonical_path, figure_name)
+    output_dir = get(ENV, "PISP_LITERATE_OUTPUT_DIR", nothing)
+    output_dir === nothing && return nothing
+    embedded_path = joinpath(normpath(output_dir), figure_name)
+    cp(canonical_path, embedded_path; force = true)
+    return embedded_path
 end
 
 function pisp_git_revision(repo_root)
