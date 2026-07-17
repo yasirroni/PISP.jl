@@ -30,7 +30,7 @@ const REPO_ROOT = normpath(get(
     joinpath(@__DIR__, "..", "..", ".."),
 ))
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads, historical years 2011-2023")
@@ -72,7 +72,7 @@ row_max(df::DataFrame, cols) = [maximum(row[col] for col in cols) for row in eac
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads, historical years 2011-2023
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP raw trace downloads, historical years 2011-2023
 
 ````
 

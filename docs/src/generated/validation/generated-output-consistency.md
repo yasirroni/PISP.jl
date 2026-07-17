@@ -28,7 +28,7 @@ const REPO_ROOT = normpath(get(
     joinpath(@__DIR__, "..", "..", ".."),
 ))
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 const SCRIPT_STEM = "06_pisp_outputs"
@@ -52,7 +52,7 @@ const AREA_NAMES = Dict(1 => "QLD", 2 => "NSW", 3 => "VIC", 4 => "TAS", 5 => "SA
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — schedule-2030 generated PISP output (out-ref4006-poe10 build)
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — schedule-2030 generated PISP output (out-ref4006-poe10 build)
 
 ````
 

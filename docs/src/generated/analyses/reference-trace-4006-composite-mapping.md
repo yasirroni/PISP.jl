@@ -29,7 +29,7 @@ const REPO_ROOT = normpath(get(
     joinpath(@__DIR__, "..", "..", ".."),
 ))
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads")
@@ -53,7 +53,7 @@ const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads
 
 ````
 

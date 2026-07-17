@@ -21,7 +21,7 @@ const REPO_ROOT = normpath(get(
     joinpath(@__DIR__, "..", "..", ".."),
 ))
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 ````
 

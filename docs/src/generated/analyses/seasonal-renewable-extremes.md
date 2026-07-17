@@ -208,7 +208,7 @@ snapshot_metadata_line(
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS
 
 ````
 
@@ -607,15 +607,15 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.pn
 
 ````
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:5
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:5
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:7
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:7
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:9
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:9
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:10
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:10
 ┌ Warning: Assignment to `rolling3` in soft scope is ambiguous because a global variable by the same name exists: `rolling3` will be treated as a new local. Disambiguate by using `local rolling3` to suppress this warning or `global rolling3` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:11
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:11
 
 ````
 
@@ -720,21 +720,21 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_low_output_events.png"), "0
 
 ````
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:6
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:6
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:8
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:8
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:10
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:10
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:11
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:11
 ┌ Warning: Assignment to `df` in soft scope is ambiguous because a global variable by the same name exists: `df` will be treated as a new local. Disambiguate by using `local df` to suppress this warning or `global df` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:23
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:23
 ┌ Warning: Assignment to `summer_mask` in soft scope is ambiguous because a global variable by the same name exists: `summer_mask` will be treated as a new local. Disambiguate by using `local summer_mask` to suppress this warning or `global summer_mask` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:25
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:25
 ┌ Warning: Assignment to `summer` in soft scope is ambiguous because a global variable by the same name exists: `summer` will be treated as a new local. Disambiguate by using `local summer` to suppress this warning or `global summer` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:27
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:27
 ┌ Warning: Assignment to `daily` in soft scope is ambiguous because a global variable by the same name exists: `daily` will be treated as a new local. Disambiguate by using `local daily` to suppress this warning or `global daily` to assign to the existing global variable.
-└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/src/generated/analyses/seasonal_renewable_extremes.md:28
+└ @ ~/Documents/Git/arpst-unimelb-agents/projects/PISP.jl/docs/.literate-staging-R1OdJV/src/generated/analyses/seasonal_renewable_extremes.md:28
 
 ````
 

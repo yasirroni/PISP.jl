@@ -44,7 +44,7 @@ abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a DOWNL
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build costs sheet
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build costs sheet
 
 ````
 

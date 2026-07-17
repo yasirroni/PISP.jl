@@ -45,7 +45,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — local PISP download tree inventory
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — local PISP download tree inventory
 
 ````
 

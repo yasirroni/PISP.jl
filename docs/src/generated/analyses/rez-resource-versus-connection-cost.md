@@ -66,7 +66,7 @@ as_float(x::Real) = Float64(x)
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build limits + REZ Augmentations Options
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build limits + REZ Augmentations Options
 
 ````
 

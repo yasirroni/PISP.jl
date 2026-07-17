@@ -35,7 +35,7 @@ const DATA_ROOT = normpath(get(
 const SCHEDULE_TAG = get(ENV, "PISP_SCHEDULE_TAG", "schedule-2030")
 const SCHEDULE_DIR = joinpath(DATA_ROOT, SCHEDULE_TAG)
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 required_files = [

@@ -27,7 +27,7 @@ const REPO_ROOT = normpath(get(
     joinpath(@__DIR__, "..", "..", ".."),
 ))
 
-include(joinpath(REPO_ROOT, "eda", "eda_support.jl"))
+include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES")
@@ -314,7 +314,7 @@ end
 ```
 
 ````
-Snapshot: PISP.jl commit a429ab9+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES
+Snapshot: PISP.jl commit 4b32060, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES
 
 ````
 
