@@ -4,7 +4,7 @@ EditURL = "../../../literate/validation/trace_coverage_and_schema.jl"
 
 # Trace data availability and structure
 
-PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. This page loads the raw trace files (2024 ISP raw trace downloads) directly from local downloads and shows their shape, date coverage, value ranges, and one demand-trace example.
+PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. AEMO's [2024 ISP PLEXOS Model Instructions, physical p. 7](../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=7) describes the demand, hydro, load-subtracter, solar, timeslice, and wind trace families. In the local downloads inspected here, solar and wind are grouped by technology and reference year, while demand is grouped by state/scenario and node. This page loads those raw trace files directly and shows their shape, date coverage, value ranges, and one demand-trace example.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -179,7 +179,7 @@ markdown_table(trace_date_ranges)
 
 ## Step 3 — value ranges and the solar low-output threshold
 
-The minimum and maximum values describe the numeric range in each sampled trace. The solar low-output summary counts days whose midday half-hourly maximum falls below a fixed capacity-factor threshold.
+The minimum and maximum values describe the numeric range in each sampled trace. The solar low-output summary counts days at Bannerton_SAT whose midday half-hourly maximum, across columns `24:35`, falls below the fixed capacity-factor threshold `0.1`.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -210,7 +210,7 @@ midday_cols = string.(24:35)
 daily_max = [maximum(row[col] for col in midday_cols) for row in eachrow(df_sol)]
 n_low = count(<(0.1), daily_max)
 n_total = nrow(df_sol)
-println(@sprintf("Days with midday max < 0.1: %d/%d (%.1f%%)", n_low, n_total, 100 * n_low / n_total))
+println(@sprintf("Days with midday max < 0.1: %d/%d (%.6f%%)", n_low, n_total, 100 * n_low / n_total))
 
 solar_midday_low_days = DataFrame([
     (
@@ -373,5 +373,7 @@ EdaSupport.embed_figure(CANONICAL_FIGURE_PATH, "01_sample_traces.png")
 
 ## Summary
 
+- The executed 4006 samples for solar site Bannerton_SAT and wind site ARWF1 each contain 10,227 rows and 51 columns, spanning 2024-07-01 through 2052-06-30.
+- For the solar 4006 sample at Bannerton_SAT, 67 of 10,227 days (0.655129%) have a midday maximum below the threshold `0.1` across columns `24:35`.
 - Solar and wind traces share one schema (three metadata columns plus half-hourly value columns); demand traces use a different, per-node file family.
 
