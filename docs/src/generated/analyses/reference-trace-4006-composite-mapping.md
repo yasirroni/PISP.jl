@@ -4,7 +4,7 @@ EditURL = "../../../literate/analysis/reference_trace_4006_mapping.jl"
 
 # The 4006 composite reference-trace mapping
 
-Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year, not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences.
+Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year (the 2024 ISP raw trace downloads), not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -28,8 +28,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads")
-
 const SCRIPT_STEM = "08_4006_composite_map"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")
 abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a TRACES-relative path to an absolute file location for reading
@@ -47,11 +45,6 @@ const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — 2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads
-
-````
 
 The financial-year-to-historical-year mapping is read directly from `PISP.WEATHER_YEARS_ISP` rather than restated here, so this page cannot drift from the package's own mapping. An invariant check confirms every financial-year range is contiguous.
 

@@ -26,8 +26,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP Inputs and Assumptions workbook, Build costs sheet")
-
 const SCRIPT_STEM = "10_build_cost_trajectories"
 const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded below
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
@@ -38,11 +36,6 @@ abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # resolves a DOWNL
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build costs sheet
-
-````
 
 Trim a raw XLSX matrix down to the bounding box of non-missing cells: this workbook's declared sheet dimension carries trailing all-missing rows/columns beyond its real content (this sheet reports max_row 1191 but its last populated row is 223).
 

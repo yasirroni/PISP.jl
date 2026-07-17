@@ -20,8 +20,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "local PISP download tree inventory")
-
 const SCRIPT_STEM = "09_download_inventory"
 const DOWNLOAD_ROOT = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded in the tables below
 const MAX_TREE_DEPTH = 3
@@ -39,11 +37,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — local PISP download tree inventory
-
-````
 
 Single recursive walk of the download tree that produces both a flat file inventory (every depth) and a depth-limited directory-tree listing, so the tree structure does not need a second filesystem walk.
 

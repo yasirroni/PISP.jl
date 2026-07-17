@@ -11,8 +11,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "local PISP download tree inventory")
-
 const SCRIPT_STEM = "09_download_inventory"
 const DOWNLOAD_ROOT = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded in the tables below
 const MAX_TREE_DEPTH = 3

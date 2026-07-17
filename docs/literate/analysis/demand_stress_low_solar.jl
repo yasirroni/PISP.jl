@@ -1,6 +1,6 @@
 # # Demand stress and low-solar coincidence
 #
-# High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and the event definition. This page loads the Victorian demand schedule and the Bannerton 4006 solar trace directly, then builds the demand distributions, demand-defined stress days, hourly demand profiles, and solar-availability-on-stress-days summaries live.
+# High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and the event definition. This page loads the Victorian demand schedule (the `schedule-2030` generated PISP output) and the Bannerton 4006 solar trace (2024 ISP raw trace downloads) directly, then builds the demand distributions, demand-defined stress days, hourly demand profiles, and solar-availability-on-stress-days summaries live.
 #
 # Here, `heat event` is an operational label for days at or above the 95th percentile of demand. It does not use air temperature, an excess-heat factor, or a meteorological heatwave definition.
 
@@ -19,8 +19,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "VIC demand schedule from the schedule-2030 generated PISP output; Bannerton 4006 solar reference trace from the 2024 ISP raw trace downloads")
 
 const SCRIPT_STEM = "07_demand_heat_events"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below

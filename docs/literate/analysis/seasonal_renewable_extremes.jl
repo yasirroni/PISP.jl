@@ -1,6 +1,6 @@
 # # Examining seasonal renewable extremes
 #
-# Mean capacity factors do not describe the persistence, timing, or profile of low-output conditions. This page loads the underlying half-hourly solar and wind traces directly, then builds grouped summer comparisons, candidate multi-day low-output events, and detailed solar profiles for adverse days.
+# Mean capacity factors do not describe the persistence, timing, or profile of low-output conditions. This page loads the underlying half-hourly solar and wind traces (2024 ISP raw trace downloads, historical years 2011-2023) directly, then builds grouped summer comparisons, candidate multi-day low-output events, and detailed solar profiles for adverse days.
 #
 # The analysis uses one Victorian solar location and one Victorian wind location. Its event definitions are exploratory and should not be treated as a system-wide adequacy criterion.
 
@@ -110,11 +110,6 @@ function low_output_events_for(tech, loc, hh_cols, threshold, yr)
     run_start !== nothing && push_low_output_event!(rows, run_start, n, dates, daily, tech, yr)
     return rows
 end
-
-snapshot_metadata_line(
-    REPO_ROOT;
-    context = "2024 ISP raw trace downloads (data/2024/pisp-downloads/Traces), historical years 2011-2023, hot/cool summers fixed by HOT_SUMMERS/COOL_SUMMERS",
-)
 
 # ## Step 1 — hot vs cool summer solar profile summary
 #

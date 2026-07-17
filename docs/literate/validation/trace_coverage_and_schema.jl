@@ -1,6 +1,6 @@
 # # Trace data availability and structure
 #
-# PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. This page loads the raw trace files directly from local downloads and shows their shape, date coverage, value ranges, and one demand-trace example.
+# PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. This page loads the raw trace files (2024 ISP raw trace downloads) directly from local downloads and shows their shape, date coverage, value ranges, and one demand-trace example.
 
 ENV["GKSwstype"] = "100"
 
@@ -17,8 +17,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads")
 
 const SCRIPT_STEM = "01_data_loading"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below

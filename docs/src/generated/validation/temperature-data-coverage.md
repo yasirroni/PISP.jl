@@ -4,7 +4,7 @@ EditURL = "../../../literate/validation/temperature_data_coverage.jl"
 
 # Assessing temperature-related information and climate-zone variation
 
-Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the ISP assumptions workbook, PISP's own output files, and summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present.
+Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the 2024 ISP assumptions workbook, PISP's own 2024 ISP output files (`out-ref4006-poe10` schedule build), and 2019 climate-zone summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present.
 
 No observed temperature time series is loaded, and no causal temperature-response model is estimated. Climate-zone comparisons are descriptive solar-trace comparisons, not direct measurements of thermal derating.
 
@@ -28,11 +28,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(
-    REPO_ROOT;
-    context = "2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces",
-)
 
 const SCRIPT_STEM = "05_temperature_analysis"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below
@@ -60,11 +55,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — 2024 ISP inputs and assumptions workbook, 2024 ISP PISP output files (out-ref4006-poe10 schedule), and 2019 climate-zone summer solar traces
-
-````
 
 Trim a raw XLSX matrix down to the bounding box of non-missing cells. A worksheet's declared dimension (and hence XLSX.jl's `sheet[:]`) can report extra trailing all-empty rows/columns beyond the sheet's real content, so this drops trailing rows/columns that hold no value before reporting a sheet's shape. Verified against this workbook: e.g. "Rooftop PV" has a raw shape of (64, 35) but a trimmed shape of (62, 33) — rows 63-64 and columns 34-35 are entirely `missing`.
 

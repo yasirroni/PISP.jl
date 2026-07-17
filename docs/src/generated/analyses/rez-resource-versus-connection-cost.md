@@ -28,8 +28,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP Inputs and Assumptions workbook, Build limits + REZ Augmentations Options")
-
 const SCRIPT_STEM = "11_rez_resource_vs_cost"
 const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded below
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
@@ -60,11 +58,6 @@ as_float(x::Real) = Float64(x)
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Build limits + REZ Augmentations Options
-
-````
 
 A handful of "Build limits" cells hold text rather than a bare number: "-" (no value; confirmed against the sheet's own dash convention elsewhere) and "5696 (Note 14)" (N11's offshore-floating limit, with the sheet's own inline footnote reference kept in the cell). The footnote itself (row 65: "Values shown are as per modelled. If updated to the recently declared area ... values would change to 0 MW fixed capacity, and 4,452 MW floating capacity.") is a caveat about a boundary redeclaration, not a reason to distrust the modelled number -- so this uses the modelled 5696 MW figure and keeps the footnote text out of the parsed value.
 

@@ -1,6 +1,6 @@
 # # The 4006 composite reference-trace mapping
 #
-# Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year, not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences.
+# Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon, so a "near-term" or "far-term" renewable profile is really a reuse of a specific historical solar and wind year (the 2024 ISP raw trace downloads), not an independent forecast. This page builds the financial-year-to-historical-year mapping, the per-historical-year and near/far renewable statistics derived from it, and the four figures that visualise the mapping and its consequences.
 
 ENV["GKSwstype"] = "100"
 
@@ -18,8 +18,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP PISP.WEATHER_YEARS_ISP weather-year mapping; historical solar and wind reference traces from the 2024 ISP raw trace downloads")
 
 const SCRIPT_STEM = "08_4006_composite_map"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")

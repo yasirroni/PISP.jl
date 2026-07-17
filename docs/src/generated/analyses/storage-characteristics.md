@@ -26,8 +26,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES")
-
 const SCRIPT_STEM = "12_storage_characteristics"
 const DOWNLOADS = joinpath("data", "2024", "pisp-downloads")  # kept relative: this is the path form recorded below
 const IASR_WORKBOOK = joinpath(DOWNLOADS, "2024-isp-inputs-and-assumptions-workbook.xlsx")
@@ -308,11 +306,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-Snapshot: PISP.jl commit bba8297+dirty, generated 2026-07-17 — 2024 ISP Inputs and Assumptions workbook, Storage properties + Build limits - PHES
-
-````
 
 ## Step 1 — load and trim the "Storage properties" and "Build limits - PHES" sheets
 

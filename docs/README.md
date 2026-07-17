@@ -127,14 +127,14 @@ source data or PISP datasets
 
 An earlier producer-consumer split existed for a few pages, where a separate `eda/<stem>.jl` script computed the evidence tables and the Literate page only read and displayed them. That split has been fully retired: no page currently registers a `producer` or `evidence_dir`, and `eda/` holds only the Python-comparison regression harness (`eda/compare_tables.jl`) plus data/figure/table storage directories; the shared table/figure-writer helper lives at `docs/eda_support.jl`. Keep new pages self-contained rather than reintroducing a separate producer script.
 
-Snapshot pages must display their input or build identity (which download root, output root, or schedule directory was inspected) — every self-contained page under `docs/literate/validation/` and `docs/literate/analysis/` does this via `EdaSupport.snapshot_metadata_line`, printing the PISP.jl commit, generation date, and a page-specific description of the dated source/build it describes. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
+Pages under `docs/literate/validation/` and `docs/literate/analysis/` should state the data's vintage or source build directly in their own prose (which download root, output root, schedule directory, or year range the page describes) wherever that materially affects how a reader interprets the evidence. Final claims should be derived from executed evidence or written as interpretation rules rather than hard-coded observations that can become stale.
 
 ## Adding a page
 
 1. Choose one primary reader purpose: reference, tutorial, validation, or analysis.
 2. Add the Literate source under the matching `docs/literate/` area where practical.
 3. Add one registry entry with a topic-oriented output path.
-4. Prefer making the page self-contained: load data, compute evidence, and build figures directly in the Literate source (`include`-ing `docs/eda_support.jl` for the shared table/figure-writer helpers and `EdaSupport.snapshot_metadata_line` for the provenance line), and skip `producer`/`evidence_dir`. Only register a separate `eda/*.jl` producer and `evidence_dir` when there is a specific reason the evidence must be computed outside the page itself.
+4. Prefer making the page self-contained: load data, compute evidence, and build figures directly in the Literate source (`include`-ing `docs/eda_support.jl` for the shared table/figure-writer helpers), and skip `producer`/`evidence_dir`. State the data's vintage or source build directly in the page's own prose where that materially affects interpretation, rather than as a separate provenance line. Only register a separate `eda/*.jl` producer and `evidence_dir` when there is a specific reason the evidence must be computed outside the page itself.
 5. Keep source-derived tables executable rather than copying package constants, filenames, schemas, or repository inventories into plain Markdown.
 6. Run the page and inspect the rendered evidence.
 7. Run the full documentation build before committing generated Markdown and figures.

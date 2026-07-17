@@ -1,6 +1,6 @@
 # # Reference trace 4006 profiles
 #
-# Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping. This page loads the raw solar and wind traces for one representative location per state, computes daily and seasonal capacity-factor structure, and builds each figure directly on the page.
+# Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping. This page loads the raw solar and wind traces (2024 ISP raw trace downloads) for one representative location per state, computes daily and seasonal capacity-factor structure, and builds each figure directly on the page.
 #
 # Reference trace `4006` is not a climate projection. Its planning-year behaviour depends on the historical-year composition documented in [Parameters and mappings](@ref).
 
@@ -19,8 +19,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads, trace year 4006")
 
 const SCRIPT_STEM = "02_plot_4006_traces"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the tables below

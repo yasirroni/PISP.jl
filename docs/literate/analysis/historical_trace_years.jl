@@ -1,6 +1,6 @@
 # # Comparing historical solar and wind reference years
 #
-# A single reference year can conceal substantial interannual variation in renewable availability. This page loads the full historical solar and wind trace archive directly, computes annual and seasonal capacity factors, low-output-day frequencies, and the most adverse summer solar day across the available historical years, and builds the comparison figures.
+# A single reference year can conceal substantial interannual variation in renewable availability. This page loads the full historical solar and wind trace archive (the 2024 ISP raw trace downloads, historical years 2011-2023) directly, computes annual and seasonal capacity factors, low-output-day frequencies, and the most adverse summer solar day across the available historical years, and builds the comparison figures.
 #
 # The comparison is location-specific: solar uses `Bannerton_SAT` and wind uses `DUNDWF1`. Results should not be generalised to all Victorian renewable resources without additional spatial analysis.
 
@@ -19,8 +19,6 @@ const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, ".
 
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
-
-EdaSupport.snapshot_metadata_line(REPO_ROOT; context = "2024 ISP raw trace downloads, historical years 2011-2023")
 
 const SCRIPT_STEM = "03_year_comparison"
 const TRACES = joinpath("data", "2024", "pisp-downloads", "Traces")  # kept relative: this is the path form recorded in the output tables

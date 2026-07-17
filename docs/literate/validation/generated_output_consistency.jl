@@ -1,6 +1,8 @@
 # # PISP generated-output consistency
 #
 # PISP writes a static asset dataset (`Generator.csv`, `Demand.csv`, `Bus.csv`) alongside time-varying schedules (`Generator_pmax_sched.csv`, `Demand_load_sched.csv`) for one generated build. This page loads one such build, joins the static and schedule tables, and checks identifier coverage, schedule coverage, generator classification, and daily solar/wind/demand alignment, computed live on this page and written to `eda/tables/julia/06_pisp_outputs/` as evidence. It also builds the three PISP-output figures shown in the generated docs site.
+#
+# By default it reads `data/2024/pisp-datasets/out-ref4006-poe10/csv/` and `schedule-2030/`; set `PISP_OUTPUT_ROOT` or `PISP_SCHEDULE_TAG` to use another generated build.
 
 ENV["GKSwstype"] = "100"
 
@@ -26,8 +28,6 @@ const OUT = normpath(get(
 ))
 const SCHEDULE_TAG = get(ENV, "PISP_SCHEDULE_TAG", "schedule-2030")
 const SCHEDULE_DIR = joinpath(OUT, SCHEDULE_TAG)
-
-snapshot_metadata_line(REPO_ROOT; context = "$(SCHEDULE_TAG) generated PISP output (out-ref4006-poe10 build)")
 
 abs_path(relative_path) = joinpath(REPO_ROOT, relative_path)  # no-op here since OUT/SCHEDULE_DIR are already absolute; kept for consistency with the other EDA pages
 
