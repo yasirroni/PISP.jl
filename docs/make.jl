@@ -10,8 +10,18 @@ using .PISPDocsPageRegistry
 
 const DOCS_DIR = @__DIR__
 const SRC = joinpath(DOCS_DIR, "src")
+const STAGED_SRC = joinpath(DOCS_DIR, ".documenter-source")
 const BUILD = joinpath(DOCS_DIR, "build")
 const REGISTRY_PATH = joinpath(DOCS_DIR, "page-registry.toml")
+
+include(joinpath(DOCS_DIR, "source_links.jl"))
+using .SourceLinks
+
+link_target_name = get(ENV, "PISP_DOCS_LINK_TARGET", "local")
+link_target_name in ("local", "public") || error("PISP_DOCS_LINK_TARGET must be local or public")
+link_target = Symbol(link_target_name)
+stage_documentation!(SRC, STAGED_SRC, joinpath(DOCS_DIR, "source-links.toml"), link_target;
+    repo_root = dirname(DOCS_DIR))
 
 const PAGE_KIND_LABELS = [
     "tutorial" => "Tutorials",
@@ -55,7 +65,7 @@ catch
 end
 
 format = Documenter.HTML(;
-    prettyurls = get(ENV, "CI", "false") == "true",
+    prettyurls = link_target == :public && get(ENV, "CI", "false") == "true",
     inventory_version = "dev",
     edit_link = "main",
     size_threshold = 512 * 2^10,
@@ -67,6 +77,8 @@ makedocs(;
     sitename = "PISP.jl",
     format = format,
     build = BUILD,
-    source = SRC,
+    source = STAGED_SRC,
+    linkcheck = false,
+    warnonly = link_target == :local ? :cross_references : false,
     pages = registry_navigation(registry_pages),
 )

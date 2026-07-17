@@ -7,6 +7,8 @@ PISP documentation uses two source types:
 
 `docs/page-registry.toml` is the authority for every executable page. It records the stable page ID, reader-facing title, page role, data lineage, Literate source, generated Markdown destination, navigation order, evidence producer, evidence directory, and direct local-data requirements.
 
+Maintained Markdown keeps repository-local links to the PDFs under `data/2024/pisp-reports/`. The schema-v2 registry in `docs/source-links.toml` maps those paths to official AEMO URLs for public builds. `docs/make.jl` stages a target-specific copy under `docs/.documenter-source/`; it never rewrites `docs/src/`.
+
 ## Documentation surfaces
 
 | Surface | Responsibility |
@@ -69,6 +71,14 @@ Then build Documenter from the generated files:
 ```sh
 julia --project=docs docs/make.jl
 ```
+
+The default build uses local PDF links and non-pretty HTML paths so the links resolve from the generated pages. A public-link build uses official HTTPS destinations:
+
+```sh
+PISP_DOCS_LINK_TARGET=public julia --project=docs docs/make.jl
+```
+
+Local PDFs remain repository inputs and are not copied into or published from `docs/build/`. The public target does not require TraceCite or any local evidence database.
 
 ### Full render (slower, occasional use)
 
