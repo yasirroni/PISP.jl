@@ -55,6 +55,7 @@ nothing #hide
 # ## Step 1 — load solar and wind traces across all historical reference years
 #
 # `Bannerton_SAT` (solar) and `DUNDWF1` (wind) are loaded for every historical reference year in `YEARS` that has a local trace file available.
+# AEMO describes this as a rolling reference-year approach: the traces combine a 14-year historical sequence that repeats across the planning horizon ([2024 ISP PLEXOS Model Instructions, p. 5](../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5)).
 
 sol_years = load_location_all_years("solar", SOLAR_LOC, YEARS)
 wind_years = load_location_all_years("wind", WIND_LOC, YEARS)
@@ -231,6 +232,8 @@ end
 annual_cf_variability_summary = DataFrame(variability_rows)
 write_table(annual_cf_variability_summary, SCRIPT_STEM, "annual_cf_variability_summary")
 markdown_table(annual_cf_variability_summary)
+
+# Across the 13 loaded years, the computed annual mean capacity factor ranges from 0.257362 to 0.297859 at `Bannerton_SAT` and from 0.361648 to 0.421323 at `DUNDWF1`. These are local trace-summary ranges, not values established by the PLEXOS instructions. Solar and wind low-output percentages remain non-interchangeable because they use different low-output metrics.
 
 # ## Step 7 — figure: year-over-year boxplot of summer and winter daily mean CF
 #
