@@ -5,14 +5,15 @@ Using those materials in a power-system study requires more than downloading the
 
 PISP.jl implements that data-preparation work for the 2024 Integrated System Plan.
 It converts supported 2024 material and package-defined mappings into a consistent set of power-system tables that downstream modelling tools can consume.
-PISP also downloads selected ISP 2026 source assets and report PDFs, but it does not parse those materials or build a 2026 dataset.
+For ISP 2026, PISP.jl downloads selected source assets and report PDFs and can extract downloaded archives.
+Parser development is under review in [ParseISP.jl](https://github.com/airampg/ParseISP.jl), but it is not yet integrated into PISP.jl's documented dataset-build and output workflow.
 PISP is a dataset builder, not a dispatch, unit-commitment, capacity-expansion, or power-flow model.
 
 ## Choose an entry point
 
 - [Supported ISP editions](editions/supported-editions.md) is the support authority for acquisition, parsing, build, output, validation, and analysis boundaries.
 - [ISP 2024](editions/isp2024.md) leads to the implemented source, build, output, validation, and analysis documentation.
-- [ISP 2026](editions/isp2026.md) defines the available source-acquisition support and its limits.
+- [ISP 2026](editions/isp2026.md) defines the available source download and extraction support, the parser-review state, and the current integration boundary.
 - [Compare ISP 2024 and ISP 2026](editions/comparison.md) describes the evidence and crosswalks required before comparing releases.
 
 ## ISP 2024 source context

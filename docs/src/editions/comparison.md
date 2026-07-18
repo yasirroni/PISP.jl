@@ -1,7 +1,8 @@
 # Comparing ISP 2024 and ISP 2026
 
 PISP documentation separates comparison method from comparison results.
-The package constructs ISP 2024 outputs, while the available ISP 2026 support is limited to source acquisition.
+PISP.jl constructs ISP 2024 outputs through its documented build workflow.
+For ISP 2026, PISP.jl supports source download and archive extraction, while parser development is under review and is not yet integrated into PISP.jl's documented dataset-build and output workflow.
 No numerical result or compatibility conclusion follows from the presence of material from both releases.
 
 ## Required crosswalks
@@ -30,5 +31,6 @@ A cross-release study needs explicit evidence for each of the following relation
 6. State any remaining unmatched, inferred, or excluded material with the comparison result.
 
 The [ISP 2024 overview](isp2024.md) describes the implemented output workflow.
-The [ISP 2026 overview](isp2026.md) defines the acquisition-only boundary for 2026 material.
+The [ISP 2026 overview](isp2026.md) summarises the source, parser-review, and integration boundary for 2026 material.
+The [supported editions](supported-editions.md) page is the detailed capability status authority.
 The [trace coverage](trace-coverage.md) and [parameters and mappings](parameters-and-mappings.md) pages identify two areas that require release-specific treatment.

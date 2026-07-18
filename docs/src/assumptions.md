@@ -1,7 +1,9 @@
 # Assumptions and scope
 
 These assumptions apply to PISP's ISP 2024 dataset-construction workflow.
-The selected ISP 2026 download helpers do not provide a parsed dataset, generated-output contract, or equivalent modelling assumptions.
+For ISP 2026, PISP.jl documents source download and archive extraction, while parser development is under review and not yet integrated into PISP.jl's documented workflow.
+An ISP 2026 dataset builder, generated-output contract, and equivalent set of modelling assumptions are not yet integrated or documented.
+See [Supported ISP editions](editions/supported-editions.md) for the current parser-review and integration status.
 
 PISP produces structured ISP 2024 datasets from configured inputs.
 It does not solve a power-system optimisation problem, validate the economic plausibility of the resulting case, or certify that every input remains current with AEMO's latest published revision.
@@ -71,7 +73,7 @@ Before using ISP 2024 PISP output in a downstream study, check:
 
 ## See also
 
-- [Supported ISP editions](editions/supported-editions.md) distinguishes the ISP 2024 workflow from ISP 2026 source acquisition.
+- [Supported ISP editions](editions/supported-editions.md) distinguishes ISP 2026 source download and extraction, under-review parser development, PISP.jl integration, and published evidence.
 - [Data sources](generated/isp2024/reference/data-sources.md) identifies the source vintages and reproducibility boundary.
 - [Domain concepts](concepts.md) explains the aggregated network and static-versus-schedule data model.
 - [Parameters and mappings](generated/isp2024/reference/parameters-and-mappings.md) records the hard-coded values and technology-specific exceptions that require review.

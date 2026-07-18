@@ -22,7 +22,7 @@ It is for maintainers; ordinary readers should begin with the rendered site.
 
 The public site separates shared explanatory pages from ISP 2024, ISP 2026, and comparison tracks.
 Only the ISP 2024 track currently has registry-managed Literate pages.
-The ISP 2026 and comparison landing pages state their available support boundaries without representing source downloads as generated data.
+The ISP 2026 and comparison landing pages distinguish source download and archive extraction in PISP.jl, parser development under review in ParseISP.jl, PISP.jl integration, generated-output contracts, and published evidence.
 
 ## Page registry
 

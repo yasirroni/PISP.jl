@@ -1,17 +1,18 @@
 # Trace coverage
 
 PISP has executed, release-specific evidence for the ISP 2024 trace inputs.
-It has acquisition support, but no parsed trace model, for ISP 2026 material.
-The two releases therefore do not yet share a PISP trace contract.
+For ISP 2026, PISP.jl supports source download and archive extraction, while parser development is under review and not yet integrated into PISP.jl's documented workflow.
+No ISP 2026 trace contract is yet integrated into PISP.jl or supported by published trace validation.
+The [supported editions](supported-editions.md) page is the detailed status authority.
 
 | Trace aspect | ISP 2024 PISP evidence | ISP 2026 PISP boundary |
 | --- | --- | --- |
-| Trace families and layout | The validated inputs include demand, solar, and wind trace families. Solar and wind are organised by technology and reference year; demand is organised by state and scenario with one file per demand node. | The downloader obtains solar and wind trace archives only. PISP has not established their extracted layout, trace families, or identifiers. |
-| Identifiers and trace selection | The 2024 reference identifies the composite trace `4006`, representative solar and wind site identifiers, and state/scenario/node demand identifiers. PISP uses release-specific mappings to select and consume these inputs. | PISP has no 2026 trace-selection rule, identifier mapping, or parameter table. The role of `4006` in the 2026 material is unknown. |
-| Schema | Executed 4006 solar and wind samples each have `Year`, `Month`, and `Day` metadata columns followed by 48 half-hourly value columns. Demand traces use a distinct per-node file family. | No PISP parser inspects or defines a 2026 schema. Column names, identifier fields, metadata, and file relationships are unknown to PISP. |
-| Time coverage and resolution | The documented 4006 solar and wind samples span 2024-07-01 through 2052-06-30 and use a half-hourly value axis. The detailed validation records the checked files and dates. | No PISP coverage check or time-axis interpretation exists for the downloaded 2026 archives. |
-| Values and units | The documented solar and wind samples are capacity-factor traces; the validation records their sampled value range and distinguishes them from the demand trace family. | PISP has not parsed the 2026 values, so its units, scale, missing-value treatment, and capacity-factor interpretation are unknown. |
-| Generated-data use | The ISP 2024 build uses its release-specific trace conventions when producing PISP schedules. | PISP has no 2026 trace parser, dataset build, or generated trace-derived output. |
+| Trace families and layout | The validated inputs include demand, solar, and wind trace families. Solar and wind are organised by technology and reference year; demand is organised by state and scenario with one file per demand node. | PISP.jl downloads and can extract the 2026 trace archives. No PISP.jl trace-family or layout contract is yet integrated or published. |
+| Identifiers and trace selection | The 2024 reference identifies the composite trace `4006`, representative solar and wind site identifiers, and state/scenario/node demand identifiers. PISP uses release-specific mappings to select and consume these inputs. | No ISP 2026 trace-selection rule, identifier mapping, or parameter table is yet integrated into PISP.jl. The role of `4006` in the 2026 material is not established by these docs. |
+| Schema | Executed 4006 solar and wind samples each have `Year`, `Month`, and `Day` metadata columns followed by 48 half-hourly value columns. Demand traces use a distinct per-node file family. | No PISP.jl parser or trace contract yet defines the 2026 schema. Under-review parser coverage is unverified here. |
+| Time coverage and resolution | The documented 4006 solar and wind samples span 2024-07-01 through 2052-06-30 and use a half-hourly value axis. The detailed validation records the checked files and dates. | No published PISP.jl coverage check or time-axis interpretation is available for the 2026 trace material. |
+| Values and units | The documented solar and wind samples are capacity-factor traces; the validation records their sampled value range and distinguishes them from the demand trace family. | No published PISP.jl interpretation establishes units, scale, missing-value treatment, or capacity-factor semantics for the 2026 trace material. |
+| Generated-data use | The ISP 2024 build uses its release-specific trace conventions when producing PISP schedules. | No ISP 2026 dataset build or generated trace-derived output contract is yet integrated into PISP.jl. |
 
 The [ISP 2024 trace data availability and structure](../generated/isp2024/validation/trace-coverage-and-schema.md)
 page is the detailed evidence for the checked 2024 files, schema, identifiers,

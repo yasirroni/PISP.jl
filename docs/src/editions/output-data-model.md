@@ -10,5 +10,7 @@ The relevant identifiers, scenario fields, and date fields are part of the relat
 The [ISP 2024 output tables](../generated/isp2024/reference/output-tables.md) page is the authoritative reference for exported filenames, columns, units, and join rules.
 The [domain concepts](../concepts.md) page explains why static rows and schedule rows are kept separate.
 
-No equivalent ISP 2026 output contract is provided by PISP.
+No equivalent ISP 2026 output contract is yet integrated into or documented by PISP.jl.
+Parser development under review does not by itself define an integrated dataset-build or generated-output contract.
+See [Supported ISP editions](supported-editions.md) for the current review and integration status.
 A cross-release analysis must define and validate a 2026 data model before comparing it with these 2024 outputs.

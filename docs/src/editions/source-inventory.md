@@ -5,10 +5,12 @@ Keeping those layers separate makes it possible to distinguish an acquired file 
 
 | Workflow layer | ISP 2024 | ISP 2026 |
 | --- | --- | --- |
-| Source acquisition | The documented 2024 build has a configured download root and source workflow. | The package has download targets for selected source assets and report PDFs. |
-| Parsed and reconciled data | Produced within the PISP 2024 workflow. | Not produced by PISP. |
-| Generated dataset | Static and schedule outputs can be written by the 2024 build. | Not produced by PISP. |
-| Published validation or analysis evidence | Registry-managed pages cover selected 2024 source and output questions. | No PISP 2026 validation or analysis pages are available. |
+| Source acquisition | The documented 2024 build has a configured download root and source workflow. | PISP.jl has download targets for selected source assets and report PDFs. |
+| Archive extraction | Integrated into the documented 2024 source workflow. | Available through `PISP.ISPdatabuilder.extract_downloads`. |
+| Parser development | The ISP 2024 parser is integrated into PISP.jl. | Under review; detailed coverage and readiness are unverified here. See [Supported ISP editions](supported-editions.md). |
+| Parsed and reconciled PISP data | Produced within the PISP 2024 workflow. | No PISP.jl parsed-data contract is yet integrated or documented. |
+| Generated dataset | Static and schedule outputs can be written by the 2024 build. | An ISP 2026 dataset-build entry point and generated-output contract are not yet integrated into PISP.jl's documented public workflow. |
+| Published validation or analysis evidence | Registry-managed pages cover selected 2024 source and output questions. | No PISP 2026 validation or analysis pages are published. |
 
 ## Observed local inventory
 
@@ -58,6 +60,6 @@ They describe non-hidden files present for this documentation build, not a claim
 | XML | 3 |
 | ZIP | 4 |
 
-The presence of a file in a source download does not establish parser coverage, output schema, or analytical comparability.
+The presence of a downloaded or extracted file, or parser code under review, does not establish PISP.jl parser integration, an output schema, or analytical comparability.
 For the implemented 2024 workflow, consult [data sources](../generated/isp2024/reference/data-sources.md) and [output tables](../generated/isp2024/reference/output-tables.md).
 For 2026 source material, consult the [ISP 2026 overview](isp2026.md).
