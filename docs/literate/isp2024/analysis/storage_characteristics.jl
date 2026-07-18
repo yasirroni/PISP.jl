@@ -1,11 +1,21 @@
 # # ISP 2024: PHES and battery storage characteristics
 #
-# This analysis asks what storage-duration, efficiency, and build-limit information is actually available for battery storage and pumped hydro energy storage (PHES) in the IASR workbook's "Storage properties" and "Build limits - PHES" sheets, and where those two storage classes are not directly comparable.
+# This analysis identifies which storage-duration, efficiency, and build-limit fields are available for battery storage and pumped hydro energy storage (PHES), and which fields are not comparable across the two classes.
 #
-# The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx`, computed live on this page.
-# The workbook gives battery round-trip efficiency directly, but the PHES block gives only "Pumping efficiency" -- not round-trip efficiency. "BOTN - Cethana" in "Build limits - PHES" is a named option column, not a duration class like the 8hrs/24hrs/48hrs columns.
+# ## Analytical scope
 #
-# No AEMO report-PDF page citation is currently verified for this question, so this page cites only the local workbook-derived evidence. The workbook itself is downloaded directly from [AEMO's website](https://www.aemo.com.au/-/media/files/major-publications/isp/2024/2024-isp-inputs-and-assumptions-workbook.xlsx?rev=c75116cf5a834eeaa6b4ed68cff9b117&sc_lang=en) rather than a curated PDF selection.
+# | Item | Definition |
+# |---|---|
+# | Source | 2024 ISP Inputs and Assumptions workbook |
+# | Property sheet | `Storage properties` |
+# | Build-limit sheet | `Build limits - PHES` |
+# | Battery duration | Energy capacity divided by maximum power where both fields are available |
+# | Battery efficiency | Workbook round-trip efficiency fields |
+# | PHES efficiency | Pumping efficiency only; not treated as round-trip efficiency |
+# | PHES build limits | 8-hour, 24-hour, 48-hour, and named `BOTN - Cethana` columns |
+#
+# `BOTN - Cethana` is a named scheme-specific build-limit column rather than a duration class.
+# No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
 
 using CSV
 using DataFrames
@@ -298,7 +308,7 @@ function phes_concentration(build_limits_df)
 end
 nothing #hide
 
-# ## Step 1 — load and trim the "Storage properties" and "Build limits - PHES" sheets
+# ## Load the bounded storage source tables
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -310,7 +320,7 @@ println("Trimmed \"Storage properties\" sheet shape: ", size(storage_matrix))
 println("Trimmed \"Build limits - PHES\" sheet shape: ", size(phes_limit_matrix))
 nothing #hide
 
-# ## Step 2 — battery and PHES scheme properties
+# ## Which battery and PHES properties are available?
 
 battery_df = battery_properties(storage_matrix)
 write_table(battery_df, SCRIPT_STEM, "battery_properties")
@@ -322,25 +332,25 @@ phes_scheme_df = phes_scheme_properties(storage_matrix)
 write_table(phes_scheme_df, SCRIPT_STEM, "phes_scheme_properties")
 markdown_table(phes_scheme_df)
 
-# ## Step 3 — PHES regional build limits
+# ## Where PHES build limits are reported
 
 phes_limits_df = phes_build_limits(phes_limit_matrix)
 write_table(phes_limits_df, SCRIPT_STEM, "phes_build_limits")
 markdown_table(phes_limits_df)
 
-# ## Step 4 — storage-class comparison summary
+# ## Which fields are comparable across storage classes?
 
 comparison_df = comparison_summary(battery_df, phes_scheme_df, phes_limits_df)
 write_table(comparison_df, SCRIPT_STEM, "storage_class_availability_summary")
 markdown_table(comparison_df)
 
-# ## Step 5 — regional and category concentration of PHES build limits
+# ## How PHES build limits are concentrated
 
 concentration_df = phes_concentration(phes_limits_df)
 write_table(concentration_df, SCRIPT_STEM, "phes_regional_category_concentration")
 markdown_table(concentration_df)
 
-# ## Interpreting the evidence
+# ## Computed availability and concentration summary
 
 total_phes_build_limit = sum(coalesce.(phes_limits_df.phes_8hrs_storage_mw, 0.0)) +
     sum(coalesce.(phes_limits_df.phes_24hrs_storage_mw, 0.0)) +
@@ -358,5 +368,26 @@ top_subregion = first(subregion_rows)
 println("PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.")
 println("Battery buildable capacity: unavailable in general Build limits; not fabricated.")
 
-# Battery storage and PHES are not directly comparable on every axis: batteries carry a directly reported round-trip efficiency while PHES schemes report only pumping efficiency, and only PHES has a subregional buildable-capacity figure in the general Build limits sheet -- battery buildable capacity is unavailable there and is not fabricated above.
-# "BOTN - Cethana" is a named, scheme-specific build-limit column and is kept separate from the 8hrs/24hrs/48hrs PHES duration classes rather than folded into them.
+# ## Observations
+#
+# - Utility-battery duration classes span `1-8` hours and the reported utility round-trip efficiencies span `83-85%`.
+# - PHES scheme durations span `6-168` hours in the inspected property table, while the available efficiency field is pumping efficiency rather than round-trip efficiency.
+# - The PHES build-limit table totals `26,015 MW`; the 8-hour category contributes `14,548 MW` or `55.9%`.
+# - Northern Queensland is the largest reported subregional total at `6,639 MW` or `25.5%`.
+#
+# ## Interpretation
+#
+# Battery properties, PHES scheme properties, and PHES regional build limits are different evidence layers.
+# They should not be force-joined or compared through fields that the workbook does not supply on a common basis.
+#
+# ## Limitations and non-claims
+#
+# - PHES pumping efficiency is not converted into round-trip efficiency.
+# - The general build-limit evidence does not provide battery buildable capacity, so none is inferred.
+# - A duration-class build limit is not the same as an individual scheme's energy capacity or feasible project pipeline.
+# - `BOTN - Cethana` remains separate because it is a named column, not an 8/24/48-hour category.
+#
+# ## Implications for PISP users
+#
+# Preserve the source-specific meaning of each storage field.
+# Comparative models should introduce any missing common assumptions explicitly and label them as project assumptions rather than workbook-derived values.

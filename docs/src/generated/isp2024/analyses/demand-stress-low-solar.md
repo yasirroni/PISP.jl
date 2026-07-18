@@ -4,9 +4,24 @@ EditURL = "../../../../literate/isp2024/analysis/demand_stress_low_solar.jl"
 
 # ISP 2024: Demand stress and low-solar coincidence
 
-High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and the event definition. This page loads the Victorian demand schedule (the `schedule-2030` generated PISP output) and the Bannerton 4006 solar trace (2024 ISP raw trace downloads) directly, then builds the demand distributions, demand-defined stress days, hourly demand profiles, and solar-availability-on-stress-days summaries live.
+High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and a precise event definition.
+This page combines the Victorian demand schedule from the selected `schedule-2030` PISP output with the Bannerton reference-trace `4006` solar series.
 
-Here, `heat event` is an operational label for days at or above the 95th percentile of demand. It does not use air temperature, an excess-heat factor, or a meteorological heatwave definition.
+## Analytical scope
+
+| Item | Definition |
+|---|---|
+| ISP edition | ISP 2024 |
+| Demand evidence | Generated PISP demand schedule, POE10 premise, Victorian area `3` |
+| Solar evidence | Raw `4006` trace for `Bannerton_SAT` |
+| Time aggregation | Half-hourly inputs reduced to daily mean demand and daily mean solar capacity factor |
+| Coincidence screen | Demand above P90 and solar capacity factor below P10 within the matched sample |
+| Demand-stress group | Demand at or above P95 |
+| Normal group | Demand below P90; P90-P95 days are excluded from both groups |
+| Date alignment | Inner match on exact calendar date |
+
+The executable source retains `heat_event` variable names for the demand-only P95 threshold.
+In the reader-facing discussion, these observations are called **demand-stress days** because no air-temperature or meteorological heatwave criterion is applied.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -76,7 +91,7 @@ end
 </details>
 ```
 
-## Step 1 — demand trace inventory
+## Demand input inventory
 
 The demand trace family stores one POE10 operational-schedule file per network node under a state/scenario directory; this step lists every such file as the input inventory.
 
@@ -115,7 +130,7 @@ markdown_table(demand_trace_inventory)
 | VIC\_RefYear\_2023\_STEP\_CHANGE\_POE10\_OPSO\_MODELLING.csv |
 
 
-## Step 2 — load the demand schedule and aggregate daily demand by area
+## Regional demand construction
 
 The PISP model output records each network node's half-hourly demand schedule and its bus, and each bus's NEM area; joining these mappings lets the schedule be aggregated to a daily mean demand per area. The full daily-by-area table (one row per area per calendar date) is written to `demand_by_area_daily.csv`; the page displays one summary row per area instead of every row.
 
@@ -162,7 +177,7 @@ markdown_table(area_demand_summary)
 | 5 | 1038.86 | 822.857 | 1659.72 | 365 |
 
 
-## Step 3 — load the solar 4006 reference traces for candidate VIC solar sites
+## Representative Victorian solar input
 
 `Bannerton_SAT` is the representative VIC solar site used throughout this analysis; `Darlington_Point_SAT` is also checked as a candidate even though only Bannerton is used downstream.
 
@@ -189,7 +204,7 @@ Loaded 2 solar locations for 4006
 
 ````
 
-## Step 4 — aggregate Victorian daily demand from the raw schedule
+## Victorian daily demand series
 
 Area `3` is the Victorian NEM region in this bus-to-area mapping; the half-hourly schedule for that area is averaged to one daily mean demand value per calendar date.
 
@@ -207,7 +222,7 @@ sort!(vic_daily, :date_only)
 </details>
 ```
 
-## Step 5 — merge VIC demand with the Bannerton solar capacity factor by date
+## Date alignment and matched coverage
 
 Only calendar dates present in both the VIC demand schedule and the Bannerton 4006 solar trace are kept, so the merged sample can be smaller than either input series. The full merged series is written to `vic_demand_solar_merged.csv`; the page displays a single summary row describing its coverage and range instead of every day.
 
@@ -249,7 +264,7 @@ markdown_table(merged_summary)
 | 365 | 2030-01-01 | 2030-12-31 | 6295.69 | 4727.52 | 9789.05 | 0.26346 | 0.0095789 | 0.499403 |
 
 
-## Step 6 — high-demand and low-solar threshold screen
+## High-demand and low-solar coincidence screen
 
 The screen flags days above the 90th demand percentile that also fall below the 10th solar-capacity-factor percentile, within the merged sample above.
 
@@ -287,9 +302,9 @@ end
 | 0.9 | 0.1 | 7139.93 | 0.0912422 | 3 | 365 |
 
 
-## Step 7 — heat-event and normal-day demand thresholds
+## Demand-stress and normal-day groups
 
-`Heat event` days sit at or above the 95th demand percentile; `normal` days sit below the 90th percentile. Days between P90 and P95 are excluded from both groups.
+Demand-stress days sit at or above the 95th demand percentile; normal days sit below the 90th percentile. Days between P90 and P95 are excluded from both groups.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -320,9 +335,9 @@ Normal days (<P90): 328
 
 ````
 
-## Step 8 — hourly demand profile for heat days vs normal days
+## Intraday demand shape on stress and normal days
 
-Half-hourly demand observations on heat-event days and on normal days are each averaged by hour of day, to compare the shape of the demand profile between the two groups.
+Half-hourly demand observations on demand-stress days and normal days are each averaged by hour of day, allowing the intraday profile shape of the two groups to be compared.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -378,9 +393,9 @@ markdown_table(heat_normal_hourly_profile)
 | 23 | 6945.96 | 5797.04 |
 
 
-## Step 9 — demand duration curve
+## Demand duration evidence
 
-Sorting daily VIC demand from highest to lowest gives the demand duration curve, independent of chronology. The full 365-day curve is written to `demand_duration_curve.csv` and shown as a figure in Step 16; the page displays the curve's value at a handful of quantile marks instead.
+Sorting daily Victorian demand from highest to lowest gives the demand duration curve, independent of chronology. The full 365-day curve is written to `demand_duration_curve.csv` and shown in the demand-stress overview; the page displays the curve's value at selected quantile marks.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -421,9 +436,9 @@ markdown_table(duration_curve_quantile_marks)
 | min | 4727.52 |
 
 
-## Step 10 — normalized VRE vs demand summary, sorted by demand
+## Normalised demand and solar comparison
 
-Demand and Bannerton solar capacity factor from the merged sample are each normalized by their own maximum and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale. The full 365-day normalized series is written to `normalized_vre_demand_summary.csv` and shown as a figure in Step 16; the page instead reports how closely the two normalized series track each other.
+Demand and Bannerton solar capacity factor from the merged sample are each normalised by their own maximum and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale. The full 365-day series is written to `normalized_vre_demand_summary.csv` and shown in the demand-stress overview; the page reports their association separately.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -456,9 +471,9 @@ end
 | 365 | -0.257949 |
 
 
-## Step 11 — key summary statistics
+## Key demand statistics
 
-A short console summary reports the total day count, the heat-event share, the peak demand day, and the mean demand across the full period.
+A short console summary reports the total day count, the demand-stress share, the peak-demand day, and the mean demand across the full period.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -488,9 +503,9 @@ Mean demand: 6296 MW
 
 ````
 
-## Step 12 — solar CF on the hottest demand days
+## Solar availability on the highest-demand days
 
-For the top 10 heat-event days (by demand), this looks up the matching Bannerton solar capacity factor, where a matching date exists in the trace.
+For the ten highest-demand stress days, this looks up the matching Bannerton solar capacity factor where the exact date exists in the trace.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -538,7 +553,7 @@ end
 | 10 | 2030-06-14 | 0.172506 | 0.294279 |
 
 
-## Step 13 — demand heat event summary
+## Threshold and event-count summary
 
 This collects the thresholds, counts, and peak/mean statistics computed above into a single summary row.
 
@@ -571,7 +586,7 @@ markdown_table(demand_heat_event_summary)
 | 365 | 7139.93 | 7277.23 | 19 | 328 | 5.20548 | 9789.05 | 2030-01-09 | 6295.69 |
 
 
-## Step 14 — figure: VIC demand and solar CF time series
+## Time-series evidence
 
 The top panel shows the Bannerton solar capacity factor over the full period with a 7-day rolling average; the bottom panel shows VIC daily mean demand with its own 7-day rolling average.
 
@@ -619,9 +634,9 @@ Saved: 07_vic_demand_solar_4006.png
 
 ![VIC daily solar capacity factor and daily mean demand over the full period, each with a 7-day rolling average](07_vic_demand_solar_4006.png)
 
-## Step 15 — figure: demand vs solar CF scatter
+## Coincidence scatter
 
-Each point is one calendar day's demand against its Bannerton solar capacity factor; the high-demand, low-solar days identified in Step 6 are highlighted in red.
+Each point is one matched calendar day's demand against its Bannerton solar capacity factor; the P90-demand/P10-solar coincidence days are highlighted in red.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -659,9 +674,9 @@ Saved: 07_demand_vs_solar_scatter.png
 
 ![VIC daily demand plotted against Bannerton solar capacity factor, with high-demand/low-solar days highlighted](07_demand_vs_solar_scatter.png)
 
-## Step 16 — figure: demand heat events overview
+## Demand-stress overview
 
-A 2x2 panel combines the hourly heat-vs-normal profile, the demand duration curve with P90/P95 reference lines, a month-by-hour demand heatmap, and the normalized demand/solar comparison from Step 10.
+A 2x2 panel combines the hourly stress-vs-normal profile, the demand duration curve with P90/P95 reference lines, a month-by-hour demand heatmap, and the normalised demand/solar comparison.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -733,7 +748,7 @@ Saved: 07_demand_heat_events.png
 
 ````
 
-![Hourly heat-vs-normal demand profile, demand duration curve, month-by-hour demand heatmap, and normalized demand/solar comparison](07_demand_heat_events.png)
+![Hourly demand-stress versus normal-day profile, demand duration curve, month-by-hour demand heatmap, and normalised demand-solar comparison](07_demand_heat_events.png)
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -753,14 +768,28 @@ Done.
 
 ````
 
-## Summary
+## Observations
 
-- VIC daily demand and the Bannerton 4006 solar capacity factor are merged by date, then used to define demand-defined heat-event days (>=P95) and normal days (<P90) and to screen for high-demand, low-solar coincidence days.
-- Three figures are built live on this page: the demand/solar time series, the demand-vs-solar scatter, and the combined heat-event overview panel.
+- The rendered evidence contains 365 exact-date matches between Victorian daily mean demand and Bannerton daily mean solar capacity factor.
+- Their Pearson correlation is `-0.257949`, an inverse association within this sample.
+- Nineteen matched days, or approximately 5.2% of the sample, meet the demand-stress threshold at or above P95.
+- Peak daily mean demand is `9789.05 MW` on `2030-01-09`; mean daily demand is `6295.69 MW`.
+- The coincidence screen and the P95 stress-day group answer different questions and therefore retain separate thresholds.
 
 ## Interpretation
 
-The demand schedule uses the 10% probability-of-exceedance (POE) demand-profile premise for capacity outlooks ([ISP Methodology, p. 39](../../../../../data/2024/pisp-reports/2023-isp-methodology.pdf#page=39)). Across 365 date-matched daily-mean pairs, demand and solar capacity factor have a correlation of -0.257949. This indicates an inverse association in this sample, not causation. Nineteen of the 365 days meet the demand-defined heat-event threshold at or above P95. Peak daily mean demand is 9789.05 MW on 2030-01-09, and mean daily demand is 6295.69 MW.
+The demand schedule uses the 10% probability-of-exceedance demand-profile premise for capacity outlooks ([ISP Methodology, p. 39](../../../../../data/2024/pisp-reports/2023-isp-methodology.pdf#page=39)).
+The negative correlation indicates that higher-demand days tend to have lower Bannerton solar capacity factor in this matched sample, but it does not establish causation or a system-wide renewable shortfall.
 
-Here, heat event remains an operational label rather than a meteorological classification.
+## Limitations and non-claims
+
+- Demand stress is defined only by the demand distribution; it is not a meteorological heatwave classification.
+- Solar availability is represented by one site, so the analysis does not measure portfolio-level spatial diversity.
+- Daily means can hide intraday coincidence between the demand peak and solar availability.
+- The page does not model dispatch, storage, transmission constraints, imports, or adequacy outcomes.
+
+## Implications for PISP users
+
+Use this page as a screening workflow for aligned demand and renewable traces.
+A heatwave study should add meteorological criteria, while an adequacy study should test multiple renewable locations, trace years, and operational constraints in an appropriate system model.
 

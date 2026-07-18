@@ -1,12 +1,21 @@
 # # ISP 2024: REZ resource potential versus connection cost
 #
-# This analysis asks whether Renewable Energy Zones (REZs) with larger workbook-derived resource potential also have higher expected connection cost, or whether resource potential and connection cost are effectively separate dimensions.
+# This analysis asks whether REZs with larger workbook-derived resource limits also have higher first-listed augmentation costs.
 #
-# The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx`.
-# The workbook sheets named most naturally for the question are not directly joinable: `Renewable Energy Zones` identifies REZ geography without numeric resource limits, while `REZ Costs forecast` gives named cost trajectories without REZ-level capacity figures.
-# The evidence therefore uses `Build limits` for `total_resource_limit_mw` and `REZ Augmentations Options` for the primary option's `expected_cost_million`, joined by REZ identifier and name, all computed live on this page.
+# ## Analytical scope
 #
-# No AEMO report-PDF page citation is currently verified for this specific workbook-derived join, so this page cites only the local workbook-derived evidence. The workbook itself is downloaded directly from [AEMO's website](https://www.aemo.com.au/-/media/files/major-publications/isp/2024/2024-isp-inputs-and-assumptions-workbook.xlsx?rev=c75116cf5a834eeaa6b4ed68cff9b117&sc_lang=en) rather than a curated PDF selection.
+# | Item | Definition |
+# |---|---|
+# | Resource measure | `total_resource_limit_mw` from `Build limits` |
+# | Cost measure | `expected_cost_million` for the first-listed standalone option in `REZ Augmentations Options` |
+# | Join key | REZ identifier and name |
+# | Relationship metric | Pearson correlation across positive-resource joined rows |
+# | Screening ratio | Expected cost in million dollars divided by resource limit in MW |
+# | Exclusion | Genuine zero-resource rows remain in evidence but are excluded from finite ratios and correlation |
+#
+# `Renewable Energy Zones` and `REZ Costs forecast` do not contain the two numeric fields required for a direct join.
+# The analysis therefore uses the two workbook tables above and preserves that source limitation explicitly.
+# No AEMO report-PDF page citation is currently verified for this specific join.
 
 using CSV
 using DataFrames
@@ -168,7 +177,7 @@ function rounded_columns(frame, columns; digits = 3)
 end
 nothing #hide
 
-# ## Step 1 — load and trim the "Build limits" and "REZ Augmentations Options" sheets
+# ## Load the two numeric source tables
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -178,7 +187,7 @@ resource_matrix, augmentation_matrix = XLSX.openxlsx(abs_path(IASR_WORKBOOK)) do
 end
 nothing #hide
 
-# ## Step 2 — resource limits and augmentation options per REZ
+# ## Construct resource and augmentation evidence by REZ
 
 resource_limits = load_rez_resource_limits(resource_matrix)
 write_table(resource_limits, SCRIPT_STEM, "rez_resource_limits")
@@ -192,7 +201,7 @@ write_table(augmentation_options, SCRIPT_STEM, "rez_augmentation_options")
 println("REZ augmentation-option rows (REZ Augmentations Options sheet): ", nrow(augmentation_options))
 markdown_table(first(augmentation_options, 8))
 
-# ## Step 3 — primary option per REZ and the resource-vs-cost join
+# ## Select the first-listed standalone option and join the evidence
 
 primary_options, excluded = primary_option_per_rez(augmentation_options)
 write_table(excluded, SCRIPT_STEM, "rez_augmentation_excluded")
@@ -208,7 +217,7 @@ write_table(joined, SCRIPT_STEM, "rez_resource_vs_cost")
 println("Joined REZs (resource limit + primary augmentation option): ", joined_row_count)
 markdown_table(first(joined, 8))
 
-# ## Step 4 — zero-resource exclusion, correlation, and cost-efficiency ranking
+# ## Evaluate the relationship and screening ratio
 #
 # One REZ (N12, Illawarra) carries a genuine 0 MW total resource limit in this workbook (both wind and solar limits are 0) -- a real modelled value, not a parsing artifact, confirmed by direct inspection of the sheet. It is excluded from the correlation and cost-per-MW ranking (undefined/infinite ratio) and reported separately rather than dropped silently.
 
@@ -249,7 +258,7 @@ markdown_table(first(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 
 
 markdown_table(last(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 4), 6))
 
-# ## Interpreting the evidence
+# ## Observations
 
 coefficient = only(correlation_summary.coefficient)
 usable_rows = only(correlation_summary.usable_row_count)
@@ -285,10 +294,24 @@ largest_expected_cost = ranking[argmax(ranking.expected_cost_million), :]
     least_cost_efficient.cost_per_resource_mw,
 )
 
-# A Pearson coefficient of 0.016 across 22 usable REZ rows is effectively zero for this workbook-derived join: the REZs with the highest resource potential do not also tend to have the highest primary-option expected connection cost.
-# The join contains 23 rows before ratio/correlation filtering, and N12 (Illawarra) is the single excluded zero-resource row; it remains visible in the evidence because its `0 MW` resource limit is part of the workbook-derived data and makes a finite cost-per-resource ratio undefined.
-# N4 (Broken Hill) has the largest expected cost at \$5,098M, while T4 (North Tasmania Coast) is the most cost-efficient joined REZ at about \$0.0051M per MW of resource.
-# N8 (Cooma-Monaro) is the least cost-efficient joined REZ at \$1.0100M per MW of resource.
+# - The Pearson coefficient is `0.016` across 22 positive-resource joined rows, indicating almost no linear relationship in this constructed comparison.
+# - The join contains 23 rows before ratio and correlation filtering; N12 (Illawarra) remains visible as the single genuine `0 MW` resource row and is excluded only where a finite ratio is required.
+# - N4 (Broken Hill) has the largest first-listed expected cost at `\$5,098M`.
+# - T4 (North Tasmania Coast) has the lowest screening ratio at about `\$0.0051M/MW`, while N8 (Cooma-Monaro) has the highest at `\$1.0100M/MW`.
 #
-# The main limitation is source structure: this is not a direct join between `Renewable Energy Zones` and `REZ Costs forecast`, because those sheets do not contain the numeric fields needed for the question.
-# The result should therefore be interpreted as a workbook-derived comparison between REZ resource limits and first-listed standalone augmentation-option cost, not as a complete cost-benefit assessment of every possible augmentation pathway.
+# ## Interpretation
+#
+# Within this workbook-derived join, resource limit and first-listed augmentation cost behave as largely separate dimensions.
+# The cost-per-MW ratio is a screening measure: it identifies how the selected source fields relate, not the economic value of developing a REZ.
+#
+# ## Limitations and non-claims
+#
+# - The cost field is the first-listed standalone augmentation option, not a complete least-cost development pathway.
+# - The ratio omits energy yield, technology mix, sequencing, network interactions, financing, operating costs, and system benefits.
+# - Pearson correlation tests only linear association and is sensitive to the selected source construction.
+# - The result is not a direct join of `Renewable Energy Zones` with `REZ Costs forecast` because those sheets lack the required paired numeric fields.
+#
+# ## Implications for PISP users
+#
+# Keep resource potential and augmentation cost as separate modelling inputs unless an explicit economic model combines them.
+# Preserve zero-resource and unmatched rows in evidence so that filtering decisions remain auditable.

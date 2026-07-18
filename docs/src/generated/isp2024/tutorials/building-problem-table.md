@@ -4,9 +4,19 @@ EditURL = "../../../../literate/isp2024/tutorials/problem_table.jl"
 
 # ISP 2024: Building a problem table
 
-PISP starts each build by constructing a **problem table**: one row for each scenario/time block that the rest of the pipeline will populate. This table is small, but it determines how later static and schedule tables are grouped.
+PISP starts each build by constructing a **problem table**: one row for each scenario/time block that the rest of the pipeline will populate.
+The table is small, but it determines how later static and schedule tables are grouped.
 
-The examples below use the real helper functions that populate the table. They do not download AEMO data; all outputs come from in-memory date arithmetic and package constants.
+## When to use this tutorial
+
+Use this page when you need to understand or inspect the scenario and date blocks created before an ISP 2024 dataset build.
+The examples exercise the same helper functions used by the package, but they do not download or parse AEMO source files.
+
+## What the problem table controls
+
+Each row identifies a scenario, a start and end time, a problem type, and a model time step.
+It is an execution index created by PISP rather than a table supplied by AEMO.
+Later schedule tables use these scenario/time blocks to keep otherwise similar outputs distinguishable.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -31,7 +41,7 @@ using .EdaSupport
 </details>
 ```
 
-## Step 1 — start with an empty problem table
+## Step 1 — inspect the empty schema
 
 `PISP.initialise_time_structures()` returns three containers. The first, `tc::PISPtimeConfig`, owns the `problem` table.
 
@@ -78,7 +88,7 @@ names(tc.problem)
  "tstep"
 ````
 
-## Step 2 — fill a whole planning year
+## Step 2 — build whole-year blocks
 
 `fill_problem_table_year` splits a planning year into January-June and July-December blocks. With all three ISP scenarios, this produces 6 rows.
 
@@ -129,7 +139,7 @@ tc.problem.name
  "Green_Energy_Exports_2030_H2"
 ````
 
-## Step 3 — fill an arbitrary date range
+## Step 3 — build an arbitrary date range
 
 `fill_problem_table_drange` accepts explicit `DateTime` bounds. A range that stays on one side of 1 July produces one block per scenario.
 
@@ -190,7 +200,7 @@ markdown_table(tc3.problem[:, [:name, :dstart, :dend]])
 
 The first block ends at 30 June and the second starts at 1 July.
 
-## Step 4 — restrict to one scenario
+## Step 4 — restrict the scenario set
 
 Both helpers accept `sce` when a study only needs a subset of the three ISP scenarios.
 
@@ -214,9 +224,15 @@ tc4.problem.name
  "Step_Change_2030_H2"
 ````
 
-## Summary
+## Validate the result
 
-- Whole-year mode always creates two half-year blocks per scenario.
-- Date-range mode splits only when the requested range crosses 1 July.
-- The problem table is the first scenario/time index used by `PISP.build_ISP24_datasets` before AEMO input files are parsed.
+- Whole-year mode creates two half-year blocks per selected scenario.
+- Date-range mode creates one block when the range stays on one side of 1 July and two blocks when it crosses that boundary.
+- The displayed `dstart` and `dend` values provide the boundary check: the first half ends at 30 June 23:00 and the second starts at 1 July 00:00.
+- Restricting `sce` changes the scenario rows without changing the half-year split.
+
+## Next step
+
+`PISP.build_ISP24_datasets` constructs this scenario/time index internally before it parses the AEMO inputs and writes the static and schedule tables.
+Most users call the high-level builder; these helpers are useful when inspecting date partitioning or developing a custom workflow.
 

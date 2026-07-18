@@ -4,9 +4,23 @@ EditURL = "../../../../literate/isp2024/analysis/historical_trace_years.jl"
 
 # ISP 2024: Historical trace-year comparison
 
-A single reference year can conceal substantial interannual variation in renewable availability. This page loads the full historical solar and wind trace archive (the 2024 ISP raw trace downloads, historical years 2011-2023) directly, computes annual and seasonal capacity factors, low-output-day frequencies, and the most adverse summer solar day across the available historical years, and builds the comparison figures.
+A single reference year can conceal interannual variation in renewable availability.
+This page compares the ISP 2024 historical solar and wind trace archive across 2011-2023.
 
-The comparison is location-specific: solar uses `Bannerton_SAT` and wind uses `DUNDWF1`. Results should not be generalised to all Victorian renewable resources without additional spatial analysis.
+## Analytical scope
+
+| Item | Definition |
+|---|---|
+| Solar location | `Bannerton_SAT` in Victoria |
+| Wind location | `DUNDWF1` in Victoria |
+| Historical labels | 2011-2023, where a local trace file is available |
+| Seasonal summaries | Summer (Dec-Feb) and winter (Jun-Aug) daily mean capacity factor |
+| Solar low-output metric | Summer-day midday maximum capacity factor below `0.05` |
+| Wind low-output metric | Summer daily mean capacity factor below `0.05` |
+| Units | Capacity factor in per unit |
+
+The comparison is location-specific.
+It should not be generalised to all Victorian renewable resources without additional spatial analysis.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -69,7 +83,7 @@ row_max(df::DataFrame, cols) = [maximum(row[col] for col in cols) for row in eac
 </details>
 ```
 
-## Step 1 — load solar and wind traces across all historical reference years
+## Load the historical trace ensemble
 
 `Bannerton_SAT` (solar) and `DUNDWF1` (wind) are loaded for every historical reference year in `YEARS` that has a local trace file available.
 AEMO describes this as a rolling reference-year approach: the traces combine a 14-year historical sequence that repeats across the planning horizon ([2024 ISP PLEXOS Model Instructions, p. 5](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5)).
@@ -96,7 +110,7 @@ Loaded wind DUNDWF1: 13 years
 
 ````
 
-## Step 2 — seasonal capacity factor by year
+## How seasonal capacity factor varies by year
 
 For each loaded year, the summer (Dec/Jan/Feb) and winter (Jun/Jul/Aug) daily mean capacity factors are summarised separately, since variation between seasons and variation between years within the same season are different effects.
 
@@ -215,7 +229,7 @@ markdown_table(seasonal_cf_by_year)
 | wind | DUNDWF1 | Winter | 2023 | 3128 | 0.465627 | 0.276335 | 0.00101313 | 0.960851 |
 
 
-## Step 3 — annual capacity factor by year
+## How annual capacity factor varies by year
 
 Averaging across the whole year (rather than by season) establishes the scale of year-to-year variation before seasonal or extreme-event metrics are considered.
 
@@ -273,7 +287,7 @@ markdown_table(annual_cf_by_year)
 | wind | DUNDWF1 | 2023 | 0.369846 |
 
 
-## Step 4 — worst summer solar day per year
+## Which summer solar day is most adverse in each year?
 
 For each year, this finds the summer day with the lowest midday (hour 12-18) maximum capacity factor — an event-screening metric rather than a complete adequacy or energy-shortfall measure. Ties resolve to the first occurrence.
 
@@ -320,7 +334,7 @@ markdown_table(worst_summer_day_by_year)
 | 2023 | 2021-12-22 | 0.315597 |
 
 
-## Step 5 — low-output day frequency
+## How often near-zero-output days occur
 
 Solar and wind use different low-output metrics: solar counts summer days whose midday maximum falls below the threshold, while wind uses the summer daily mean capacity factor. Their percentages are therefore not directly interchangeable without retaining the metric definition.
 
@@ -413,9 +427,10 @@ markdown_table(low_output_days_by_year)
 | wind | DUNDWF1 | 2023 | daily\_mean\_cf | 0.05 | 25 | 3068 | 0.814863 |
 
 
-## Step 6 — annual CF variability summary
+## How wide is the annual capacity-factor range?
 
-This summarises the spread of annual mean capacity factor across all loaded years for each technology, using the population standard deviation (dividing by n, not n-1) — a different convention from the sample standard deviation used for `std_cf` in the seasonal summary above (Step 2), which divides by n-1.
+This summarises the spread of annual mean capacity factor across all loaded years for each technology.
+It uses the population standard deviation (dividing by `n`, not `n-1`), whereas `std_cf` in the seasonal table uses the sample standard deviation.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -455,9 +470,10 @@ markdown_table(annual_cf_variability_summary)
 | wind | DUNDWF1 | 0.38675 | 0.019416 | 0.361648 | 0.421323 |
 
 
-Across the 13 loaded years, the computed annual mean capacity factor ranges from 0.257362 to 0.297859 at `Bannerton_SAT` and from 0.361648 to 0.421323 at `DUNDWF1`. These are local trace-summary ranges, not values established by the PLEXOS instructions. Solar and wind low-output percentages remain non-interchangeable because they use different low-output metrics.
+The variability table supplies the numerical ranges used in the observations below.
+These are local trace summaries rather than values stated by the PLEXOS instructions, and the solar and wind low-output percentages remain non-interchangeable because their metrics differ.
 
-## Step 7 — figure: year-over-year boxplot of summer and winter daily mean CF
+## Seasonal distributions by historical year
 
 Each panel shows the distribution of daily mean capacity factor across all days in one season for one technology, one box per historical reference year.
 
@@ -528,7 +544,7 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_year_comparison_boxplot.png
 
 ![Summer and winter daily mean capacity factor distributions for solar and wind, one boxplot per historical reference year](03_year_comparison_boxplot.png)
 
-## Step 8 — figure: annual mean CF trend across years
+## Annual capacity factor across historical years
 
 This plots one point per historical reference year for each technology, showing the overall trend in annual mean capacity factor across the sampled years.
 
@@ -570,9 +586,9 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_annual_cf_trend.png"), "03_
 
 ![Annual mean capacity factor trend across historical reference years for solar and wind](03_annual_cf_trend.png)
 
-## Step 9 — figure: worst summer solar day per year
+## Worst summer solar day by historical year
 
-This bar chart visualises the same worst-summer-day metric computed in Step 4, one bar per year, annotated with its midday max capacity factor.
+This bar chart visualises the same worst-summer-day metric reported above, one bar per year, annotated with its midday maximum capacity factor.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -613,9 +629,9 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_worst_summer_day.png"), "03
 
 ![Worst (lowest midday-max capacity factor) summer solar day identified in each historical reference year](03_worst_summer_day.png)
 
-## Step 10 — figure: near-zero-output day frequency
+## Near-zero-output frequency by historical year
 
-This two-panel bar chart visualises the same low-output-day metric computed in Step 5 as a percentage of summer days per year, annotated with the underlying day count, one panel per technology.
+This two-panel bar chart visualises the low-output-day metric reported above as a percentage of summer days per year, annotated with the underlying day count, one panel per technology.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -689,8 +705,26 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_zero_output_days.png"), "03
 
 ![Percentage of summer days each year with near-zero solar midday-max or wind daily-mean capacity factor, annotated with the underlying day count](03_zero_output_days.png)
 
-## Summary
+## Observations
 
-- Solar (`Bannerton_SAT`) and wind (`DUNDWF1`) show materially different year-to-year and season-to-season capacity factor variability across the 2011-2023 historical reference years.
-- The worst-summer-day and near-zero-output-day tables and figures identify specific adverse years rather than a single averaged risk figure, and the two technologies use different low-output metrics that are not directly interchangeable.
+- Thirteen historical labels are available for both representative locations.
+- Annual mean solar capacity factor ranges from `0.257362` to `0.297859`, a spread of about `4.05` percentage points.
+- Annual mean wind capacity factor ranges from `0.361648` to `0.421323`, a spread of about `5.97` percentage points.
+- The worst-day and low-output tables identify year-specific adverse conditions that are hidden by one all-year average.
+
+## Interpretation
+
+Choosing one historical trace year changes the renewable-availability premise used by a study.
+The annual range, seasonal distributions, and adverse-day metrics should therefore be treated as complementary evidence rather than reduced to one preferred year.
+
+## Limitations and non-claims
+
+- Each technology is represented by one Victorian location, so the results do not quantify geographic smoothing.
+- Solar and wind use different low-output definitions; their percentages cannot be ranked as though they measured the same event.
+- The analysis describes source traces and does not calculate dispatch, energy shortfall, or adequacy risk.
+
+## Implications for PISP users
+
+Studies sensitive to renewable droughts or extreme availability should test multiple historical labels and report the selected location and metric.
+Reference trace `4006` should not be treated as a substitute for this trace-year sensitivity analysis.
 

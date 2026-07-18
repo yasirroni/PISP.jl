@@ -1,10 +1,20 @@
 # # ISP 2024: IASR build-cost trajectories by technology
 #
-# This analysis asks how projected capital costs for the main VRE and storage technologies (utility-scale solar, onshore/offshore wind, battery storage) evolve across the projection years in the IASR "Build costs" sheet, and whether the annualized rate of cost decline differs materially by technology.
+# This analysis compares the capital-cost trajectories supplied for utility-scale solar, onshore and offshore wind, and battery storage in the IASR `Build costs` sheet.
 #
-# The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx`, sheet `Build costs`, computed live on this page.
+# ## Analytical scope
 #
-# No AEMO report-PDF page citation is currently verified for this question, so this page cites only the local workbook-derived evidence. The workbook itself is downloaded directly from [AEMO's website](https://www.aemo.com.au/-/media/files/major-publications/isp/2024/2024-isp-inputs-and-assumptions-workbook.xlsx?rev=c75116cf5a834eeaa6b4ed68cff9b117&sc_lang=en) rather than a curated PDF selection.
+# | Item | Definition |
+# |---|---|
+# | Source | 2024 ISP Inputs and Assumptions workbook, sheet `Build costs` |
+# | Technologies | Large-scale solar PV, onshore wind, fixed/floating offshore wind, and 1/2/4/8-hour batteries |
+# | Scenarios | Six GenCost/ISP scenario rows retained from the workbook |
+# | Projection range | Financial years 2022-23 to 2053-54 |
+# | Cost unit | Workbook build cost in `$/kW` |
+# | Comparison metrics | Total percentage change and CAGR-style annualised decline rate |
+#
+# Pumped hydro and BOTN rows are outside this page's technology scope.
+# No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
 
 using CSV
 using DataFrames
@@ -103,7 +113,7 @@ function build_cost_long_table(matrix, header_row, years, col_indices)
 end
 nothing #hide
 
-# Per (technology, scenario): first/last available projection year and cost, the annualized (CAGR-style) decline rate between them, and the total percentage change -- directly answers whether the rate of decline differs materially by technology.
+# Per (technology, scenario), this reports the first and last available projection year and cost, the annualised (CAGR-style) decline rate between them, and the total percentage change.
 function decline_summary(long_table)
     rows = NamedTuple[]
     for key_df in groupby(long_table, [:technology, :scenario])
@@ -135,7 +145,7 @@ function decline_summary(long_table)
 end
 nothing #hide
 
-# ## Step 1 — load and trim the "Build costs" sheet
+# ## Load the bounded build-cost source table
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -146,14 +156,14 @@ end
 println("Trimmed \"$SHEET_NAME\" sheet shape: ", size(matrix))
 nothing #hide
 
-# ## Step 2 — locate the master build-cost table and its projection years
+# ## Identify the technology table and projection years
 
 header_row = find_master_header_row(matrix)
 years, col_indices = year_columns(matrix, header_row)
 println("Master table header at row $header_row, ", length(years), " projection years: ", first(years), " .. ", last(years))
 nothing #hide
 
-# ## Step 3 — long-format build-cost table and target-technology filter
+# ## Select the documented technology scope
 #
 # All 19 technologies on the sheet are listed in `technology_match` for transparency; the analysis itself only follows the utility-scale solar, onshore/offshore wind, and battery-storage rows matched by `is_target_technology`. The full long-format target table (technology x scenario x year) is written as evidence; the table below previews only its first rows.
 
@@ -178,15 +188,33 @@ write_table(target_long, SCRIPT_STEM, "build_cost_trajectory")
 println("Target-technology long-format rows written as evidence: ", nrow(target_long))
 markdown_table(first(target_long, 8))
 
-# ## Step 4 — annualized decline rate by technology and scenario
+# ## Compare decline rates by technology and scenario
 
 decline = decline_summary(target_long)
 decline = sort(decline, :annualized_decline_rate_pct)
 write_table(decline, SCRIPT_STEM, "build_cost_decline_summary")
 markdown_table(decline)
 
-# ## Interpreting the evidence
+# ## Observations
 #
-# Every matched technology's build cost falls in every scenario, but the annualized decline rate spans roughly a 5.5x range across technologies and scenarios -- from about -0.78%/yr (Wind - offshore (fixed), GenCost Current Policies / Progressive Change) to about -4.30%/yr (Battery storage 8hrs storage, GenCost Global NZE by 2050 / Green Energy Exports).
-# The fastest-declining technology is itself scenario-dependent, not fixed: in the two lower-decarbonization scenarios (GenCost Current Policies, Progressive Change), Large scale Solar PV declines fastest, ahead of every battery duration, with Wind - offshore (fixed) slowest; in the four higher-decarbonization scenarios (Global NZE post 2050, Global NZE by 2050, Green Energy Exports, Step Change), the longer-duration battery storage technologies decline fastest instead, with onshore Wind alone slowest in all four.
-# So yes, the rate of cost decline differs materially by technology, but which technology declines fastest (and slowest) is a function of the decarbonization scenario assumed, not a single fixed ranking -- see `build_cost_decline_summary` above for the exact figures behind this claim.
+# - Every matched technology declines between its first and last available projection year in every scenario.
+# - The annualised decline rate ranges from about `-0.78%/yr` for fixed offshore wind under Current Policies/Progressive Change to about `-4.30%/yr` for eight-hour battery storage under Global NZE by 2050/Green Energy Exports.
+# - The annualised decline-rate magnitude spans approximately 5.5-fold, so one technology-wide decline assumption would erase the observed scenario and technology differences.
+#
+# ## Interpretation
+#
+# The fastest-declining technology depends on the scenario.
+# Large-scale solar declines fastest in the two lower-decarbonisation scenario rows, while longer-duration batteries decline fastest in the four higher-decarbonisation rows.
+# The workbook therefore supplies scenario-conditioned cost assumptions rather than one fixed technology ranking.
+#
+# ## Limitations and non-claims
+#
+# - These are input assumptions from the workbook, not realised project costs or forecasts guaranteed to occur.
+# - The comparison does not add financing, operating costs, project-specific connection costs, or construction constraints.
+# - The CAGR-style measure summarises the first-to-last change and does not describe every intermediate-year step.
+# - Pumped hydro and BOTN assumptions are intentionally excluded.
+#
+# ## Implications for PISP users
+#
+# Preserve the workbook scenario when selecting build costs and avoid applying one decline rate across technologies.
+# Studies comparing technology economics should retain the original `$/kW` basis and add other cost components explicitly rather than attributing them to this table.

@@ -1,8 +1,25 @@
 # # ISP 2024: Working with PISP-generated outputs
 #
-# This tutorial loads one local PISP output build and shows how the static tables relate to the time-varying schedules. By default it reads `data/2024/pisp-datasets/out-ref4006-poe10/csv/` and `schedule-2030/`; set `PISP_DOCS_ISP2024_OUTPUT_ROOT` or `PISP_DOCS_ISP2024_SCHEDULE_TAG` to select another local generated build.
+# This tutorial loads one local PISP output build and shows how the static tables relate to the time-varying schedules.
+# By default it reads `data/2024/pisp-datasets/out-ref4006-poe10/csv/` and `schedule-2030/`; set `PISP_DOCS_ISP2024_OUTPUT_ROOT` or `PISP_DOCS_ISP2024_SCHEDULE_TAG` to select another local generated build.
 #
-# The workflow joins generator and demand schedules back to `Generator.csv`, `Demand.csv`, and `Bus.csv`, then aggregates daily solar PMax, wind PMax, and total demand series.
+# ## Prerequisites and selected build
+#
+# The selected ISP 2024 documentation profile must provide an output root and schedule tag containing the five files checked below.
+# Missing inputs fail before any aggregation or plotting begins.
+#
+# | Evidence | Role in this tutorial |
+# |---|---|
+# | `Generator.csv` | Static generator identity, technology, and bus assignment |
+# | `Demand.csv` | Static demand identity and bus assignment |
+# | `Bus.csv` | Bus-to-NEM-area mapping |
+# | `Generator_pmax_sched.csv` | Time-varying maximum available generator output |
+# | `Demand_load_sched.csv` | Time-varying demand load |
+#
+# ## What this tutorial establishes
+#
+# The workflow joins generator and demand schedules back to their static definitions, then aggregates daily solar PMax, wind PMax, and total demand series.
+# `Generator_pmax_sched.csv` is an availability or maximum-output schedule; it is not realised dispatch or observed generation.
 
 ENV["GKSwstype"] = "100"
 
@@ -43,7 +60,7 @@ required_files = [
 missing_files = filter(path -> !isfile(path), required_files)
 isempty(missing_files) || error("missing PISP output files: $(join(missing_files, ", "))")
 
-# ## Step 1 — load the static output tables
+# ## Step 1 — inspect the static tables
 #
 # `Generator.csv`, `Demand.csv`, and `Bus.csv` are static tables written once per PISP build.
 
@@ -65,9 +82,10 @@ markdown_table(fuel_counts)
 tech_counts = sort(combine(groupby(gen_df, :tech), nrow => :count), :count; rev = true)
 markdown_table(tech_counts)
 
-# ## Step 2 — load the schedule output
+# ## Step 2 — inspect the schedule tables
 #
-# `Generator_pmax_sched.csv` and `Demand_load_sched.csv` are time-varying companion tables for generator maximum output and demand load.
+# `Generator_pmax_sched.csv` and `Demand_load_sched.csv` are time-varying companion tables for generator maximum available output and demand load.
+# Maximum available output is a technical limit, not a record of dispatch.
 
 gen_pmax = CSV.read(joinpath(SCHEDULE_DIR, "Generator_pmax_sched.csv"), DataFrame)
 dem_load = CSV.read(joinpath(SCHEDULE_DIR, "Demand_load_sched.csv"), DataFrame)
@@ -91,7 +109,7 @@ println("Shape: ", size(dem_load))
 
 markdown_table(first(dem_load, 5))
 
-# ## Step 3 — map generators to buses and identify solar/wind generators
+# ## Step 3 — attach area and technology context
 #
 # `Bus.csv` carries `id_area`; joining that onto `Generator.csv` via `id_bus` assigns each generator to a NEM area. Solar and wind are identified from `tech` using case-insensitive substring matches.
 
@@ -123,7 +141,7 @@ wind_tech_counts = sort(
 )
 markdown_table(wind_tech_counts)
 
-# ## Step 4 — prepare daily aggregate series
+# ## Step 4 — align schedule rows with static definitions
 #
 # The demand schedule is filtered to demand IDs present in `Demand.csv`. The generator PMax schedule is joined to `Generator.csv` so solar and wind schedules can be separated by technology.
 
@@ -137,7 +155,7 @@ sol_pmax_ts = filter(:tech => is_solar, gen_pmax_ts)
 wind_pmax_ts = filter(:tech => is_wind, gen_pmax_ts)
 nothing #hide
 
-# ## Step 5 — daily aggregate solar PMax, wind PMax, and total demand
+# ## Step 5 — aggregate daily availability and demand
 #
 # Values are summed by day and converted from MW to GW for plotting.
 
@@ -151,9 +169,10 @@ println(
     ", demand: ", nrow(dem_daily),
 )
 
-# ## Step 6 — plot the comparison
+# ## Step 6 — visualise the selected schedules
 #
 # The figure compares the daily aggregate schedules in GW.
+# It should not be read as a supply-demand balance: it omits dispatch decisions, curtailment, storage operation, network constraints, and interchange.
 
 fig = plot(
     sol_daily.day, sol_daily.value ./ 1000;
@@ -179,9 +198,20 @@ nothing #hide
 
 # ![Daily aggregate solar PMax, wind PMax, and total demand](isp2024_working_with_pisp_outputs-timeseries.png)
 
-# ## Summary
+# ## Validation
 #
-# - `Generator_pmax_sched.csv` carries hourly PMax schedules for generators whose maximum output varies across the year in this build, chiefly solar and wind.
-# - `Demand_load_sched.csv` carries hourly demand by demand node.
-# - The daily aggregates expose the overlapping date coverage of the selected solar, wind, and demand schedules.
-# - The static-table joins attach generator technology and bus-area information to the schedules before aggregation.
+# - The required-file preflight verifies the selected build before any table is read.
+# - The printed shapes and first rows expose the static and schedule schemas used by the joins.
+# - The generator counts verify which records are classified as solar and wind.
+# - The reported daily-series lengths verify the overlapping date coverage used by the figure.
+#
+# ## Interpretation and limits
+#
+# The static-table joins attach technology and bus-area context to otherwise identifier-only schedule rows.
+# The resulting solar and wind series describe aggregate PMax availability, while the demand series describes aggregate load.
+# Their co-plotting is useful for coverage and shape checks, but it does not establish dispatch feasibility, adequacy, or energy balance.
+#
+# ## Next use
+#
+# The same joins can be extended by filtering a scenario, NEM area, technology, or date window before aggregation.
+# Analyses that require realised operation must use an appropriate dispatch or power-system model rather than treating PMax as generation.

@@ -4,9 +4,23 @@ EditURL = "../../../../literate/isp2024/analysis/seasonal_renewable_extremes.jl"
 
 # ISP 2024: Seasonal renewable extremes
 
-Mean capacity factors do not describe the persistence, timing, or profile of low-output conditions. This page loads the underlying half-hourly solar and wind traces (2024 ISP raw trace downloads, historical years 2011-2023) directly, then builds grouped summer comparisons, candidate multi-day low-output events, and detailed solar profiles for adverse days.
+Mean capacity factors do not describe the persistence, timing, or intraday shape of low-output conditions.
+This page examines threshold-defined summer events in the ISP 2024 historical solar and wind traces.
 
-The analysis uses one Victorian solar location and one Victorian wind location. Its event definitions are exploratory and should not be treated as a system-wide adequacy criterion.
+## Analytical scope
+
+| Item | Definition |
+|---|---|
+| Solar location | `Bannerton_SAT` in Victoria |
+| Wind location | `DUNDWF1` in Victoria |
+| Historical labels | 2011-2023 |
+| Summer window | December, January, and February rows within each trace |
+| Solar event threshold | Daily mean capacity factor below `0.10` for at least three consecutive calendar days |
+| Wind event threshold | Daily mean capacity factor below `0.15` for at least three consecutive calendar days |
+| Smoothing | Trailing 3-day mean for descriptive plots only |
+
+The predefined hot/cool year lists are grouping labels used by this page; their meteorological classification is not revalidated here.
+The event definitions are exploratory trace screens, not a system-wide adequacy criterion.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -236,7 +250,7 @@ end
 low_output_events_for (generic function with 1 method)
 ````
 
-## Step 1 — hot vs cool summer solar profile summary
+## How the predefined summer groups differ
 
 For each historical hot or cool summer, this computes the mean daily capacity factor across December/January/February and summarises it with its own spread and range.
 
@@ -290,7 +304,7 @@ markdown_table(hot_cool_summer_solar_summary)
 | Cool Summers | 2022 | 3068 | 0.410353 | 0.0854116 | 0.158083 | 0.498602 |
 
 
-## Step 2 — candidate multi-day low-output events
+## Which threshold-defined events persist for at least three days?
 
 An event is a run of consecutive summer calendar days whose daily mean capacity factor stays below the technology's threshold for at least 3 days; a run never bridges the excluded March-November gap between a summer's December and the following January/February. The full event-by-event table is written to `eda/tables/julia/04_seasonal_extremes/low_output_events.csv`; the page instead shows a compact per-technology-per-year summary of how many candidate events were found and how long they lasted.
 
@@ -348,7 +362,7 @@ markdown_table(low_output_event_summary)
 | wind | 2023 | 89 | 3 | 3.4 | 5 |
 
 
-## Step 3 — worst solar day and half-hourly profile
+## Which solar day is most adverse in each historical label?
 
 The summary identifies the selected adverse day for each year, while the profile table retains the intraday shape needed to understand whether the low-output metric is broad or confined to a short interval.
 
@@ -488,9 +502,11 @@ markdown_table(worst_solar_day_profile)
 | 2011 | 2022-01-09 | 24.0 | 0.0 |
 
 
-## Step 4 — 2019 monthly and Black Summer detail
+## 2019 reference-year context
 
-The monthly table provides a calendar context for the detailed summer series. It uses a two-stage aggregation: per half-hourly column, compute that column's mean/std across the days in the month, then average those 48 per-column values into one monthly figure. The three-day rolling value in the daily series below is descriptive and should not be interpreted as a dispatch or storage requirement without a separate system model.
+The monthly table provides calendar context for the detailed 2019-labelled series.
+It uses a two-stage aggregation: each half-hourly column is summarised across days in the month, then the 48 column summaries are averaged into one monthly value.
+The three-day rolling mean is descriptive and should not be interpreted as a dispatch or storage requirement without a separate system model.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -538,7 +554,9 @@ markdown_table(monthly_cf_2019_summary)
 | 12 | 0.3782 | 0.15342 |
 
 
-The `RefYear2019` trace reuses the 2019 (Black Summer) historical weather pattern across the entire projected planning horizon, not just the single 2018-19 season, so the daily series below has one row per summer day in every simulated year. The table previews the first 15 rows; the complete series is written to `eda/tables/julia/04_seasonal_extremes/black_summer_2019_daily_cf.csv`.
+The `RefYear2019` trace reuses the 2019 historical weather pattern across the projected planning horizon rather than representing only one 2018-19 season.
+The historical label includes the 2019-20 Black Summer context, but this capacity-factor trace does not isolate effects from heat, smoke, cloud, or bushfire conditions.
+The table previews 15 rows; the complete series is written to `eda/tables/julia/04_seasonal_extremes/black_summer_2019_daily_cf.csv`.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -585,7 +603,7 @@ markdown_table(first(black_summer_2019_daily_cf, 15))
 | 2021-12-15 | 0.234228 | 0.342726 |
 
 
-## Step 5 — hot vs cool summer solar profiles (figure)
+## Predefined summer-group profiles
 
 Each panel overlays every year in the group as a thin line with its own 3-day rolling mean drawn on top, so persistent dips stand out from single-day noise.
 
@@ -626,7 +644,7 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_hot_vs_cool_summer_solar.pn
 
 ![Daily mean solar capacity factor across historical hot summers versus cool summers](04_hot_vs_cool_summer_solar.png)
 
-## Step 6 — low-output events overview (figure)
+## Low-output event overview
 
 A 2x2 grid: event-duration histograms for solar and wind low-output events, a bar chart of each year's worst solar day sorted by capacity factor, and the half-hourly profile of the single worst solar day across all years.
 
@@ -729,9 +747,9 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "04_low_output_events.png"), "0
 
 ![Low-output event durations, worst-day ranking, and the worst day's half-hourly profile](04_low_output_events.png)
 
-## Step 7 — 2019 monthly CF (figure)
+## 2019 monthly solar capacity factor
 
-The bar chart reads back the monthly summary table written in Step 4, so the plot uses exactly the same aggregation as the table.
+The bar chart reads back the monthly summary table reported above, so the plot uses exactly the same aggregation as the table.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -758,9 +776,10 @@ end
 
 ![Solar monthly mean capacity factor for 2019 with standard deviation error bars](04_monthly_cf_2019.png)
 
-## Step 8 — Summer 2019 Black Summer (figure)
+## 2019 reference-year summer profile
 
-The daily mean capacity factor across December 2018/January-February 2019, with its 3-day rolling mean overlaid, showing the persistence of the low-output stretch during the Black Summer period.
+The daily mean capacity-factor series for summer rows in `RefYear2019`, with a 3-day rolling mean overlaid.
+The figure describes the trace profile; it does not attribute low output to any particular meteorological or bushfire mechanism.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -786,11 +805,30 @@ end
 </details>
 ```
 
-![Summer 2019 (Black Summer) daily mean solar capacity factor with 3-day rolling mean](04_summer_2019_black_summer.png)
+![RefYear2019 summer daily mean solar capacity factor with a 3-day rolling mean, shown in Black Summer historical context](04_summer_2019_black_summer.png)
 
-## Summary
+## Observations
 
-- Hot and cool historical summers show visibly different daily mean solar capacity factor spreads once each year's series is overlaid with its own 3-day rolling mean.
-- The multi-day low-output event table reports real calendar-day durations for each technology and year, split at any gap in summer coverage so an event can never bridge the excluded March-November months.
-- The 2019 monthly summary and Black Summer daily series both come from the same two-stage aggregation described in Step 4.
+- Mean daily solar capacity factor in the predefined hot-year group ranges from about `0.382` to `0.426`; the predefined cool-year group ranges from about `0.362` to `0.410`.
+- Those ranges overlap, so the grouping label alone does not determine the solar trace outcome.
+- The threshold screen finds solar events only for the 2011 and 2012 labels, while wind events occur in more historical labels under the higher `0.15` threshold.
+- The lowest selected summer-day solar capacity factor across the 13 labels is about `0.0145`; the highest of the yearly minima is about `0.1581`.
+
+## Interpretation
+
+Persistence and intraday shape add information that annual or seasonal means cannot provide.
+The event counts are conditional on the chosen location, threshold, summer filter, and minimum duration, so they should be read as trace diagnostics rather than technology risk rankings.
+
+## Limitations and non-claims
+
+- The hot/cool lists are predefined labels and are not meteorologically validated on this page.
+- One solar and one wind location cannot represent NEM-wide renewable diversity.
+- Solar and wind use different thresholds, so their event counts are not directly comparable.
+- `RefYear2019` provides historical context but does not identify causal effects from temperature, smoke, cloud, or bushfire conditions.
+- The analysis does not calculate storage requirements, dispatch, or adequacy outcomes.
+
+## Implications for PISP users
+
+Treat low-output events as sensitivity cases defined by explicit thresholds and locations.
+System studies should test alternative thresholds, multiple sites, historical labels, and operational constraints before drawing adequacy conclusions.
 

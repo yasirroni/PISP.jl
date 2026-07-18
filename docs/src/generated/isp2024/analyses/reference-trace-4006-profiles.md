@@ -4,9 +4,21 @@ EditURL = "../../../../literate/isp2024/analysis/reference_trace_profile.jl"
 
 # ISP 2024: Reference trace 4006 profiles
 
-Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping. This page loads the raw solar and wind traces (2024 ISP raw trace downloads) for one representative location per state, computes daily and seasonal capacity-factor structure, and builds each figure directly on the page.
+Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping.
+This page examines the spatial, daily, diurnal, seasonal, and financial-year structure of the raw ISP 2024 trace.
 
-Reference trace `4006` is not a climate projection. Its planning-year behaviour depends on the historical-year composition documented in [ISP 2024: Parameters and mappings](@ref).
+## Analytical scope
+
+| Item | Definition |
+|---|---|
+| Trace | Reference trace `4006` |
+| Spatial sample | One representative solar and one representative wind location for each NEM state |
+| Detailed Victorian sites | `Bannerton_SAT` for solar and `DUNDWF1` for wind |
+| Metrics | Daily mean capacity factor, 7-day rolling mean, diurnal quantiles, monthly mean, financial-year mean |
+| Units | Capacity factor in per unit |
+
+Reference trace `4006` is not a climate projection.
+Its planning-year behaviour depends on the reused historical-year composition documented in [ISP 2024: Parameters and mappings](@ref).
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -136,7 +148,7 @@ end
 </details>
 ```
 
-## Step 1 — load the solar and wind reference traces for trace year 4006
+## Load the representative 4006 traces
 
 One representative solar and one representative wind location per state are loaded for trace year `4006`.
 
@@ -160,7 +172,7 @@ Loaded 5 solar locations, 5 wind locations for trace 4006
 
 ````
 
-## Step 2 — which representative locations loaded successfully
+## Which representative files are available?
 
 The loaded-location inventory records, for every representative solar and wind site, whether its trace file was found and its shape if so.
 
@@ -218,7 +230,7 @@ markdown_table(loaded_locations)
 | wind | TAS | MUSSELR1 | MUSSELR1\_RefYear4006.csv | 1 | 10227 | 52 |
 
 
-## Step 3 — daily capacity-factor summary
+## How daily capacity factor differs across representative sites
 
 For each loaded location, the daily summary reports descriptive statistics of the daily mean capacity factor, including the mean of a 7-day rolling average.
 
@@ -262,7 +274,7 @@ markdown_table(daily_cf_summary)
 | wind | TAS | MUSSELR1 | 10227 | 0.377225 | 0.286636 | 0.0 | 0.987126 | 0.377288 |
 
 
-## Step 4 — solar diurnal profile at the Victorian representative location
+## How Victorian solar changes by season and half hour
 
 The half-hourly diurnal profile at `Bannerton_SAT` is split into summer (Dec-Feb) and winter (Jun-Aug) days, reporting the mean, 10th and 90th percentile capacity factor at each half hour.
 
@@ -402,9 +414,10 @@ markdown_table(solar_diurnal_profile)
 | Bannerton\_SAT | Winter | 24.0 | 2576 | 0.0 | 0.0 | 0.0 |
 
 
-## Step 5 — wind monthly diurnal profile at the Victorian representative location
+## How Victorian wind changes by month and half hour
 
-The half-hourly diurnal profile at `DUNDWF1` is reported separately for each calendar month present in the trace — 12 months of 48 half-hourly points each, visualised together in Step 11's figure. The full table is written to the evidence CSV; the page displays only the first complete month as a representative sample.
+The half-hourly diurnal profile at `DUNDWF1` is reported separately for each calendar month present in the trace: 12 months of 48 half-hourly points each.
+The full table is written to the evidence CSV; the page displays one complete month while the monthly-structure figure shows all months together.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -489,9 +502,10 @@ markdown_table(first(wind_monthly_diurnal_profile, 48))
 | DUNDWF1 | 1 | 24.0 | 0.316191 |
 
 
-## Step 6 — wind monthly mean capacity factor
+## How Victorian wind varies by month
 
-The daily capacity factor at `DUNDWF1` is grouped by calendar month start to give a compact monthly mean series spanning the full trace. The full series is written to the evidence CSV and plotted in Step 11's figure; the page displays only the first two years as a representative sample.
+The daily capacity factor at `DUNDWF1` is grouped by calendar-month start to give a compact monthly mean series spanning the full trace.
+The full series is written to the evidence CSV and plotted in the monthly-structure figure; the page displays the first two years as a bounded sample.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -546,7 +560,7 @@ markdown_table(first(wind_monthly_mean_cf, 24))
 | DUNDWF1 | 2026-06-01 | 0.393556 |
 
 
-## Step 7 — annual capacity factor by financial year
+## How annual capacity factor varies by financial year
 
 Daily capacity factor for the Victorian solar and wind representative locations is grouped into Australian financial years (ending June) for a compact annual comparison.
 
@@ -650,7 +664,7 @@ markdown_table(annual_cf_by_fy)
 | wind | DUNDWF1 | 2052 | 0.384275 |
 
 
-## Step 8 — figure: solar daily capacity factor by state
+## Daily solar profiles by state
 
 One panel per state shows the daily mean capacity factor for the representative solar location, with a 7-day rolling average overlaid.
 
@@ -688,9 +702,9 @@ Saved: 02_solar_4006_daily_cf.png
 
 ![Daily mean capacity factor for the representative solar location in each state, with a 7-day rolling average](02_solar_4006_daily_cf.png)
 
-## Step 9 — figure: wind daily capacity factor by state
+## Daily wind profiles by state
 
-The same daily-mean-plus-rolling-average layout as Step 8, for the representative wind location in each state.
+This uses the same daily-mean-plus-rolling-average layout as the solar-state figure, for the representative wind location in each state.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -726,7 +740,7 @@ Saved: 02_wind_4006_daily_cf.png
 
 ![Daily mean capacity factor for the representative wind location in each state, with a 7-day rolling average](02_wind_4006_daily_cf.png)
 
-## Step 10 — figure: solar diurnal profile, summer vs winter
+## Victorian solar diurnal seasonality
 
 Individual daily half-hourly profiles (up to 200 per season), the mean profile, and the P10-P90 band, for `Bannerton_SAT` summer and winter days.
 
@@ -778,7 +792,7 @@ Saved: 02_solar_4006_diurnal.png
 
 ![Solar diurnal profile at Bannerton_SAT: individual days, mean, and P10-P90 band, summer vs winter](02_solar_4006_diurnal.png)
 
-## Step 11 — figure: wind seasonal analysis
+## Victorian wind monthly structure
 
 The top panel shows the mean diurnal profile by calendar month at `DUNDWF1`; the bottom panel shows the daily capacity factor overlaid with the monthly mean.
 
@@ -837,7 +851,7 @@ Saved: 02_wind_4006_seasonal.png
 
 ![Wind seasonal analysis at DUNDWF1: mean diurnal profile by month, and daily capacity factor with monthly mean overlaid](02_wind_4006_seasonal.png)
 
-## Step 12 — figure: annual capacity factor by financial year
+## Annual capacity factor by financial year
 
 The Victorian solar and wind representative locations' annual mean capacity factor, grouped by financial year, on one comparison chart.
 
@@ -905,8 +919,27 @@ Done.
 
 ````
 
-## Summary
+## Observations
 
-- Solar and wind capacity-factor structure for reference trace 4006 is loaded, transformed, and plotted directly on this page.
-- Five figures cover daily capacity factor by state, diurnal structure at the Victorian representative locations, wind seasonal structure, and the annual financial-year comparison.
+- All five representative solar files and all five representative wind files load successfully in the rendered evidence.
+- Each representative series contains `10,227` daily rows after the half-hourly trace is reduced to daily mean capacity factor.
+- Mean daily solar capacity factor across the five sites ranges from about `0.257` to `0.295`; the corresponding wind range is about `0.326` to `0.386`.
+- The diurnal and monthly evidence shows that trace `4006` contains time structure that is not represented by one annual mean.
+
+## Interpretation
+
+Reference trace `4006` is a collection of location-specific profiles plus a historical-year mapping, not one generic renewable shape.
+Site selection, season, and financial-year mapping all affect the availability premise used by downstream studies.
+
+## Limitations and non-claims
+
+- One site per state is a documentation sample, not a state-wide renewable portfolio.
+- The page does not quantify spatial correlation or portfolio smoothing.
+- Capacity-factor traces describe availability rather than realised generation, dispatch, or adequacy.
+- The historical-year mapping does not make `4006` a future climate projection.
+
+## Implications for PISP users
+
+Report the selected location and financial-year mapping whenever trace `4006` is used.
+Studies that depend on spatial diversity or adverse renewable conditions should use additional sites and historical-year sensitivity rather than relying on one representative profile.
 
