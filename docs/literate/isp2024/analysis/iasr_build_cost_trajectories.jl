@@ -4,7 +4,7 @@
 #
 # The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `data/2024/pisp-downloads/2024-isp-inputs-and-assumptions-workbook.xlsx`, sheet `Build costs`, computed live on this page.
 #
-# No AEMO report-PDF page citation is currently verified for this question, so this page cites only the local workbook-derived evidence.
+# No AEMO report-PDF page citation is currently verified for this question, so this page cites only the local workbook-derived evidence. The workbook itself is downloaded directly from [AEMO's website](https://www.aemo.com.au/-/media/files/major-publications/isp/2024/2024-isp-inputs-and-assumptions-workbook.xlsx?rev=c75116cf5a834eeaa6b4ed68cff9b117&sc_lang=en) rather than a curated PDF selection.
 
 using CSV
 using DataFrames

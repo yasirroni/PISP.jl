@@ -77,8 +77,8 @@ end
 nothing #hide
 
 # Capacity factor for solar and wind divides each generator's scheduled mean output by that generator's own scheduled maximum, not by the static `pmax` recorded in `Generator.csv`.
-# The static field is not a reliable capacity reference for these generators: rooftop PV rows carry a fixed placeholder pmax (src/parsers/PISP-2024parser.jl:1070, `gen_pmax_distpv`), and utility-scale solar/wind rows record only currently operating capacity, which a future-year schedule can exceed once ISP-outlook build-out is reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same file).
-# SiennaNEM.jl, which builds unit-commitment models from this same PISP output, applies the same convention (src/read_data.jl:214-229, `update_system_data_bound!`) and calls the static pmax "dummy" for these generators (src/create_system.jl:342,368).
+# The static field is not a reliable capacity reference for these generators: rooftop PV rows carry a fixed placeholder pmax ([`src/parsers/PISP-2024parser.jl`](https://github.com/ARPST-UniMelb/PISP.jl/blob/main/src/parsers/PISP-2024parser.jl):1070, `gen_pmax_distpv`), and utility-scale solar/wind rows record only currently operating capacity, which a future-year schedule can exceed once ISP-outlook build-out is reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same file).
+# [SiennaNEM.jl](https://github.com/ARPST-UniMelb/SiennaNEM.jl), which builds unit-commitment models from this same PISP output, applies the same convention ([`src/read_data.jl`](https://github.com/ARPST-UniMelb/SiennaNEM.jl/blob/main/src/read_data.jl):214-229, `update_system_data_bound!`) and calls the static pmax "dummy" for these generators ([`src/create_system.jl`](https://github.com/ARPST-UniMelb/SiennaNEM.jl/blob/main/src/create_system.jl):342,368).
 # See PISP.jl's own the generated Parameters and mappings page and docs/src/assumptions.md for the full caveat.
 function capacity_factor_duration_frame(gen_pmax::DataFrame, gens::DataFrame, tech::AbstractString)
     ids = Set(gens.id_gen)

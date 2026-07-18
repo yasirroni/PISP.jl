@@ -162,5 +162,5 @@ Use `producer` and `evidence_dir` only when a separate producer is necessary; ev
 | ISP 2026 report-download targets | `src/scrappers/PISP-scrapper-2026reports.jl` |
 | Static and schedule schemas | `src/datamodel/` |
 | Exported filename mapping | `src/utils/writing/PISPutils-writing.jl` |
-| ISP 2024 scenario, bus, area, and weather-year mappings | `src/parameters/general2024ISP.jl` |
-| ISP 2024 parser | `src/parsers/PISP-2024parser.jl` |
+| ISP 2024 scenario, bus, area, and weather-year mappings | [`src/parameters/general2024ISP.jl`](https://github.com/ARPST-UniMelb/PISP.jl/blob/main/src/parameters/general2024ISP.jl) |
+| ISP 2024 parser | [`src/parsers/PISP-2024parser.jl`](https://github.com/ARPST-UniMelb/PISP.jl/blob/main/src/parsers/PISP-2024parser.jl) |

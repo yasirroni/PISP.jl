@@ -10,7 +10,7 @@ The evidence comes from the AEMO 2024 ISP Inputs and Assumptions workbook at `da
 The workbook sheets named most naturally for the question are not directly joinable: `Renewable Energy Zones` identifies REZ geography without numeric resource limits, while `REZ Costs forecast` gives named cost trajectories without REZ-level capacity figures.
 The evidence therefore uses `Build limits` for `total_resource_limit_mw` and `REZ Augmentations Options` for the primary option's `expected_cost_million`, joined by REZ identifier and name, all computed live on this page.
 
-No AEMO report-PDF page citation is currently verified for this specific workbook-derived join, so this page cites only the local workbook-derived evidence.
+No AEMO report-PDF page citation is currently verified for this specific workbook-derived join, so this page cites only the local workbook-derived evidence. The workbook itself is downloaded directly from [AEMO's website](https://www.aemo.com.au/-/media/files/major-publications/isp/2024/2024-isp-inputs-and-assumptions-workbook.xlsx?rev=c75116cf5a834eeaa6b4ed68cff9b117&sc_lang=en) rather than a curated PDF selection.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>

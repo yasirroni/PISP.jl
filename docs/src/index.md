@@ -21,6 +21,7 @@ PISP is a dataset builder, not a dispatch, unit-commitment, capacity-expansion, 
 AEMO describes the ISP as a collection of supporting materials, including workbooks, outlook material, traces, and appendices ([2024 Integrated System Plan, p. 92](../../data/2024/pisp-reports/2024-integrated-system-plan.pdf#page=92)).
 The public market-model package includes PLEXOS model instructions ([2024 ISP PLEXOS Model Instructions, p. 2](../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=2)) and scenario-specific model data ([2024 ISP PLEXOS Model Instructions, p. 5](../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5)).
 The source documents define reference-trace and network conventions ([2024 ISP PLEXOS Model Instructions, pp. 5–7](../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5); [2023 Inputs, Assumptions and Scenarios Report, p. 141](../../data/2024/pisp-reports/2023-inputs-assumptions-and-scenarios-report.pdf#page=141)) and capacity-outlook probability-of-exceedance profiles ([ISP Methodology, p. 39](../../data/2024/pisp-reports/2023-isp-methodology.pdf#page=39)).
+AEMO publishes and maintains all of this material on its [2024 Integrated System Plan page](https://www.aemo.com.au/energy-systems/major-publications/integrated-system-plan-isp/2024-integrated-system-plan-isp), the same live page PISP.jl's own downloader targets, rather than only as the dated PDF snapshots cited above.
 
 ## ISP 2024 output model
 
