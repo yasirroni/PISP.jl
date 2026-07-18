@@ -139,6 +139,19 @@ The 2024 Inputs and Assumptions workbook supplies most structured planning assum
 
 Source-derived values, code-derived values, and package assumptions have different provenance and update requirements. A new publication may require parser changes, while a changed package mapping can alter outputs even when the downloaded files are unchanged.
 
+## Source contribution by output table
+
+PISP combines AEMO source files with package-defined mappings and records derived during dataset construction. The table summarises how each static output table is created and identifies additional source families used for its time-varying schedules.
+
+| Table | Static-table construction | Additional schedule inputs |
+|---|---|---|
+| `Bus` | Bus names, representative coordinates, and NEM area mappings are package-defined constants. | No time-varying bus schedule is produced. |
+| `Demand` | PISP creates one demand record for each bus. | Hourly demand profiles come from the **Demand & Variable Renewable Energy trace data**. |
+| `Line` | Network capability, transmission reliability, and augmentation-option data come from the **Inputs and Assumptions workbook**. | Line capacity schedules use the same workbook source family. |
+| `Generator` | Generator characteristics, capacities, mappings, and reliability parameters come from the **Inputs and Assumptions workbook**. | Solar and wind schedules also use the **generation and storage outlook** and the **Demand & Variable Renewable Energy trace data**. Hydro inflow schedules additionally use the **Model** dataset. |
+| `ESS` | Storage characteristics, capacities, mappings, and reliability parameters come from the **Inputs and Assumptions workbook**. | Behind-the-meter and virtual power plant battery schedules also use the **generation and storage outlook**. |
+| `DER` | DER records are constructed from the `Demand` and `Bus` tables. | Demand-response and electric-vehicle charging schedules use the **Inputs and Assumptions workbook**. |
+
 ## Local inventory
 
 [ISP 2024: Source-data inventory](@ref) provides a recursive, dated inventory of the files actually present under the local download root.
