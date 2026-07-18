@@ -1,5 +1,78 @@
 using PISP
 using Test
+using Dates
+
+include(joinpath(@__DIR__, "..", "eda", "isp2026_source_trace_inventory.jl"))
+using .ISP2026SourceTraceInventory
+
+@testset "ISP 2026 source trace EDA" begin
+    @test classify_trace_schema(["Year", "Month", "Day", lpad.(string.(1:48), 2, '0')...]) == :daily_half_hourly_zero_padded
+    @test classify_trace_schema(["Year", "Month", "Day", string.(1:48)...]) == :daily_half_hourly_unpadded
+    @test classify_trace_schema(["Year", "Month", "Day", ["BAD$(i)" for i in 1:48]...]) == :unsupported
+    @test classify_trace_schema(["Year", "Month", "Day", "Inflows"]) == :value_file
+    @test classify_trace_schema(["Year", "Month", "Day", "01", "02"]) == :unsupported
+    @test validate_date_sequence([2024, 2024], [1, 1], [1, 2]) == (valid=true, cadence=:daily, first_date=Date(2024, 1, 1), last_date=Date(2024, 1, 2))
+    @test !validate_date_sequence([2024, 2024], [1, 1], [1, 3]).valid
+    @test validate_date_sequence([2024, 2024], [1, 1], [1, 3]).cadence == :non_contiguous
+    @test validate_date_sequence([2024], [1], [1]).cadence == :single
+    mktempdir() do dir
+        path = joinpath(dir, "synthetic.csv")
+        open(path, "w") do io
+            println(io, "Year,Month,Day,Inflows")
+            println(io, "2024,1,1,1.0")
+            println(io, "2024,1,3,2.0")
+        end
+        observed = inspect_csv(path)
+        @test observed.schema == :value_file
+        @test observed.cadence == :non_contiguous
+        @test observed.rows == 2
+        wind_path = joinpath(dir, "Traces", "load_subtractor", "LS_TAS_Wind_ACCELERATED_TRANSITION_RefYear5000.csv")
+        mkpath(dirname(wind_path))
+        cp(path, wind_path)
+        observed_wind = inspect_csv(wind_path; root=dir)
+        @test observed_wind.family == "load_subtractor"
+    end
+    mktempdir() do dir
+        path = joinpath(dir, "noncontiguous.csv")
+        open(path, "w") do io
+            println(io, "Year,Month,Day,", join(lpad.(string.(1:48), 2, '0'), ","))
+            println(io, "2024,1,1,", join(fill("1.0", 48), ","))
+            println(io, "2024,1,3,", join(fill("2.0", 48), ","))
+        end
+        observed = inspect_csv(path)
+        @test observed.schema == :daily_half_hourly_zero_padded
+        @test observed.cadence == :non_contiguous
+    end
+    @test begin
+        try
+            require_download_roots("/missing/2024", "")
+            false
+        catch error
+            sprint(showerror, error) == "missing PISP_ISP2026_DOWNLOAD_ROOT: explicit root is required"
+        end
+    end
+end
+
+if get(ENV, "PISP_SOURCE_TRACE_INTEGRATION", "") == "1"
+    @testset "source trace real-source contracts (opt-in)" begin
+        root24 = get(ENV, "PISP_ISP2024_DOWNLOAD_ROOT", "")
+        root26 = get(ENV, "PISP_ISP2026_DOWNLOAD_ROOT", "")
+        roots = require_download_roots(root24, root26)
+        records24 = inventory_root(roots.root24, "ISP 2024")
+        records26 = inventory_root(roots.root26, "ISP 2026")
+        solar24 = first(filter(r -> r.family == "solar" && r.rows == 10227 && r.columns == 51, records24))
+        solar26 = first(filter(r -> r.family == "solar" && r.rows == 9131 && r.columns == 51, records26))
+        wind24 = first(filter(r -> r.family == "wind" && r.rows == 10227 && r.columns == 51, records24))
+        wind26 = first(filter(r -> r.family == "wind" && r.rows == 9131 && r.columns == 51, records26))
+        @test all(r -> r.schema == :daily_half_hourly_unpadded, filter(r -> r.family == "solar", records24))
+        @test all(r -> r.schema == :daily_half_hourly_zero_padded, filter(r -> r.family == "wind", records24))
+        @test all(r -> r.schema == :daily_half_hourly_zero_padded, filter(r -> r.family in ("solar", "wind"), records26))
+        @test (solar24.first_date, solar24.last_date) == (Date(2024, 7, 1), Date(2052, 6, 30))
+        @test (solar26.first_date, solar26.last_date) == (Date(2026, 7, 1), Date(2051, 6, 30))
+        @test (wind24.first_date, wind24.last_date) == (Date(2024, 7, 1), Date(2052, 6, 30))
+        @test (wind26.first_date, wind26.last_date) == (Date(2026, 7, 1), Date(2051, 6, 30))
+    end
+end
 
 @testset "PISP.jl" begin
     @testset "extract_all_zips ignores AppleDouble files" begin
