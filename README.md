@@ -319,8 +319,8 @@ PISP combines AEMO source files with package-defined mappings and records derive
 ## Documentation
 
 - [Documentation home](docs/src/index.md)
-- [Quickstart](docs/src/quickstart.md)
-- [Download ISP source material](docs/src/source-acquisition.md)
+- [Quickstart](docs/src/api.md#build-examples)
+- [Download ISP source material](docs/src/editions/source-material.md)
 - [Supported ISP editions](docs/src/editions/supported-editions.md)
 - [ISP 2024 output tables and field dictionary](docs/src/generated/isp2024/reference/output-tables.md)
 - [ISP 2024 source-to-output provenance](docs/src/generated/isp2024/reference/data-sources.md)
