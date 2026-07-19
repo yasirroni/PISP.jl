@@ -177,22 +177,72 @@ markdown_table(schedule_tables)
 
 ## Schedule value semantics
 
-Each schedule row applies to one asset, scenario, and timestamp. The `value` column overlays the corresponding static quantity when reconstructing the system state for that scenario and time.
+Each schedule row applies to one asset, scenario, and timestamp. The `value` column overlays the corresponding static quantity when reconstructing the system state for that scenario and time. The schedules covered here are read from the live schedule container, so the table always lists exactly the schedules a build writes.
+
+```@raw html
+<details class="source-code"><summary>Show source code</summary>
+```
+
+````julia
+# `RawMarkdown` emits an assembled Markdown table verbatim. The PrettyTables
+# backend escapes backticks and underscores, which would strip the inline-code
+# formatting these interpretation tables rely on.
+struct RawMarkdown
+    markdown::String
+end
+Base.show(io::IO, ::MIME"text/markdown", table::RawMarkdown) = print(io, table.markdown)
+
+# Curated interpretation for each schedule. Coverage - which schedules appear -
+# is driven by the live container above; only the value meaning, unit, and
+# overlay relationship are authored here.
+const SCHEDULE_SEMANTICS = Dict(
+    "Demand_load_sched" => ("Demand load at the timestamp.", "MW", "Overlays `Demand.load_` through `id_dem`."),
+    "ESS_emax_sched" => ("Maximum stored-energy capacity at the timestamp.", "MWh", "Overlays `ESS.emax` through `id_ess`."),
+    "ESS_lmax_sched" => ("Maximum charging input at the timestamp.", "MW", "Overlays `ESS.lmax` through `id_ess`."),
+    "ESS_n_sched" => ("Available or online storage-unit count at the timestamp.", "unit count", "Overlays `ESS.n` through `id_ess`."),
+    "ESS_pmax_sched" => ("Maximum discharging output at the timestamp.", "MW", "Overlays `ESS.pmax` through `id_ess`."),
+    "ESS_inflow_sched" => ("Approximate energy inflow assigned to one unit of the storage asset.", "MWh per unit", "Relates to `ESS.n` through `id_ess`."),
+    "Generator_n_sched" => ("Available or online generator-unit count at the timestamp.", "unit count", "Overlays `Generator.n` through `id_gen`."),
+    "Generator_pmax_sched" => ("Maximum generator output at the timestamp.", "MW", "Overlays `Generator.pmax` through `id_gen`."),
+    "Generator_inflow_sched" => ("Approximate energy inflow assigned to one hydro-generator unit.", "MWh per unit", "Relates to `Generator.n` through `id_gen`."),
+    "Line_fwcap_sched" => ("Maximum forward transfer capacity at the timestamp.", "MW", "Overlays `Line.fwcap` through `id_lin`."),
+    "Line_rvcap_sched" => ("Maximum reverse transfer capacity at the timestamp.", "MW", "Overlays `Line.rvcap` through `id_lin`."),
+    "DER_pred_sched" => ("Available demand-reduction quantity at the timestamp.", "MW", "Overlays `DER.pred_max` through `id_der`."),
+)
+
+let live = schedule_tables.output_table
+    stale = setdiff(Set(keys(SCHEDULE_SEMANTICS)), Set(live))
+    isempty(stale) ||
+        error("SCHEDULE_SEMANTICS documents schedules no longer produced: $(join(sort(collect(stale)), ", "))")
+    rows = ["| Schedule | Meaning of `value` | Unit | Static relationship |", "|---|---|---|---|"]
+    for name in live
+        haskey(SCHEDULE_SEMANTICS, name) ||
+            error("schedule `$name` is produced by the build but has no documented value semantics")
+        meaning, unit, relationship = SCHEDULE_SEMANTICS[name]
+        push!(rows, "| `$name` | $meaning | $unit | $relationship |")
+    end
+    RawMarkdown(join(rows, "\n"))
+end
+````
+
+```@raw html
+</details>
+```
 
 | Schedule | Meaning of `value` | Unit | Static relationship |
 |---|---|---|---|
 | `Demand_load_sched` | Demand load at the timestamp. | MW | Overlays `Demand.load_` through `id_dem`. |
-| `DER_pred_sched` | Available demand-reduction quantity at the timestamp. | MW | Overlays `DER.pred_max` through `id_der`. |
 | `ESS_emax_sched` | Maximum stored-energy capacity at the timestamp. | MWh | Overlays `ESS.emax` through `id_ess`. |
-| `ESS_inflow_sched` | Approximate energy inflow assigned to one unit of the storage asset. | MWh per unit | Relates to `ESS.n` through `id_ess`. |
 | `ESS_lmax_sched` | Maximum charging input at the timestamp. | MW | Overlays `ESS.lmax` through `id_ess`. |
 | `ESS_n_sched` | Available or online storage-unit count at the timestamp. | unit count | Overlays `ESS.n` through `id_ess`. |
 | `ESS_pmax_sched` | Maximum discharging output at the timestamp. | MW | Overlays `ESS.pmax` through `id_ess`. |
-| `Generator_inflow_sched` | Approximate energy inflow assigned to one hydro-generator unit. | MWh per unit | Relates to `Generator.n` through `id_gen`. |
+| `ESS_inflow_sched` | Approximate energy inflow assigned to one unit of the storage asset. | MWh per unit | Relates to `ESS.n` through `id_ess`. |
 | `Generator_n_sched` | Available or online generator-unit count at the timestamp. | unit count | Overlays `Generator.n` through `id_gen`. |
 | `Generator_pmax_sched` | Maximum generator output at the timestamp. | MW | Overlays `Generator.pmax` through `id_gen`. |
+| `Generator_inflow_sched` | Approximate energy inflow assigned to one hydro-generator unit. | MWh per unit | Relates to `Generator.n` through `id_gen`. |
 | `Line_fwcap_sched` | Maximum forward transfer capacity at the timestamp. | MW | Overlays `Line.fwcap` through `id_lin`. |
 | `Line_rvcap_sched` | Maximum reverse transfer capacity at the timestamp. | MW | Overlays `Line.rvcap` through `id_lin`. |
+| `DER_pred_sched` | Available demand-reduction quantity at the timestamp. | MW | Overlays `DER.pred_max` through `id_der`. |
 
 Inflow schedules are approximate energy allocations for one unit of the relevant asset. The applicable unit-count field or schedule determines the aggregate quantity represented by multiple units.
 
