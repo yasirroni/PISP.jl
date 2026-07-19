@@ -74,7 +74,7 @@ markdown_table(schedule_tables)
 
 # ## Schedule value semantics
 #
-# Each schedule row applies to one asset, scenario, and timestamp. The `value` column overlays the corresponding static quantity when reconstructing the system state for that scenario and time. The schedules covered here are read from the live schedule container, so the table always lists exactly the schedules a build writes.
+# Each schedule row applies to one asset, scenario, and timestamp. The `value` column overlays the corresponding static quantity when reconstructing the system state for that scenario and time. The schedules covered here are read from the package's schedule schema, so the table always lists exactly the schedules the schema defines.
 
 ## Curated interpretation for each schedule. Coverage - which schedules appear -
 ## is driven by the live container above; only the value meaning, unit, and
