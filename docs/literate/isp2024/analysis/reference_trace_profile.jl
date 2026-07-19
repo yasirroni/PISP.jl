@@ -87,6 +87,18 @@ function load_traces(tech, trace_year, locations)
     return dfs
 end
 
+function validate_curated_locations(tech, trace_year, locations)
+    base = joinpath(TRACES, "$(tech)_$(trace_year)")
+    isdir(abs_path(base)) || return  # trace data absent on this machine; nothing to validate against
+    available = Set(readdir(abs_path(base)))
+    absent = [loc for loc in locations if !("$(loc)_RefYear$(trace_year).csv" in available)]
+    isempty(absent) || error(
+        "curated $tech trace locations are absent from $base: $(join(absent, ", ")); " *
+        "update the curated location list or confirm the trace download",
+    )
+    return
+end
+
 """
     rolling_mean(values, window)
 
@@ -139,6 +151,8 @@ nothing #hide
 #
 # One representative solar and one representative wind location per state are loaded for trace year `4006`.
 
+validate_curated_locations("solar", 4006, last.(SOLAR_LOCATIONS))
+validate_curated_locations("wind", 4006, last.(WIND_LOCATIONS))
 sol_4006 = load_traces("solar", 4006, last.(SOLAR_LOCATIONS))
 wind_4006 = load_traces("wind", 4006, last.(WIND_LOCATIONS))
 
