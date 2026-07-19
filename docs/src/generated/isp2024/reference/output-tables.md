@@ -55,73 +55,12 @@ struct RawMarkdown
 end
 Base.show(io::IO, ::MIME"text/markdown", table::RawMarkdown) = print(io, table.markdown)
 
-_tc, static_container, schedule_container = PISP.initialise_time_structures()
+_tc, static_container, schedule_container = PISP.initialise_time_structures();
 ````
 
 ```@raw html
 </details>
 ```
-
-````
-(PISP.PISPtimeConfig(0×8 DataFrame
- Row │ id     name    scenario  weight   problem_type  dstart    dend      tstep
-     │ Int64  String  Int64     Float64  String        DateTime  DateTime  Int64
-─────┴───────────────────────────────────────────────────────────────────────────), PISP.PISPtimeStatic(0×7 DataFrame
- Row │ id_bus  name    alias   active  latitude  longitude  id_area
-     │ Int64   String  String  Bool    Float64   Float64    Int64
-─────┴──────────────────────────────────────────────────────────────, 0×8 DataFrame
- Row │ id_dem  name    load_    id_bus  active  controllable  voll     contingency
-     │ Int64   String  Float64  Int64   Bool    Bool          Float64  Bool
-─────┴─────────────────────────────────────────────────────────────────────────────, 0×37 DataFrame
- Row │ id_ess  name    alias   tech    type    capacity  investment  active  id_bus  ch_eff   dch_eff  eini     emin     emax     pmin     pmax     lmin     lmax     fullout  partialout  mttrfull  mttrpart  inertia  powerfactor  ffr   pfr   res2  res3  fr_db    fr_ad    fr_dt    fr_frt   fr_fr    longitude  latitude  n      contingency
-     │ Int64   String  String  String  String  Float64   Bool        Bool    Int64   Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64     Float64   Float64   Float64  Float64      Bool  Bool  Bool  Bool  Float64  Float64  Float64  Float64  Float64  Float64    Float64   Int64  Bool
-─────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────, 0×48 DataFrame
- Row │ id_gen  name    alias   fuel    tech    type    capacity  forate   fullout  partialout  derate   mttrfull  mttrpart  id_bus  pmin     pmax     rup      rdw      investment  active  cvar     cfuel    cvom     cfom     co2      slope    hrate    pfrmax   g        inertia  ffr   pfr   res2  res3  powerfactor  latitude  longitude  n      contingency  down_time  up_time  last_state  last_state_period  last_state_output  start_up_cost  shut_down_cost  start_up_time  shut_down_time
-     │ Int64   String  String  String  String  String  Float64   Float64  Float64  Float64     Float64  Float64   Float64   Int64   Float64  Float64  Float64  Float64  Bool        Bool    Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Float64  Bool  Bool  Bool  Bool  Float64      Float64   Float64    Int64  Bool         Float64    Float64  Float64     Float64            Float64            Float64        Float64         Float64        Float64
-─────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────, 0×22 DataFrame
- Row │ id_lin  name    alias   tech    capacity  id_bus_from  id_bus_to  investment  active  r        x        rvcap    fwcap    fullout  mttrfull  voltage  segments  latitude  longitude  length   n      contingency
-     │ Int64   String  String  String  Float64   Int64        Int64      Bool        Bool    Float64  Float64  Float64  Float64  Float64  Float64   Float64  Int64     String    String     Float64  Int64  Bool
-─────┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────, 0×11 DataFrame
- Row │ id_der  name    tech    id_dem  active  investment  capacity  reduct  pred_max  cost_red  n
-     │ Int64   String  String  Int64   Bool    Bool        Float64   Bool    Float64   Float64   Int64
-─────┴─────────────────────────────────────────────────────────────────────────────────────────────────), PISP.PISPtimeVarying(0×5 DataFrame
- Row │ id     id_dem  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_ess  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_ess  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_ess  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Int64
-─────┴──────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_ess  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_ess  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_gen  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Int64
-─────┴──────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_gen  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_gen  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_lin  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_lin  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────, 0×5 DataFrame
- Row │ id     id_der  scenario  date      value
-     │ Int64  Int64   Int64     DateTime  Float64
-─────┴────────────────────────────────────────────))
-````
 
 ## Static asset tables
 
