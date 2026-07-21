@@ -15,7 +15,10 @@ data/*
 *.arrow
 out/
 out-*/
-test/
+# Test sources (test/*.jl) are tracked; test-generated data/outputs stay ignored.
+/test/**/*.csv
+/test/**/*.arrow
+/test/out*/
 test-*/
 !docs/test/
 !docs/test/**
