@@ -396,10 +396,6 @@ end
 </details>
 ```
 
-````
-field_glossary (generic function with 1 method)
-````
-
 ### `Bus`
 
 ```@raw html

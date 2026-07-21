@@ -21,6 +21,7 @@ Threshold-defined summer events are examined in the ISP 2024 historical solar an
 
 The predefined hot/cool year lists are analytical grouping labels; their meteorological classification is not independently validated.
 The event definitions are exploratory trace screens, not a system-wide adequacy criterion.
+Each historical label names a weather pattern reused across the projected planning horizon, not a single observed season: one `RefYear<label>.csv` file spans about three decades of planning-horizon financial years (2021-2055 for the 2011 label), all reusing that one historical pattern. A per-label summer statistic therefore describes that reused shape rather than one year of distinct weather; see [ISP 2024: Reference trace 4006 composite mapping](@ref) for the financial-year-to-historical-year reuse this convention follows.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -165,10 +166,6 @@ end
 </details>
 ```
 
-````
-rolling_mean (generic function with 1 method)
-````
-
 Pushes one candidate event (>= 3 consecutive below-threshold calendar days) covering summer-filtered positions s_pos:e_pos into rows, computed from real calendar-day duration rather than array position, so it cannot span a non-summer gap.
 
 ```@raw html
@@ -201,10 +198,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-push_low_output_event! (generic function with 1 method)
-````
 
 Finds candidate multi-day low-output events within one technology/location/year's summer (Dec/Jan/Feb) days. A "December" row and a "January/February" row are both selected by the summer month filter, but a single reference-year trace file lists them roughly 9 months apart in calendar time (Jan-Feb near the top of the file, December near the bottom), so this only extends a run across two summer-filtered rows when their calendar dates are exactly one day apart -- otherwise it closes the current run and starts a new one, so an event can never silently bridge the excluded March-November gap.
 
@@ -245,10 +238,6 @@ end
 ```@raw html
 </details>
 ```
-
-````
-low_output_events_for (generic function with 1 method)
-````
 
 ## Seasonal patterns
 

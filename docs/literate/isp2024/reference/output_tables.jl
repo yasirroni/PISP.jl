@@ -265,6 +265,7 @@ function field_glossary(table)
     end
     RawMarkdown(join(rows, "\n"))
 end
+nothing #hide
 
 # ### `Bus`
 
