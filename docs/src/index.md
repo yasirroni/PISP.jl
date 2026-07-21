@@ -1,20 +1,19 @@
 # PISP.jl
 
-AEMO publishes the Integrated System Plan as a collection of workbooks, model archives, outlook files, and time-series traces.
-Using those materials in a power-system study requires more than downloading them: scenario labels must be reconciled, assets must be assigned to a common network representation, financial-year conventions must be handled, and time-varying traces must remain linked to the static assets they describe.
+AEMO publishes the Integrated System Plan as workbooks, model archives, outlook files, and time-series traces.
+Using those materials in a power-system study requires scenario reconciliation, common asset identifiers, financial-year handling, and explicit links between static assets and time-varying schedules.
 
-PISP.jl implements that data-preparation work for the 2024 Integrated System Plan.
-It converts supported 2024 material and package-defined mappings into a consistent set of power-system tables that downstream modelling tools can consume.
-For ISP 2026, PISP.jl downloads selected source assets and report PDFs and can extract downloaded archives.
-Parser development is under review in [ParseISP.jl](https://github.com/airampg/ParseISP.jl), but it is not yet integrated into PISP.jl's documented dataset-build and output workflow.
-PISP is a dataset builder, not a dispatch, unit-commitment, capacity-expansion, or power-flow model.
+PISP.jl implements this data-preparation workflow for the 2024 Integrated System Plan.
+It converts supported ISP 2024 material and package-defined mappings into connected power-system tables for downstream optimisation, simulation, reliability, and data-analysis workflows.
+PISP.jl also provides ISP 2026 report and source-asset acquisition plus archive extraction; [Supported ISP editions](editions/supported-editions.md) defines the complete capability boundary.
 
 ## Choose an entry point
 
-- [Supported ISP editions](editions/supported-editions.md) is the support authority for acquisition, parsing, build, output, validation, and analysis boundaries.
-- [ISP 2024](editions/isp2024.md) leads to the implemented source, build, output, validation, and analysis documentation.
-- [ISP 2026](editions/isp2026.md) defines the available source download and extraction support, the parser-review state, and the current integration boundary.
-- [Compare ISP 2024 and ISP 2026](editions/comparison.md) describes the evidence and crosswalks required before comparing releases.
+- [Quickstart](quickstart.md) installs PISP.jl, builds a small ISP 2024 dataset, and checks representative outputs.
+- [ISP 2024](editions/isp2024.md) leads to the implemented source, output, tutorial, validation, and analysis documentation.
+- [Supported ISP editions](editions/supported-editions.md) is the support authority for acquisition, parsing, construction, outputs, validation, and analysis.
+- [ISP 2026](editions/isp2026.md) describes report/source acquisition, archive extraction, separate parser work, and the current integration boundary.
+- [Compare ISP 2024 and ISP 2026](editions/comparison.md) defines the reconciliation required before cross-release comparison.
 
 ## ISP 2024 source context
 
@@ -77,6 +76,8 @@ A typical ISP 2024 workflow is:
 The high-level entry point is `PISP.build_ISP24_datasets(; kwargs...)`.
 It accepts whole planning years through `years` or explicit time windows through `drange`.
 Where the underlying ISP inputs use Australian financial years, PISP splits the requested period at 1 July so each problem block remains aligned with the source convention.
+
+New users should begin with the [Quickstart](quickstart.md), which installs the package, builds one short date range, and checks representative files.
 
 The [Building a `PISPtimeConfig` problem table](generated/isp2024/tutorials/building-problem-table.md) tutorial shows how those scenario/time blocks are constructed before source files are parsed.
 

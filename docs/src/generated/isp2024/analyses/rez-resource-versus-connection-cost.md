@@ -4,9 +4,9 @@ EditURL = "../../../../literate/isp2024/analysis/rez_resource_versus_connection_
 
 # ISP 2024: REZ resource potential versus connection cost
 
-This analysis asks whether REZs with larger workbook-derived resource limits also have higher first-listed augmentation costs.
+Workbook-derived REZ resource limits are compared with first-listed augmentation costs to test whether the two source dimensions move together.
 
-## Analytical scope
+## Source tables and join
 
 | Item | Definition |
 |---|---|
@@ -17,9 +17,8 @@ This analysis asks whether REZs with larger workbook-derived resource limits als
 | Screening ratio | Expected cost in million dollars divided by resource limit in MW |
 | Exclusion | Genuine zero-resource rows remain in evidence but are excluded from finite ratios and correlation |
 
-`Renewable Energy Zones` and `REZ Costs forecast` do not contain the two numeric fields required for a direct join.
-The analysis therefore uses the two workbook tables above and preserves that source limitation explicitly.
-No AEMO report-PDF page citation is currently verified for this specific join.
+Source basis: the `Build limits` and `REZ Augmentations Options` sheets in the 2024 ISP Inputs and Assumptions workbook.
+`Renewable Energy Zones` and `REZ Costs forecast` do not contain the two numeric fields required for this comparison.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -229,7 +228,7 @@ end
 </details>
 ```
 
-## Load the two numeric source tables
+## Source tables
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -253,7 +252,7 @@ Workbook exists: true
 
 ````
 
-## Construct resource and augmentation evidence by REZ
+## Resource potential and augmentation options
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -263,23 +262,32 @@ Workbook exists: true
 resource_limits = load_rez_resource_limits(resource_matrix)
 write_table(resource_limits, SCRIPT_STEM, "rez_resource_limits")
 println("REZ resource-limit rows (Build limits sheet): ", nrow(resource_limits))
-markdown_table(first(resource_limits, 8))
+resource_display = select(
+    first(resource_limits, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :region => Symbol("Region"),
+    :wind_resource_mw => Symbol("Wind resource limit (MW)"),
+    :solar_mw => Symbol("Solar resource limit (MW)"),
+    :total_resource_limit_mw => Symbol("Total resource limit (MW)"),
+)
+markdown_table(resource_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **rez\_id** | **rez\_name** | **region** | **wind\_high\_mw** | **wind\_medium\_mw** | **wind\_offshore\_fixed\_mw** | **wind\_offshore\_floating\_mw** | **solar\_mw** | **wind\_resource\_mw** | **total\_resource\_limit\_mw** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Q1 | Far North QLD | QLD | 570.0 | 1710.0 | missing | missing | 1100.0 | 1710.0 | 2810.0 |
-| Q2 | North Qld Clean Energy Hub | QLD | 4700.0 | 13900.0 | missing | missing | 8000.0 | 13900.0 | 21900.0 |
-| Q3 | Northern Qld | QLD | 0.0 | 0.0 | missing | missing | 3400.0 | 0.0 | 3400.0 |
-| Q4 | Isaac | QLD | 1000.0 | 2800.0 | missing | missing | 6900.0 | 2800.0 | 9700.0 |
-| Q5 | Barcaldine | QLD | 1000.0 | 2900.0 | missing | missing | 8000.0 | 2900.0 | 10900.0 |
-| Q6 | Fitzroy | QLD | 900.0 | 2600.0 | missing | missing | 7533.0 | 2600.0 | 10133.0 |
-| Q7 | Wide Bay | QLD | 300.0 | 800.0 | missing | missing | 2200.0 | 800.0 | 3000.0 |
-| Q8 | Darling Downs | QLD | 1400.0 | 4200.0 | missing | missing | 6992.0 | 4200.0 | 11192.0 |
+| **REZ ID** | **REZ name** | **Region** | **Wind resource limit (MW)** | **Solar resource limit (MW)** | **Total resource limit (MW)** |
+|:--|:--|:--|--:|--:|--:|
+| Q1 | Far North QLD | QLD | 1710.0 | 1100.0 | 2810.0 |
+| Q2 | North Qld Clean Energy Hub | QLD | 13900.0 | 8000.0 | 21900.0 |
+| Q3 | Northern Qld | QLD | 0.0 | 3400.0 | 3400.0 |
+| Q4 | Isaac | QLD | 2800.0 | 6900.0 | 9700.0 |
+| Q5 | Barcaldine | QLD | 2900.0 | 8000.0 | 10900.0 |
+| Q6 | Fitzroy | QLD | 2600.0 | 7533.0 | 10133.0 |
+| Q7 | Wide Bay | QLD | 800.0 | 2200.0 | 3000.0 |
+| Q8 | Darling Downs | QLD | 4200.0 | 6992.0 | 11192.0 |
 
 
 ```@raw html
@@ -290,15 +298,24 @@ markdown_table(first(resource_limits, 8))
 augmentation_options = load_rez_augmentation_options(augmentation_matrix)
 write_table(augmentation_options, SCRIPT_STEM, "rez_augmentation_options")
 println("REZ augmentation-option rows (REZ Augmentations Options sheet): ", nrow(augmentation_options))
-markdown_table(first(augmentation_options, 8))
+augmentation_display = select(
+    first(augmentation_options, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :option => Symbol("Option"),
+    :additional_capacity_mw => Symbol("Additional capacity (MW)"),
+    :expected_cost_million => Symbol("Expected cost (\$ million)"),
+    :dollar_million_per_mw => Symbol("Source cost ratio (\$ million/MW)"),
+)
+markdown_table(augmentation_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **rez\_id** | **rez\_name** | **option** | **additional\_capacity\_mw** | **expected\_cost\_million** | **dollar\_million\_per\_mw** |
-|--:|--:|--:|--:|--:|--:|
+| **REZ ID** | **REZ name** | **Option** | **Additional capacity (MW)** | **Expected cost (\$ million)** | **Source cost ratio (\$ million/MW)** |
+|:--|:--|:--|--:|--:|--:|
 | Q1 | Far North QLD | Option 1 | 1290.0 | 1836.0 | 1.42326 |
 | Q1 | Far North QLD | Option 2 | 1290.0 | 2780.0 | 2.15504 |
 | Q2 | North Qld Clean Energy Hub | CopperString | 1500.0 | missing | missing |
@@ -309,7 +326,7 @@ markdown_table(first(augmentation_options, 8))
 | Q5 | Barcaldine | Option 1 | 500.0 | 1068.0 | 0.791111 |
 
 
-## Select the first-listed standalone option and join the evidence
+## Join definition
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -320,15 +337,15 @@ primary_options, excluded = primary_option_per_rez(augmentation_options)
 write_table(excluded, SCRIPT_STEM, "rez_augmentation_excluded")
 println("REZs with a usable primary (first-listed) option: ", nrow(primary_options))
 println("REZs excluded (first-listed option has no standalone numeric capacity/cost -- a cross-reference to a shared augmentation, or a named option with blank/non-numeric figures): ", nrow(excluded))
-markdown_table(excluded)
+markdown_table(excluded; column_labels = ["REZ ID", "REZ name", "First-listed option"])
 ````
 
 ```@raw html
 </details>
 ```
 
-| **rez\_id** | **rez\_name** | **option** |
-|--:|--:|--:|
+| **REZ ID** | **REZ name** | **First-listed option** |
+|:--|:--|:--|
 | Q2 | North Qld Clean Energy Hub | CopperString |
 | Q3 | Northern Qld | See NQ-CQ subregional augmentations |
 | Q4 | Isaac | See NQ2 group constraint augmentations |
@@ -359,26 +376,35 @@ joined = innerjoin(resource_limits, primary_options, on = [:rez_id, :rez_name])
 joined_row_count = nrow(joined)
 write_table(joined, SCRIPT_STEM, "rez_resource_vs_cost")
 println("Joined REZs (resource limit + primary augmentation option): ", joined_row_count)
-markdown_table(first(joined, 8))
+joined_display = select(
+    first(joined, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :total_resource_limit_mw => Symbol("Total resource limit (MW)"),
+    :primary_option => Symbol("Primary option"),
+    :additional_capacity_mw => Symbol("Additional capacity (MW)"),
+    :expected_cost_million => Symbol("Expected cost (\$ million)"),
+)
+markdown_table(joined_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **rez\_id** | **rez\_name** | **region** | **wind\_high\_mw** | **wind\_medium\_mw** | **wind\_offshore\_fixed\_mw** | **wind\_offshore\_floating\_mw** | **solar\_mw** | **wind\_resource\_mw** | **total\_resource\_limit\_mw** | **primary\_option** | **additional\_capacity\_mw** | **expected\_cost\_million** | **dollar\_million\_per\_mw** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Q1 | Far North QLD | QLD | 570.0 | 1710.0 | missing | missing | 1100.0 | 1710.0 | 2810.0 | Option 1 | 1290.0 | 1836.0 | 1.42326 |
-| Q5 | Barcaldine | QLD | 1000.0 | 2900.0 | missing | missing | 8000.0 | 2900.0 | 10900.0 | Option 1 | 500.0 | 1068.0 | 0.791111 |
-| Q9 | Banana | QLD | 900.0 | 2500.0 | missing | missing | 6100.0 | 2500.0 | 8600.0 | Option 1 | 3000.0 | 1078.0 | 0.359333 |
-| N2 | New England | NSW | 1800.0 | 5600.0 | missing | missing | 2985.0 | 5600.0 | 8585.0 | Option 1 | 1000.0 | 370.0 | 0.37 |
-| N4 | Broken Hill | NSW | 1300.0 | 3800.0 | missing | missing | 8000.0 | 3800.0 | 11800.0 | Option 1 | 1750.0 | 5098.0 | 2.91314 |
-| N5 | South West NSW | NSW | 1000.0 | 2900.0 | missing | missing | 2256.0 | 2900.0 | 5156.0 | Option 1 | 2500.0 | 1418.0 | 0.5672 |
-| N8 | Cooma-Monaro | NSW | 100.0 | 200.0 | missing | missing | 0.0 | 200.0 | 200.0 | Option 1 | 150.0 | 202.0 | 1.34667 |
-| N9 | Hunter-Central Coast | NSW | 400.0 | 1000.0 | missing | missing | 516.0 | 1000.0 | 1516.0 | Option 1 | 950.0 | 307.0 | 0.323158 |
+| **REZ ID** | **REZ name** | **Total resource limit (MW)** | **Primary option** | **Additional capacity (MW)** | **Expected cost (\$ million)** |
+|:--|:--|--:|:--|--:|--:|
+| Q1 | Far North QLD | 2810.0 | Option 1 | 1290.0 | 1836.0 |
+| Q5 | Barcaldine | 10900.0 | Option 1 | 500.0 | 1068.0 |
+| Q9 | Banana | 8600.0 | Option 1 | 3000.0 | 1078.0 |
+| N2 | New England | 8585.0 | Option 1 | 1000.0 | 370.0 |
+| N4 | Broken Hill | 11800.0 | Option 1 | 1750.0 | 5098.0 |
+| N5 | South West NSW | 5156.0 | Option 1 | 2500.0 | 1418.0 |
+| N8 | Cooma-Monaro | 200.0 | Option 1 | 150.0 | 202.0 |
+| N9 | Hunter-Central Coast | 1516.0 | Option 1 | 950.0 | 307.0 |
 
 
-## Evaluate the relationship and screening ratio
+## Derived comparison
 
 One REZ (N12, Illawarra) carries a genuine 0 MW total resource limit in this workbook (both wind and solar limits are 0) -- a real modelled value, not a parsing artifact, confirmed by direct inspection of the sheet. It is excluded from the correlation and cost-per-MW ranking (undefined/infinite ratio) and reported separately rather than dropped silently.
 
@@ -399,7 +425,7 @@ markdown_table(zero_resource_rez[:, [:rez_id, :rez_name, :total_resource_limit_m
 ```
 
 | **rez\_id** | **rez\_name** | **total\_resource\_limit\_mw** | **expected\_cost\_million** |
-|--:|--:|--:|--:|
+|:--|:--|--:|--:|
 | N12 | Illawarra | 0.0 | 814.0 |
 
 
@@ -419,16 +445,24 @@ correlation_summary = DataFrame(
     source_column_y = ["expected_cost_million"],
 )
 write_table(correlation_summary, SCRIPT_STEM, "rez_resource_cost_correlation_summary")
-markdown_table(correlation_summary)
+metric_value_table([
+    "Pearson correlation" => correlation,
+    "Usable joined rows" => nrow(joined),
+    "Zero-resource exclusions" => zero_resource_exclusion_count,
+    "All joined rows" => joined_row_count,
+])
 ````
 
 ```@raw html
 </details>
 ```
 
-| **method** | **coefficient** | **usable\_row\_count** | **zero\_resource\_exclusion\_count** | **joined\_row\_count** | **source\_column\_x** | **source\_column\_y** |
-|--:|--:|--:|--:|--:|--:|--:|
-| Pearson correlation | 0.0159535 | 22 | 1 | 23 | total\_resource\_limit\_mw | expected\_cost\_million |
+| **Metric** | **Value** |
+|:--|:--|
+| Pearson correlation | 0.0159535 |
+| Usable joined rows | 22.0 |
+| Zero-resource exclusions | 1.0 |
+| All joined rows | 23.0 |
 
 
 ```@raw html
@@ -466,7 +500,7 @@ markdown_table(first(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 
 ```
 
 | **rez\_id** | **rez\_name** | **total\_resource\_limit\_mw** | **expected\_cost\_million** | **dollar\_million\_per\_mw** | **cost\_per\_resource\_mw** |
-|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|
 | T4 | North Tasmania Coast | 40550.0 | 206.0 | 0.151471 | 0.0051 |
 | V7 | Gippsland Coast | 59996.0 | 684.0 | 0.342 | 0.0114 |
 | S8 | Eastern Eyre Peninsula | 6700.0 | 100.0 | 0.333333 | 0.0149 |
@@ -490,7 +524,7 @@ markdown_table(last(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 4
 ```
 
 | **rez\_id** | **rez\_name** | **total\_resource\_limit\_mw** | **expected\_cost\_million** | **dollar\_million\_per\_mw** | **cost\_per\_resource\_mw** |
-|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|
 | N5 | South West NSW | 5156.0 | 1418.0 | 0.5672 | 0.275 |
 | T1 | North East Tasmania | 1300.0 | 400.0 | 0.5 | 0.3077 |
 | N4 | Broken Hill | 11800.0 | 5098.0 | 2.91314 | 0.432 |
@@ -499,7 +533,7 @@ markdown_table(last(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 4
 | N8 | Cooma-Monaro | 200.0 | 202.0 | 1.34667 | 1.01 |
 
 
-## Observations
+## Comparison findings
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -563,14 +597,14 @@ Least cost-efficient: N8 (Cooma-Monaro), 1.0100 $M per MW of resource.
 Within this workbook-derived join, resource limit and first-listed augmentation cost behave as largely separate dimensions.
 The cost-per-MW ratio is a screening measure: it identifies how the selected source fields relate, not the economic value of developing a REZ.
 
-## Limitations and non-claims
+## Limitations
 
 - The cost field is the first-listed standalone augmentation option, not a complete least-cost development pathway.
 - The ratio omits energy yield, technology mix, sequencing, network interactions, financing, operating costs, and system benefits.
 - Pearson correlation tests only linear association and is sensitive to the selected source construction.
 - The result is not a direct join of `Renewable Energy Zones` with `REZ Costs forecast` because those sheets lack the required paired numeric fields.
 
-## Implications for PISP users
+## Model-input separation
 
 Keep resource potential and augmentation cost as separate modelling inputs unless an explicit economic model combines them.
 Preserve zero-resource and unmatched rows in evidence so that filtering decisions remain auditable.

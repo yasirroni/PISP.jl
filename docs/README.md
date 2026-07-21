@@ -3,11 +3,57 @@
 This guide describes the maintained documentation sources, the Literate rendering workflow, and the checks required before publishing the Documenter site.
 It is for maintainers; ordinary readers should begin with the rendered site.
 
+## Fresh-clone setup
+
+PISP's root `Project.toml` declares Julia `1.11` compatibility.
+Clone the canonical repository, then instantiate the package and documentation environments separately:
+
+```sh
+git clone https://github.com/ARPST-UniMelb/PISP.jl.git
+cd PISP.jl
+julia --project=. -e 'using Pkg; Pkg.instantiate()'
+julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+```
+
+The root environment contains PISP and its runtime and test dependencies.
+`docs/Project.toml` is a separate environment for Documenter, Literate, plotting, workbook inspection, and documentation tests.
+Its committed source override resolves PISP from the same checkout:
+
+```toml
+[sources]
+PISP = {path = ".."}
+```
+
+The repository snapshot includes `docs/Manifest.toml`; update committed manifests only when dependencies are intentionally changed.
+Package and documentation-infrastructure tests use fixture or source-code checks unless a test explicitly declares an external-data prerequisite.
+Literate pages with `data_requirements` need the configured report, download, or generated-output roots described below.
+
+A common commands to use to build the docs are:
+
+```sh
+julia --project=docs -e 'using Pkg; Pkg.instantiate()'
+julia --project=docs docs/render_literate.jl
+julia --project=docs docs/make.jl
+open docs/build/index.html
+```
+
+While iterating on Literate sources, re-render only the pages whose source changed instead of the whole published set:
+
+```sh
+julia --project=docs docs/render_changed.jl
+```
+
+`render_changed.jl` resolves the changed `docs/literate/**/*.jl` files (staged, unstaged, or untracked, versus `HEAD`) to their registry page IDs and re-renders just those in place through `PISP_LITERATE_PAGES`.
+It reports when a shared file changed (`eda_support.jl`, an EDA producer, or `page-registry.toml`), since those can affect many pages.
+Set `PISP_RUN_PRODUCERS=false` to reuse existing EDA evidence instead of re-running the producers.
+Run the full `docs/render_literate.jl` before committing regenerated Markdown; the changed-only path skips the whole-set completeness and atomic-replacement checks.
+
 ## Documentation architecture
 
 | Surface | Responsibility |
 | --- | --- |
 | `docs/src/index.md` | Package entry points and the ISP edition guide. |
+| `docs/src/quickstart.md` | Package-user installation, first ISP 2024 build, output verification, and next steps. |
 | `docs/src/editions/` | Edition support, source-material, output-model, trace, mapping, and comparison boundaries. |
 | `docs/src/concepts.md` | Stable explanation of the ISP 2024 asset, scenario, trace, and static/schedule model. |
 | `docs/src/assumptions.md` | ISP 2024 modelling scope, caveats, validation responsibilities, and external checks. |
@@ -105,6 +151,23 @@ to the package-root fixture checks in `test/runtests.jl`.
 
 Before any producer or Literate page runs, the renderer resolves each selected requirement through the relevant edition profile and checks its type.
 The render plan prints selected page IDs, track and edition scope, resolved profiles, and resolved requirements.
+
+## Validation commands
+
+Run checks from the repository root.
+
+| Lifecycle action | Command | Reads and writes | Local ISP data required? |
+| --- | --- | --- | --- |
+| Package tests | `julia --project=. -e 'using Pkg; Pkg.test()'` | Reads the package and root test environment; writes normal Julia caches and temporary test artefacts. | No for fixture-based checks; local source-root checks skip when configured material is absent. |
+| Documentation infrastructure tests | `julia --project=docs docs/test/runtests.jl` | Reads registry, navigation, renderer, and helper fixtures; writes temporary test directories. | No. |
+| Source-link routing | `julia --project=docs docs/test_source_links.jl` | Reads maintained Markdown and source-link configuration; writes temporary staged files. | No. |
+| Literate render | `julia --project=docs docs/render_literate.jl` | Reads registered sources and their declared data requirements; writes committed generated Markdown and figures. | Yes for selected data-dependent pages. |
+| Local-link site build | `julia --project=docs docs/make.jl` | Reads maintained and committed generated Markdown; writes `docs/.documenter-source/` and `docs/build/`. | No. |
+| Public-link site build | `PISP_DOCS_LINK_TARGET=public julia --project=docs docs/make.jl` | Reads source-link mappings and documentation sources; writes staged public-link pages and `docs/build/`. | No. |
+| Render and local build | `julia --project=docs docs/build_all.jl` | Runs the registered Literate render followed by the local-link site build. | Yes for data-dependent published pages. |
+
+Package tests, documentation tests, and source-link tests are normal contributor checks.
+A complete Literate render and both link-target builds are publication checks because they validate committed generated sources and the rendered reader experience.
 
 ## Rendering and site builds
 

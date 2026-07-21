@@ -4,9 +4,9 @@ EditURL = "../../../../literate/isp2024/analysis/storage_characteristics.jl"
 
 # ISP 2024: PHES and battery storage characteristics
 
-This analysis identifies which storage-duration, efficiency, and build-limit fields are available for battery storage and pumped hydro energy storage (PHES), and which fields are not comparable across the two classes.
+The source tables identify which storage-duration, efficiency, and build-limit fields are available for battery storage and pumped hydro energy storage (PHES), and which fields are not comparable across the two classes.
 
-## Analytical scope
+## Source fields
 
 | Item | Definition |
 |---|---|
@@ -19,7 +19,7 @@ This analysis identifies which storage-duration, efficiency, and build-limit fie
 | PHES build limits | 8-hour, 24-hour, 48-hour, and named `BOTN - Cethana` columns |
 
 `BOTN - Cethana` is a named scheme-specific build-limit column rather than a duration class.
-No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
+Source basis: the 2024 ISP Inputs and Assumptions workbook and the named sheets listed above.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -321,7 +321,7 @@ end
 </details>
 ```
 
-## Load the bounded storage source tables
+## Storage source tables
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -349,7 +349,7 @@ Trimmed "Build limits - PHES" sheet shape: (30, 23)
 
 ````
 
-## Which battery and PHES properties are available?
+## Battery and PHES characteristics
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -358,21 +358,40 @@ Trimmed "Build limits - PHES" sheet shape: (30, 23)
 ````julia
 battery_df = battery_properties(storage_matrix)
 write_table(battery_df, SCRIPT_STEM, "battery_properties")
-markdown_table(battery_df)
+battery_display = DataFrame(
+    :Technology => battery_df.technology_label,
+    Symbol("Duration (h)") => battery_df.duration_hours_from_energy_to_power,
+    Symbol("Round-trip efficiency (%)") => [
+        coalesce(utility, aggregated)
+        for (utility, aggregated) in zip(
+            battery_df.round_trip_efficiency_utility_pct,
+            battery_df.round_trip_efficiency_aggregated_pct,
+        )
+    ],
+    Symbol("Energy capacity (MWh)") => battery_df.energy_capacity_source_value,
+    Symbol("Source sheet / field") => fill(
+        "Storage properties / Battery properties",
+        nrow(battery_df),
+    ),
+)
+markdown_table(battery_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **technology\_label** | **maximum\_power\_source\_value** | **maximum\_power\_units** | **energy\_capacity\_source\_value** | **energy\_capacity\_units** | **duration\_hours\_from\_energy\_to\_power** | **round\_trip\_efficiency\_aggregated\_source\_value** | **round\_trip\_efficiency\_aggregated\_pct** | **charge\_efficiency\_utility\_source\_value** | **charge\_efficiency\_utility\_pct** | **discharge\_efficiency\_utility\_source\_value** | **discharge\_efficiency\_utility\_pct** | **round\_trip\_efficiency\_utility\_source\_value** | **round\_trip\_efficiency\_utility\_pct** | **annual\_degradation\_utility\_pct** | **allowable\_max\_state\_of\_charge\_pct** | **allowable\_min\_state\_of\_charge\_pct** | **buildable\_capacity\_status** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Battery storage (1hr storage) | 1 | MW | 1 | MWh | 1.0 | not applicable | missing | 91.6515138991168 | 91.6515 | 91.6515138991168 | 91.6515 | 84 | 84.0 | 1.8 | 100.0 | 0.0 | unavailable in general Build limits sheet |
-| Battery storage (2hrs storage) | 1 | MW | 2 | MWh | 2.0 | not applicable | missing | 91.6515138991168 | 91.6515 | 91.6515138991168 | 91.6515 | 84 | 84.0 | 1.8 | 100.0 | 0.0 | unavailable in general Build limits sheet |
-| Battery storage (4hrs storage) | 1 | MW | 4 | MWh | 4.0 | not applicable | missing | 92.19544457292888 | 92.1954 | 92.19544457292888 | 92.1954 | 85 | 85.0 | 1.8 | 100.0 | 0.0 | unavailable in general Build limits sheet |
-| Battery storage (8hrs storage) | 1 | MW | 8 | MWh | 8.0 | not applicable | missing | 91.10433579144299 | 91.1043 | 91.10433579144299 | 91.1043 | 83 | 83.0 | 1.8 | 100.0 | 0.0 | unavailable in general Build limits sheet |
-| Virtual Power Plants \n(aggregated ESS)4 | 1 | MW | 2.2 | MWh | 2.2 | 85 | 85.0 | not applicable | missing | not applicable | missing | not applicable | missing | missing | 85.0 | 0.0 | unavailable in general Build limits sheet |
+| **Technology** | **Duration (h)** | **Round-trip efficiency (%)** | **Energy capacity (MWh)** | **Source sheet / field** |
+|:--|--:|--:|:--|:--|
+| Battery storage (1hr storage) | 1.0 | 84.0 | 1 | Storage properties / Battery properties |
+| Battery storage (2hrs storage) | 2.0 | 84.0 | 2 | Storage properties / Battery properties |
+| Battery storage (4hrs storage) | 4.0 | 85.0 | 4 | Storage properties / Battery properties |
+| Battery storage (8hrs storage) | 8.0 | 83.0 | 8 | Storage properties / Battery properties |
+| Virtual Power Plants (aggregated ESS)4 | 2.2 | 85.0 | 2.2 | Storage properties / Battery properties |
 
+
+Energy capacity is reported directly by the workbook. Duration is the ratio of
+that source value to the corresponding maximum-power value.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -381,26 +400,43 @@ markdown_table(battery_df)
 ````julia
 phes_scheme_df = phes_scheme_properties(storage_matrix)
 write_table(phes_scheme_df, SCRIPT_STEM, "phes_scheme_properties")
-markdown_table(phes_scheme_df)
+phes_scheme_display = DataFrame(
+    Symbol("Project / technology") => phes_scheme_df.scheme_label,
+    Symbol("Generation capacity (MW)") => phes_scheme_df.installed_generation_capacity_mw,
+    Symbol("Pump capacity (MW)") => phes_scheme_df.installed_pump_capacity_mw,
+    Symbol("Storage duration (h)") => phes_scheme_df.duration_hours,
+    Symbol("Round-trip efficiency") => [
+        value === missing ? "Unavailable" : "Unavailable; pumping efficiency $(value)%"
+        for value in phes_scheme_df.pumping_efficiency_pct
+    ],
+    Symbol("Source sheet / field") => fill(
+        "Storage properties / Pumped hydro properties",
+        nrow(phes_scheme_df),
+    ),
+)
+markdown_table(phes_scheme_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **scheme\_label** | **installed\_capacity\_source\_value** | **installed\_generation\_capacity\_mw** | **installed\_pump\_capacity\_mw** | **storage\_capacity\_source\_value** | **storage\_capacity\_units** | **duration\_hours** | **duration\_derivation\_method** | **pumping\_efficiency\_source\_value** | **pumping\_efficiency\_pct** | **round\_trip\_efficiency\_status** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| Snowy 2.01 | 2040 | 2040.0 | missing | 168 | hours | 168.0 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 76 | 76.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Lower Tumut2 |  | missing | missing |  | hours | missing | source storage-capacity row is already in hours; no MWh/MW conversion applied | 78 | 78.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Wivenhoe | 570 | 570.0 | missing | 10 | hours | 10.0 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 70 | 70.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Shoalhaven | 240 | 240.0 | missing | 63.5 | hours | 63.5 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 70 | 70.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Kidston3 | 250 (generation)\n325 (pump) | 250.0 | 325.0 | 6 | hours | 6.0 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 80 | 80.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Cethana4 | 750 | 750.0 | missing | 20 | hours | 20.0 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 76 | 76.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| Borumba4 | 1998 | 1998.0 | missing | 24 | hours | 24.0 | source storage-capacity row is already in hours; no MWh/MW conversion applied | 76 | 76.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
-| New Entrant PHES4 |  | missing | missing |  | hours | missing | source storage-capacity row is already in hours; no MWh/MW conversion applied | 76 | 76.0 | unavailable in inspected Storage properties source; Pumping efficiency is not round-trip efficiency |
+| **Project / technology** | **Generation capacity (MW)** | **Pump capacity (MW)** | **Storage duration (h)** | **Round-trip efficiency** | **Source sheet / field** |
+|:--|--:|--:|--:|:--|:--|
+| Snowy 2.01 | 2040.0 | missing | 168.0 | Unavailable; pumping efficiency 76.0% | Storage properties / Pumped hydro properties |
+| Lower Tumut2 | missing | missing | missing | Unavailable; pumping efficiency 78.0% | Storage properties / Pumped hydro properties |
+| Wivenhoe | 570.0 | missing | 10.0 | Unavailable; pumping efficiency 70.0% | Storage properties / Pumped hydro properties |
+| Shoalhaven | 240.0 | missing | 63.5 | Unavailable; pumping efficiency 70.0% | Storage properties / Pumped hydro properties |
+| Kidston3 | 250.0 | 325.0 | 6.0 | Unavailable; pumping efficiency 80.0% | Storage properties / Pumped hydro properties |
+| Cethana4 | 750.0 | missing | 20.0 | Unavailable; pumping efficiency 76.0% | Storage properties / Pumped hydro properties |
+| Borumba4 | 1998.0 | missing | 24.0 | Unavailable; pumping efficiency 76.0% | Storage properties / Pumped hydro properties |
+| New Entrant PHES4 | missing | missing | missing | Unavailable; pumping efficiency 76.0% | Storage properties / Pumped hydro properties |
 
 
-## Where PHES build limits are reported
+The inspected source supplies pumping efficiency, not round-trip efficiency.
+The table keeps that distinction explicit rather than converting between them.
+
+## PHES build limits
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -409,30 +445,40 @@ markdown_table(phes_scheme_df)
 ````julia
 phes_limits_df = phes_build_limits(phes_limit_matrix)
 write_table(phes_limits_df, SCRIPT_STEM, "phes_build_limits")
-markdown_table(phes_limits_df)
+phes_limits_display = select(
+    phes_limits_df,
+    :name => Symbol("Location"),
+    :region => Symbol("Region"),
+    :isp_subregion => Symbol("ISP sub-region"),
+    :phes_8hrs_storage_mw => Symbol("8-hour limit (MW)"),
+    :phes_24hrs_storage_mw => Symbol("24-hour limit (MW)"),
+    :phes_48hrs_storage_mw => Symbol("48-hour limit (MW)"),
+    :botn_cethana_mw => Symbol("BOTN - Cethana (MW)"),
+)
+markdown_table(phes_limits_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **name** | **isp\_subregion** | **region** | **phes\_8hrs\_storage\_mw** | **phes\_24hrs\_storage\_mw** | **phes\_48hrs\_storage\_mw** | **botn\_cethana\_mw** | **botn\_cethana\_category\_kind** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
-| Northern New South Wales | NNSW | NSW | 1275.0 | 500.0 | 500.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Central New South Wales | CNSW | NSW | 1750.0 | 235.0 | 83.0 | 0.0 | named/scheme-specific column, not a duration class |
-| South New South Wales | SNSW | NSW | 2500.0 | 583.0 | 167.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Sydney, Newcastle, Wollongong | SNW | NSW | 0.0 | 0.0 | 0.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Northern Queensland | NQ | QLD | 1250.0 | 5278.0 | 111.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Central Queensland | CQ | QLD | 1000.0 | 0.0 | 89.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Gladstone Grid | GG | QLD | 0.0 | 0.0 | 0.0 | 0.0 | named/scheme-specific column, not a duration class |
-| South Queensland | SQ | QLD | 1750.0 | 0.0 | 300.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Central South Australia | CSA | SA | 698.0 | 200.0 | 0.0 | 0.0 | named/scheme-specific column, not a duration class |
-| South East South Australia | SESA | SA | 0.0 | 0.0 | 0.0 | 0.0 | named/scheme-specific column, not a duration class |
-| Tasmania | TAS | TAS | 1625.0 | 1200.0 | 371.0 | 750.0 | named/scheme-specific column, not a duration class |
-| Victoria | VIC | VIC | 2700.0 | 700.0 | 400.0 | 0.0 | named/scheme-specific column, not a duration class |
+| **Location** | **Region** | **ISP sub-region** | **8-hour limit (MW)** | **24-hour limit (MW)** | **48-hour limit (MW)** | **BOTN - Cethana (MW)** |
+|:--|:--|:--|--:|--:|--:|--:|
+| Northern New South Wales | NSW | NNSW | 1275.0 | 500.0 | 500.0 | 0.0 |
+| Central New South Wales | NSW | CNSW | 1750.0 | 235.0 | 83.0 | 0.0 |
+| South New South Wales | NSW | SNSW | 2500.0 | 583.0 | 167.0 | 0.0 |
+| Sydney, Newcastle, Wollongong | NSW | SNW | 0.0 | 0.0 | 0.0 | 0.0 |
+| Northern Queensland | QLD | NQ | 1250.0 | 5278.0 | 111.0 | 0.0 |
+| Central Queensland | QLD | CQ | 1000.0 | 0.0 | 89.0 | 0.0 |
+| Gladstone Grid | QLD | GG | 0.0 | 0.0 | 0.0 | 0.0 |
+| South Queensland | QLD | SQ | 1750.0 | 0.0 | 300.0 | 0.0 |
+| Central South Australia | SA | CSA | 698.0 | 200.0 | 0.0 | 0.0 |
+| South East South Australia | SA | SESA | 0.0 | 0.0 | 0.0 | 0.0 |
+| Tasmania | TAS | TAS | 1625.0 | 1200.0 | 371.0 | 750.0 |
+| Victoria | VIC | VIC | 2700.0 | 700.0 | 400.0 | 0.0 |
 
 
-## Which fields are comparable across storage classes?
+## Storage-class comparison
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -441,22 +487,29 @@ markdown_table(phes_limits_df)
 ````julia
 comparison_df = comparison_summary(battery_df, phes_scheme_df, phes_limits_df)
 write_table(comparison_df, SCRIPT_STEM, "storage_class_availability_summary")
-markdown_table(comparison_df)
+comparison_display = select(
+    comparison_df,
+    :storage_class => Symbol("Storage class"),
+    :duration_range_hours => Symbol("Duration range (h)"),
+    :round_trip_efficiency_status => Symbol("Efficiency evidence"),
+    :buildable_capacity_status => Symbol("Build-limit evidence"),
+)
+markdown_table(comparison_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **storage\_class** | **source\_basis** | **duration\_basis** | **duration\_range\_hours** | **round\_trip\_efficiency\_status** | **pumping\_efficiency\_status** | **buildable\_capacity\_status** | **headline\_note** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
-| Battery storage (utility) | Storage properties: Battery properties | Energy capacity divided by Maximum power; technology labels already encode 1hr/2hrs/4hrs/8hrs storage | 1.0-8.0 | available as Round trip efficiency (utility): 83-85% | not applicable to battery rows | unavailable: general Build limits has no battery buildable-capacity field | Battery characteristics are technology-property assumptions, not regional build limits. |
-| Virtual Power Plants (aggregated ESS) | Storage properties: Battery properties | Energy capacity divided by Maximum power for the aggregated ESS row | 2.2 | available as Round trip efficiency (aggregated): 85% | not applicable to battery rows | unavailable: general Build limits has no battery buildable-capacity field | The aggregated ESS row has aggregated RTE while utility battery rows have utility RTE. |
-| Pumped Hydro Energy Storage schemes | Storage properties: Pumped hydro properties | Storage capacity row is in hours in the inspected source; no MWh/MW conversion applied | 6.0-168.0 | unavailable: inspected source gives Pumping efficiency only, not round-trip efficiency | available as Pumping efficiency: 70-80% | available for PHES only in Build limits - PHES: 26015 MW total across 8hr/24hr/48hr plus BOTN - Cethana | PHES scheme properties and PHES subregional build limits are separate keyed tables and are not force-joined. |
-| BOTN - Cethana | Build limits - PHES | Named/scheme-specific build-limit column; not treated as a duration class | not a duration-class column | unavailable in inspected source | Cethana has Pumping efficiency in Storage properties, but that is not round-trip efficiency | available as named column: 750 MW | BOTN - Cethana is retained separately from 8hrs/24hrs/48hrs PHES categories. |
+| **Storage class** | **Duration range (h)** | **Efficiency evidence** | **Build-limit evidence** |
+|:--|:--|:--|:--|
+| Battery storage (utility) | 1.0-8.0 | available as Round trip efficiency (utility): 83-85% | unavailable: general Build limits has no battery buildable-capacity field |
+| Virtual Power Plants (aggregated ESS) | 2.2 | available as Round trip efficiency (aggregated): 85% | unavailable: general Build limits has no battery buildable-capacity field |
+| Pumped Hydro Energy Storage schemes | 6.0-168.0 | unavailable: inspected source gives Pumping efficiency only, not round-trip efficiency | available for PHES only in Build limits - PHES: 26015 MW total across 8hr/24hr/48hr plus BOTN - Cethana |
+| BOTN - Cethana | not a duration-class column | unavailable in inspected source | available as named column: 750 MW |
 
 
-## How PHES build limits are concentrated
+## PHES concentration
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -465,34 +518,35 @@ markdown_table(comparison_df)
 ````julia
 concentration_df = phes_concentration(phes_limits_df)
 write_table(concentration_df, SCRIPT_STEM, "phes_regional_category_concentration")
-markdown_table(concentration_df)
+concentration_display = select(
+    first(concentration_df, min(10, nrow(concentration_df))),
+    :concentration_axis => Symbol("Grouping"),
+    :label => Symbol("Category or sub-region"),
+    :total_phes_build_limit_mw => Symbol("PHES build limit (MW)"),
+    :share_of_total_phes_build_limit_pct => Symbol("Share of total (%)"),
+)
+markdown_table(concentration_display)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **concentration\_axis** | **label** | **region** | **isp\_subregion** | **category\_kind** | **phes\_8hrs\_storage\_mw** | **phes\_24hrs\_storage\_mw** | **phes\_48hrs\_storage\_mw** | **botn\_cethana\_mw** | **total\_phes\_build\_limit\_mw** | **share\_of\_total\_phes\_build\_limit\_pct** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| category | 8hrs storage |  |  | duration class | 14548.0 | 0.0 | 0.0 | 0.0 | 14548.0 | 55.9216 |
-| category | 24hrs storage |  |  | duration class | 0.0 | 8696.0 | 0.0 | 0.0 | 8696.0 | 33.4269 |
-| category | 48hrs storage |  |  | duration class | 0.0 | 0.0 | 2021.0 | 0.0 | 2021.0 | 7.7686 |
-| category | BOTN - Cethana |  |  | named/scheme-specific column | 0.0 | 0.0 | 0.0 | 750.0 | 750.0 | 2.88295 |
-| isp\_subregion | Northern Queensland | QLD | NQ | subregional total across duration classes plus named BOTN - Cethana column | 1250.0 | 5278.0 | 111.0 | 0.0 | 6639.0 | 25.5199 |
-| isp\_subregion | Tasmania | TAS | TAS | subregional total across duration classes plus named BOTN - Cethana column | 1625.0 | 1200.0 | 371.0 | 750.0 | 3946.0 | 15.1682 |
-| isp\_subregion | Victoria | VIC | VIC | subregional total across duration classes plus named BOTN - Cethana column | 2700.0 | 700.0 | 400.0 | 0.0 | 3800.0 | 14.607 |
-| isp\_subregion | South New South Wales | NSW | SNSW | subregional total across duration classes plus named BOTN - Cethana column | 2500.0 | 583.0 | 167.0 | 0.0 | 3250.0 | 12.4928 |
-| isp\_subregion | Northern New South Wales | NSW | NNSW | subregional total across duration classes plus named BOTN - Cethana column | 1275.0 | 500.0 | 500.0 | 0.0 | 2275.0 | 8.74495 |
-| isp\_subregion | Central New South Wales | NSW | CNSW | subregional total across duration classes plus named BOTN - Cethana column | 1750.0 | 235.0 | 83.0 | 0.0 | 2068.0 | 7.94926 |
-| isp\_subregion | South Queensland | QLD | SQ | subregional total across duration classes plus named BOTN - Cethana column | 1750.0 | 0.0 | 300.0 | 0.0 | 2050.0 | 7.88007 |
-| isp\_subregion | Central Queensland | QLD | CQ | subregional total across duration classes plus named BOTN - Cethana column | 1000.0 | 0.0 | 89.0 | 0.0 | 1089.0 | 4.18605 |
-| isp\_subregion | Central South Australia | SA | CSA | subregional total across duration classes plus named BOTN - Cethana column | 698.0 | 200.0 | 0.0 | 0.0 | 898.0 | 3.45185 |
-| isp\_subregion | Gladstone Grid | QLD | GG | subregional total across duration classes plus named BOTN - Cethana column | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| isp\_subregion | South East South Australia | SA | SESA | subregional total across duration classes plus named BOTN - Cethana column | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
-| isp\_subregion | Sydney, Newcastle, Wollongong | NSW | SNW | subregional total across duration classes plus named BOTN - Cethana column | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| **Grouping** | **Category or sub-region** | **PHES build limit (MW)** | **Share of total (%)** |
+|:--|:--|--:|--:|
+| category | 8hrs storage | 14548.0 | 55.9216 |
+| category | 24hrs storage | 8696.0 | 33.4269 |
+| category | 48hrs storage | 2021.0 | 7.7686 |
+| category | BOTN - Cethana | 750.0 | 2.88295 |
+| isp\_subregion | Northern Queensland | 6639.0 | 25.5199 |
+| isp\_subregion | Tasmania | 3946.0 | 15.1682 |
+| isp\_subregion | Victoria | 3800.0 | 14.607 |
+| isp\_subregion | South New South Wales | 3250.0 | 12.4928 |
+| isp\_subregion | Northern New South Wales | 2275.0 | 8.74495 |
+| isp\_subregion | Central New South Wales | 2068.0 | 7.94926 |
 
 
-## Computed availability and concentration summary
+## Summary metrics
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -514,23 +568,32 @@ top_subregion = first(subregion_rows)
 @printf("Largest PHES ISP sub-region: %s/%s (%.0f MW, %.1f%% of total)\n", top_subregion.region, top_subregion.isp_subregion, top_subregion.total_phes_build_limit_mw, top_subregion.share_of_total_phes_build_limit_pct)
 println("PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.")
 println("Battery buildable capacity: unavailable in general Build limits; not fabricated.")
+
+metric_value_table([
+    "Battery rows" => nrow(battery_df),
+    "PHES scheme rows" => nrow(phes_scheme_df),
+    "PHES build-limit rows" => nrow(phes_limits_df),
+    "Total PHES build limit (MW)" => total_phes_build_limit,
+    "Largest category" => top_category.label,
+    "Largest ISP sub-region" => "$(top_subregion.region)/$(top_subregion.isp_subregion)",
+])
 ````
 
 ```@raw html
 </details>
 ```
 
-````
-Battery rows: 5; PHES scheme rows: 8; PHES build-limit rows: 12
-Total PHES build limit: 26015 MW
-Largest PHES category: 8hrs storage (14548 MW, 55.9% of total)
-Largest PHES ISP sub-region: QLD/NQ (6639 MW, 25.5% of total)
-PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.
-Battery buildable capacity: unavailable in general Build limits; not fabricated.
+| **Metric** | **Value** |
+|:--|:--|
+| Battery rows | 5 |
+| PHES scheme rows | 8 |
+| PHES build-limit rows | 12 |
+| Total PHES build limit (MW) | 26015.0 |
+| Largest category | 8hrs storage |
+| Largest ISP sub-region | QLD/NQ |
 
-````
 
-## Observations
+## Comparison findings
 
 - Utility-battery duration classes span `1-8` hours and the reported utility round-trip efficiencies span `83-85%`.
 - PHES scheme durations span `6-168` hours in the inspected property table, while the available efficiency field is pumping efficiency rather than round-trip efficiency.
@@ -542,14 +605,14 @@ Battery buildable capacity: unavailable in general Build limits; not fabricated.
 Battery properties, PHES scheme properties, and PHES regional build limits are different evidence layers.
 They should not be force-joined or compared through fields that the workbook does not supply on a common basis.
 
-## Limitations and non-claims
+## Limitations
 
 - PHES pumping efficiency is not converted into round-trip efficiency.
 - The general build-limit evidence does not provide battery buildable capacity, so none is inferred.
 - A duration-class build limit is not the same as an individual scheme's energy capacity or feasible project pipeline.
 - `BOTN - Cethana` remains separate because it is a named column, not an 8/24/48-hour category.
 
-## Implications for PISP users
+## Model-input treatment
 
 Preserve the source-specific meaning of each storage field.
 Comparative models should introduce any missing common assumptions explicitly and label them as project assumptions rather than workbook-derived values.

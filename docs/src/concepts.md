@@ -1,11 +1,8 @@
 # Domain concepts
 
-This page describes the data model that PISP builds from ISP 2024 material.
-It does not yet define a PISP.jl data model for ISP 2026.
-ISP 2026 parser development is under review, but these docs do not establish its detailed coverage or a PISP.jl output contract.
-See [Supported ISP editions](editions/supported-editions.md) for the current parser-review and integration status.
-PISP represents the ISP 2024 workflow as a connected data model rather than as a collection of independent CSV files.
+PISP represents its implemented ISP 2024 workflow as a connected data model rather than as a collection of independent CSV files.
 The central distinction is between **assets**, which retain stable identities and mostly static parameters, and **schedules**, which describe how selected asset quantities change with scenario and time.
+[Supported ISP editions](editions/supported-editions.md) defines the separate ISP 2026 source-acquisition and integration boundary.
 
 ## ISP 2024 dataset relationships
 

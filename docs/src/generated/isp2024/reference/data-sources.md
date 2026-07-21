@@ -60,7 +60,7 @@ markdown_table(configured_downloads)
 ```
 
 | **key** | **published\_artifact** | **local\_filename** | **subdirectory** |
-|--:|--:|--:|--:|
+|:--|:--|:--|:--|
 | isp24\_inputs | 2024 ISP Inputs and Assumptions workbook | 2024-isp-inputs-and-assumptions-workbook.xlsx |  |
 | iasr23\_ev\_workbook | 2023 IASR EV workbook | 2023-iasr-ev-workbook.xlsx |  |
 | isp24\_model | 2024 ISP Model | 2024-isp-model.zip |  |
@@ -90,7 +90,7 @@ markdown_table(trace_downloader)
 ```
 
 | **publication\_page** | **output\_directory** | **link\_selector** |
-|--:|--:|--:|
+|:--|:--|:--|
 | https://www.aemo.com.au/energy-systems/major-publications/integrated-system-plan-isp/2024-integrated-system-plan-isp | scrapped/ISP\_2024\_traces | Cascadia.Selector(Cascadia.var"#descendantSelector##0#descendantSelector##1"{Cascadia.Selector, Cascadia.Selector}(Cascadia.Selector(Cascadia.var"#intersectionSelector##0#intersectionSelector##1"{Cascadia.Selector, Cascadia.Selector}(Cascadia.Selector(Cascadia.var"#typeSelector##0#typeSelector##1"{String}("div")), Cascadia.Selector(Cascadia.var"#attributeSelector##0#attributeSelector##1"{Cascadia.var"#attributeIncludesSelector##0#attributeIncludesSelector##1"{String}, String}(Cascadia.var"#attributeIncludesSelector##0#attributeIncludesSelector##1"{String}("field-link"), "class")))), Cascadia.Selector(Cascadia.var"#typeSelector##0#typeSelector##1"{String}("a")))) |
 
 
@@ -121,7 +121,7 @@ markdown_table(expected_input_status)
 ```
 
 | **input** | **relative\_path** | **observed\_kind** | **exists** |
-|--:|--:|--:|--:|
+|:--|:--|:--|--:|
 | ispdata19 | 2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx | file | true |
 | ispdata24 | 2024-isp-inputs-and-assumptions-workbook.xlsx | file | true |
 | iasr23\_ev\_workbook | 2023-iasr-ev-workbook.xlsx | file | true |

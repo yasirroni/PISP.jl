@@ -44,7 +44,10 @@ function track_navigation(registry_pages, track, overview_title, overview_path)
 end
 
 function registry_navigation(registry_pages)
-    navigation = Any["Home" => "index.md"]
+    navigation = Any[
+        "Home" => "index.md",
+        "Quickstart" => "quickstart.md",
+    ]
 
     push!(
         navigation,

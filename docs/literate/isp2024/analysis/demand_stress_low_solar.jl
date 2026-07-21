@@ -1,9 +1,9 @@
 # # ISP 2024: Demand stress and low-solar coincidence
 #
 # High demand can coincide with low renewable availability, but that relationship depends on aligned dates, explicit thresholds, and a precise event definition.
-# This page combines the Victorian demand schedule from the selected `schedule-2030` PISP output with the Bannerton reference-trace `4006` solar series.
+# The analysis combines the Victorian demand schedule from the selected `schedule-2030` PISP output with the Bannerton reference-trace `4006` solar series.
 #
-# ## Analytical scope
+# ## Definitions and data
 #
 # | Item | Definition |
 # |---|---|
@@ -16,9 +16,6 @@
 # | Normal group | Demand below P90; P90-P95 days are excluded from both groups |
 # | Date alignment | Inner match on exact calendar date |
 #
-# The executable source retains `heat_event` variable names for the demand-only P95 threshold.
-# In the reader-facing discussion, these observations are called **demand-stress days** because no air-temperature or meteorological heatwave criterion is applied.
-
 ENV["GKSwstype"] = "100"
 
 using CSV
@@ -39,6 +36,8 @@ include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
 const SCRIPT_STEM = "isp2024_07_demand_heat_events"
+# The historical evidence and figure basenames retain `heat` for compatibility.
+# Reader-facing terminology and executable variables use `demand_stress` because no meteorological heatwave criterion is applied.
 const ISP2024_PROFILE = edition_profile(REPO_ROOT, "2024")
 const TRACES = relpath(joinpath(ISP2024_PROFILE.download_root, "Traces"), REPO_ROOT)  # kept relative: this is the path form recorded in the tables below
 const OUTPUT_ROOT = ISP2024_PROFILE.output_root
@@ -92,7 +91,7 @@ markdown_table(demand_trace_inventory)
 
 # ## Regional demand construction
 #
-# The PISP model output records each network node's half-hourly demand schedule and its bus, and each bus's NEM area; joining these mappings lets the schedule be aggregated to a daily mean demand per area. The full daily-by-area table (one row per area per calendar date) is written to `demand_by_area_daily.csv`; the page displays one summary row per area instead of every row.
+# The PISP model output records each network node's half-hourly demand schedule and its bus, and each bus's NEM area; joining these mappings supports daily mean demand by area. The complete daily-by-area table is written to `demand_by_area_daily.csv`, and the table below summarises each area.
 
 dem_load = CSV.read(abs_path(joinpath(OUT, SCHEDULE_TAG, "Demand_load_sched.csv")), DataFrame)
 dem_df = CSV.read(abs_path(joinpath(OUT, "Demand.csv")), DataFrame)
@@ -139,9 +138,9 @@ vic_daily = combine(groupby(vic_dem, :date_only), :value => mean => :demand)
 sort!(vic_daily, :date_only)
 nothing #hide
 
-# ## Date alignment and matched coverage
+# ## Daily alignment and matched coverage
 #
-# Only calendar dates present in both the VIC demand schedule and the Bannerton 4006 solar trace are kept, so the merged sample can be smaller than either input series. The full merged series is written to `vic_demand_solar_merged.csv`; the page displays a single summary row describing its coverage and range instead of every day.
+# Only calendar dates present in both the VIC demand schedule and the Bannerton 4006 solar trace are retained, so the merged sample can be smaller than either input series. The complete merged series is written to `vic_demand_solar_merged.csv`; the metric summary below reports its coverage and range.
 
 merged = DataFrame(date = Date[], demand = Float64[], solar_cf = Float64[])
 if haskey(sol_4006, "Bannerton_SAT")
@@ -164,9 +163,19 @@ merged_summary = DataFrame(
     solar_cf_min = isempty(merged.solar_cf) ? missing : minimum(merged.solar_cf),
     solar_cf_max = isempty(merged.solar_cf) ? missing : maximum(merged.solar_cf),
 )
-markdown_table(merged_summary)
+metric_value_table([
+    "Matched days" => merged_summary.matched_days[1],
+    "First date" => merged_summary.date_min[1],
+    "Last date" => merged_summary.date_max[1],
+    "Mean demand (MW)" => merged_summary.demand_mean_mw[1],
+    "Minimum demand (MW)" => merged_summary.demand_min_mw[1],
+    "Maximum demand (MW)" => merged_summary.demand_max_mw[1],
+    "Mean solar capacity factor" => merged_summary.solar_cf_mean[1],
+    "Minimum solar capacity factor" => merged_summary.solar_cf_min[1],
+    "Maximum solar capacity factor" => merged_summary.solar_cf_max[1],
+])
 
-# ## High-demand and low-solar coincidence screen
+# ## Coincidence results
 #
 # The screen flags days above the 90th demand percentile that also fall below the 10th solar-capacity-factor percentile, within the merged sample above.
 
@@ -186,7 +195,14 @@ if haskey(sol_4006, "Bannerton_SAT")
         total_day_count = nrow(merged),
     )
     write_table(high_demand_low_solar_summary, SCRIPT_STEM, "high_demand_low_solar_summary")
-    markdown_table(high_demand_low_solar_summary)
+    metric_value_table([
+        "Demand quantile" => high_demand_low_solar_summary.demand_quantile[1],
+        "Solar quantile" => high_demand_low_solar_summary.solar_quantile[1],
+        "Demand threshold (MW)" => high_demand_low_solar_summary.threshold_demand_mw[1],
+        "Solar threshold (capacity factor)" => high_demand_low_solar_summary.threshold_solar_cf[1],
+        "Coincident days" => high_demand_low_solar_summary.bad_day_count[1],
+        "Days checked" => high_demand_low_solar_summary.total_day_count[1],
+    ])
 end
 
 # ## Demand-stress and normal-day groups
@@ -196,37 +212,37 @@ end
 demand_p90 = quantile(vic_daily.demand, 0.9)
 demand_p95 = quantile(vic_daily.demand, 0.95)
 
-heat_days = vic_daily[vic_daily.demand .>= demand_p95, :date_only]
+demand_stress_days = vic_daily[vic_daily.demand .>= demand_p95, :date_only]
 normal_days = Set(vic_daily[vic_daily.demand .< demand_p90, :date_only])
-heat_days_set = Set(heat_days)
+demand_stress_days_set = Set(demand_stress_days)
 
 @printf("\nDemand thresholds: P90=%.0f MW, P95=%.0f MW\n", demand_p90, demand_p95)
-println("Heat event days (>P95): ", length(heat_days))
+println("Demand-stress days (>P95): ", length(demand_stress_days))
 println("Normal days (<P90): ", length(normal_days))
 
 # ## Intraday demand shape on stress and normal days
 #
 # Half-hourly demand observations on demand-stress days and normal days are each averaged by hour of day, allowing the intraday profile shape of the two groups to be compared.
 
-heat_df = vic_dem[in.(vic_dem.date_only, Ref(heat_days_set)), :]
+demand_stress_df = vic_dem[in.(vic_dem.date_only, Ref(demand_stress_days_set)), :]
 normal_df = vic_dem[in.(vic_dem.date_only, Ref(normal_days)), :]
-heat_df = transform(heat_df, :date => ByRow(hour) => :hour)
+demand_stress_df = transform(demand_stress_df, :date => ByRow(hour) => :hour)
 normal_df = transform(normal_df, :date => ByRow(hour) => :hour)
 
-heat_hourly = Dict(row.hour => row.value_mean for row in eachrow(combine(groupby(heat_df, :hour), :value => mean => :value_mean)))
+demand_stress_hourly = Dict(row.hour => row.value_mean for row in eachrow(combine(groupby(demand_stress_df, :hour), :value => mean => :value_mean)))
 normal_hourly = Dict(row.hour => row.value_mean for row in eachrow(combine(groupby(normal_df, :hour), :value => mean => :value_mean)))
 
-heat_normal_hourly_profile = DataFrame(
+stress_normal_hourly_profile = DataFrame(
     hour = 0:23,
-    heat_mean_demand_mw = [get(heat_hourly, h, missing) for h in 0:23],
+    demand_stress_mean_demand_mw = [get(demand_stress_hourly, h, missing) for h in 0:23],
     normal_mean_demand_mw = [get(normal_hourly, h, missing) for h in 0:23],
 )
-write_table(heat_normal_hourly_profile, SCRIPT_STEM, "heat_normal_hourly_profile")
-markdown_table(heat_normal_hourly_profile)
+write_table(stress_normal_hourly_profile, SCRIPT_STEM, "heat_normal_hourly_profile")
+markdown_table(stress_normal_hourly_profile)
 
 # ## Demand duration evidence
 #
-# Sorting daily Victorian demand from highest to lowest gives the demand duration curve, independent of chronology. The full 365-day curve is written to `demand_duration_curve.csv` and shown in the demand-stress overview; the page displays the curve's value at selected quantile marks.
+# Sorting daily Victorian demand from highest to lowest gives the demand duration curve, independent of chronology. The complete 365-day curve is written to `demand_duration_curve.csv` and shown in the demand-stress overview; the table below reports selected quantile marks.
 
 sorted_demand = sort(vic_daily.demand; rev = true)
 demand_duration_curve = DataFrame(day_rank = 1:length(sorted_demand), demand_mw = sorted_demand)
@@ -248,7 +264,7 @@ markdown_table(duration_curve_quantile_marks)
 
 # ## Normalised demand and solar comparison
 #
-# Demand and Bannerton solar capacity factor from the merged sample are each normalised by their own maximum and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale. The full 365-day series is written to `normalized_vre_demand_summary.csv` and shown in the demand-stress overview; the page reports their association separately.
+# Demand and Bannerton solar capacity factor from the merged sample are normalised by their own maxima and ranked by ascending demand, so their relative shapes can be compared on the same 0-to-1 scale. The complete 365-day series is written to `normalized_vre_demand_summary.csv` and shown in the demand-stress overview; the correlation is reported separately.
 
 if nrow(merged) > 0
     merged_sorted = sort(merged, :demand)
@@ -272,9 +288,9 @@ end
 
 total_days = nrow(vic_daily)
 peak_row = vic_daily[argmax(vic_daily.demand), :]
-println("\n=== DEMAND HEAT EVENT ANALYSIS ===")
+println("\n=== DEMAND-STRESS ANALYSIS ===")
 println("Total days: ", total_days)
-@printf("Heat event days (>P95): %d (%.1f%%)\n", length(heat_days), 100 * length(heat_days) / total_days)
+@printf("Demand-stress days (>P95): %d (%.1f%%)\n", length(demand_stress_days), 100 * length(demand_stress_days) / total_days)
 @printf("Peak demand: %.0f MW on %s\n", peak_row.demand, peak_row.date_only)
 @printf("Mean demand: %.0f MW\n", mean(vic_daily.demand))
 
@@ -284,43 +300,53 @@ println("Total days: ", total_days)
 
 if haskey(sol_4006, "Bannerton_SAT")
     cf_of_date = solar_cf_by_date(sol_4006["Bannerton_SAT"])
-    top10_days = heat_days[1:min(10, length(heat_days))]
-    hot_day_cfs = Float64[]
+    top10_days = demand_stress_days[1:min(10, length(demand_stress_days))]
+    stress_day_cfs = Float64[]
     for hd in top10_days
         haskey(cf_of_date, hd) || continue
-        push!(hot_day_cfs, cf_of_date[hd])
+        push!(stress_day_cfs, cf_of_date[hd])
     end
-    mean_cf = mean(hot_day_cfs)
-    @printf("\nSolar CF on top 10 heat event days: mean=%.4f\n", mean_cf)
-    println("  Individual CFs: ", [@sprintf("%.4f", c) for c in hot_day_cfs])
+    mean_cf = mean(stress_day_cfs)
+    @printf("\nSolar CF on top 10 demand-stress days: mean=%.4f\n", mean_cf)
+    println("  Individual CFs: ", [@sprintf("%.4f", c) for c in stress_day_cfs])
 
-    hot_day_solar_cf_detail = DataFrame(
-        rank = 1:length(hot_day_cfs),
-        date = top10_days[1:length(hot_day_cfs)],
-        solar_cf = hot_day_cfs,
-        mean_solar_cf_top10 = fill(mean_cf, length(hot_day_cfs)),
+    stress_day_solar_cf_detail = DataFrame(
+        rank = 1:length(stress_day_cfs),
+        date = top10_days[1:length(stress_day_cfs)],
+        solar_cf = stress_day_cfs,
+        mean_solar_cf_top10 = fill(mean_cf, length(stress_day_cfs)),
     )
-    write_table(hot_day_solar_cf_detail, SCRIPT_STEM, "hot_day_solar_cf_detail")
-    markdown_table(hot_day_solar_cf_detail)
+    write_table(stress_day_solar_cf_detail, SCRIPT_STEM, "hot_day_solar_cf_detail")
+    markdown_table(stress_day_solar_cf_detail)
 end
 
 # ## Threshold and event-count summary
 #
 # This collects the thresholds, counts, and peak/mean statistics computed above into a single summary row.
 
-demand_heat_event_summary = DataFrame(
+demand_stress_event_summary = DataFrame(
     total_days = total_days,
     demand_p90_mw = demand_p90,
     demand_p95_mw = demand_p95,
-    heat_day_count = length(heat_days),
+    demand_stress_day_count = length(demand_stress_days),
     normal_day_count = length(normal_days),
-    heat_event_pct = 100 * length(heat_days) / total_days,
+    demand_stress_event_pct = 100 * length(demand_stress_days) / total_days,
     peak_demand_mw = peak_row.demand,
     peak_date = peak_row.date_only,
     mean_demand_mw = mean(vic_daily.demand),
 )
-write_table(demand_heat_event_summary, SCRIPT_STEM, "demand_heat_event_summary")
-markdown_table(demand_heat_event_summary)
+write_table(demand_stress_event_summary, SCRIPT_STEM, "demand_heat_event_summary")
+metric_value_table([
+    "Total days" => demand_stress_event_summary.total_days[1],
+    "Demand P90 (MW)" => demand_stress_event_summary.demand_p90_mw[1],
+    "Demand P95 (MW)" => demand_stress_event_summary.demand_p95_mw[1],
+    "Demand-stress days" => demand_stress_event_summary.demand_stress_day_count[1],
+    "Normal days" => demand_stress_event_summary.normal_day_count[1],
+    "Demand-stress share (%)" => demand_stress_event_summary.demand_stress_event_pct[1],
+    "Peak demand (MW)" => demand_stress_event_summary.peak_demand_mw[1],
+    "Peak date" => demand_stress_event_summary.peak_date[1],
+    "Mean demand (MW)" => demand_stress_event_summary.mean_demand_mw[1],
+])
 
 # ## Time-series evidence
 #
@@ -390,14 +416,14 @@ month_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 p3 = plot(layout=(2,2), size=(1200, 1000), left_margin=6Plots.mm, right_margin=3Plots.mm, top_margin=5Plots.mm, bottom_margin=5Plots.mm)
 
 hours = 0:23
-heat_vals = [get(heat_hourly, h, NaN) for h in hours]
+demand_stress_vals = [get(demand_stress_hourly, h, NaN) for h in hours]
 normal_vals = [get(normal_hourly, h, NaN) for h in hours]
 
-plot!(p3[1], hours, heat_vals, color=:red, linewidth=2, marker=:o, markersize=3,
-      label="Heat days (>$(round(Int, demand_p95)) MW, n=$(length(heat_days)))")
+plot!(p3[1], hours, demand_stress_vals, color=:red, linewidth=2, marker=:o, markersize=3,
+      label="Demand-stress days (>$(round(Int, demand_p95)) MW, n=$(length(demand_stress_days)))")
 plot!(p3[1], hours, normal_vals, color=:blue, linewidth=2, marker=:s, markersize=3,
       label="Normal days (<$(round(Int, demand_p90)) MW, n=$(length(normal_days)))")
-plot!(p3[1], title="VIC Demand: Heat Event Days vs Normal Days", xlabel="Hour", ylabel="Demand (MW)",
+plot!(p3[1], title="VIC Demand: Stress Days vs Normal Days", xlabel="Hour", ylabel="Demand (MW)",
       legend=:topright, grid=true, gridalpha=0.3)
 
 sorted_demand = sort(vic_daily.demand; rev=true)
@@ -422,7 +448,7 @@ for row in eachrow(dem_load_heat)
 end
 heatmap_data = heatmap_data ./ max.(counts, 1)
 
-heatmap!(p3[3], 0:23, 1:12, heatmap_data, c=:YlOrRd, title="VIC Demand Heatmap: Month vs Hour",
+heatmap!(p3[3], 0:23, 1:12, heatmap_data, c=:YlOrRd, title="VIC Demand Profile: Month vs Hour",
         xlabel="Hour", ylabel="Month", yticks=(1:12, month_labels), legend=false)
 
 if nrow(merged) > 0
@@ -446,9 +472,9 @@ nothing #hide
 
 println("\nDone.")
 
-# ## Observations
+# ## Key coincidence findings
 #
-# - The rendered evidence contains 365 exact-date matches between Victorian daily mean demand and Bannerton daily mean solar capacity factor.
+# - The committed execution contains 365 exact-date matches between Victorian daily mean demand and Bannerton daily mean solar capacity factor.
 # - Their Pearson correlation is `-0.257949`, an inverse association within this sample.
 # - Nineteen matched days, or approximately 5.2% of the sample, meet the demand-stress threshold at or above P95.
 # - Peak daily mean demand is `9789.05 MW` on `2030-01-09`; mean daily demand is `6295.69 MW`.
@@ -459,14 +485,14 @@ println("\nDone.")
 # The demand schedule uses the 10% probability-of-exceedance demand-profile premise for capacity outlooks ([ISP Methodology, p. 39](../../../../../data/2024/pisp-reports/2023-isp-methodology.pdf#page=39)).
 # The negative correlation indicates that higher-demand days tend to have lower Bannerton solar capacity factor in this matched sample, but it does not establish causation or a system-wide renewable shortfall.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - Demand stress is defined only by the demand distribution; it is not a meteorological heatwave classification.
 # - Solar availability is represented by one site, so the analysis does not measure portfolio-level spatial diversity.
 # - Daily means can hide intraday coincidence between the demand peak and solar availability.
 # - The page does not model dispatch, storage, transmission constraints, imports, or adequacy outcomes.
 #
-# ## Implications for PISP users
+# ## Modelling implications
 #
-# Use this page as a screening workflow for aligned demand and renewable traces.
+# Use the aligned demand and renewable traces as a screening workflow rather than an adequacy result.
 # A heatwave study should add meteorological criteria, while an adequacy study should test multiple renewable locations, trace years, and operational constraints in an appropriate system model.

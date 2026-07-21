@@ -3,10 +3,10 @@
 # PISP starts each build by constructing a **problem table**: one row for each scenario/time block that the rest of the pipeline will populate.
 # The table is small, but it determines how later static and schedule tables are grouped.
 #
-# ## When to use this tutorial
+# ## Purpose and scope
 #
-# Use this page when you need to understand or inspect the scenario and date blocks created before an ISP 2024 dataset build.
-# The examples exercise the same helper functions used by the package, but they do not download or parse AEMO source files.
+# This tutorial explains the scenario and date blocks created before an ISP 2024 dataset build.
+# The examples use the package's in-memory initialisation helpers and do not require source downloads.
 #
 # ## What the problem table controls
 #
@@ -16,6 +16,7 @@
 
 using PISP
 using Dates
+using DataFrames
 
 const REPO_ROOT = normpath(get(ENV, "PISP_DOCS_REPO_ROOT", joinpath(@__DIR__, "..", "..", "..", "..")))
 
@@ -27,18 +28,30 @@ const ISP2024_PROFILE = edition_profile(REPO_ROOT, "2024")
 include(joinpath(REPO_ROOT, "docs", "eda_support.jl"))
 using .EdaSupport
 
-# ## Step 1 — inspect the empty schema
+# ## Problem-table schema
 #
 # `PISP.initialise_time_structures()` returns three containers. The first, `tc::PISPtimeConfig`, owns the `problem` table.
 
 tc, _ts, _tv = PISP.initialise_time_structures()
-markdown_table(tc.problem)
+problem_schema = DataFrame(
+    Field = names(tc.problem),
+    Type = string.(eltype.(eachcol(tc.problem))),
+    Meaning = [
+        "Problem-row identifier",
+        "Scenario and time-block name",
+        "ISP scenario identifier",
+        "Problem weight",
+        "Downstream problem type",
+        "Inclusive block start",
+        "Inclusive block end",
+        "Model time step in minutes",
+    ],
+)
+markdown_table(problem_schema)
 
-# The table schema comes from `MOD_PROBLEM` in `src/datamodel/PISPdata-config.jl`.
+# The executable `tc.problem` table is empty at initialisation; the schema is defined by `MOD_PROBLEM` in `src/datamodel/PISPdata-config.jl` and populated by the selected scenario/time workflow.
 
-names(tc.problem)
-
-# ## Step 2 — build whole-year blocks
+# ## Whole-year blocks
 #
 # `fill_problem_table_year` splits a planning year into January-June and July-December blocks. With all three ISP scenarios, this produces 6 rows.
 
@@ -49,7 +62,7 @@ markdown_table(tc.problem)
 
 tc.problem.name
 
-# ## Step 3 — build an arbitrary date range
+# ## Explicit date ranges
 #
 # `fill_problem_table_drange` accepts explicit `DateTime` bounds. A range that stays on one side of 1 July produces one block per scenario.
 
@@ -73,7 +86,7 @@ markdown_table(tc3.problem[:, [:name, :dstart, :dend]])
 
 # The first block ends at 30 June and the second starts at 1 July.
 
-# ## Step 4 — restrict the scenario set
+# ## Scenario selection
 #
 # Both helpers accept `sce` when a study only needs a subset of the three ISP scenarios.
 

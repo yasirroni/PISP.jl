@@ -1,8 +1,8 @@
 # # ISP 2024: PHES and battery storage characteristics
 #
-# This analysis identifies which storage-duration, efficiency, and build-limit fields are available for battery storage and pumped hydro energy storage (PHES), and which fields are not comparable across the two classes.
+# The source tables identify which storage-duration, efficiency, and build-limit fields are available for battery storage and pumped hydro energy storage (PHES), and which fields are not comparable across the two classes.
 #
-# ## Analytical scope
+# ## Source fields
 #
 # | Item | Definition |
 # |---|---|
@@ -15,7 +15,7 @@
 # | PHES build limits | 8-hour, 24-hour, 48-hour, and named `BOTN - Cethana` columns |
 #
 # `BOTN - Cethana` is a named scheme-specific build-limit column rather than a duration class.
-# No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
+# Source basis: the 2024 ISP Inputs and Assumptions workbook and the named sheets listed above.
 
 using CSV
 using DataFrames
@@ -308,7 +308,7 @@ function phes_concentration(build_limits_df)
 end
 nothing #hide
 
-# ## Load the bounded storage source tables
+# ## Storage source tables
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -320,37 +320,97 @@ println("Trimmed \"Storage properties\" sheet shape: ", size(storage_matrix))
 println("Trimmed \"Build limits - PHES\" sheet shape: ", size(phes_limit_matrix))
 nothing #hide
 
-# ## Which battery and PHES properties are available?
+# ## Battery and PHES characteristics
 
 battery_df = battery_properties(storage_matrix)
 write_table(battery_df, SCRIPT_STEM, "battery_properties")
-markdown_table(battery_df)
+battery_display = DataFrame(
+    :Technology => battery_df.technology_label,
+    Symbol("Duration (h)") => battery_df.duration_hours_from_energy_to_power,
+    Symbol("Round-trip efficiency (%)") => [
+        coalesce(utility, aggregated)
+        for (utility, aggregated) in zip(
+            battery_df.round_trip_efficiency_utility_pct,
+            battery_df.round_trip_efficiency_aggregated_pct,
+        )
+    ],
+    Symbol("Energy capacity (MWh)") => battery_df.energy_capacity_source_value,
+    Symbol("Source sheet / field") => fill(
+        "Storage properties / Battery properties",
+        nrow(battery_df),
+    ),
+)
+markdown_table(battery_display)
+
+# Energy capacity is reported directly by the workbook. Duration is the ratio of
+# that source value to the corresponding maximum-power value.
 
 #-
 
 phes_scheme_df = phes_scheme_properties(storage_matrix)
 write_table(phes_scheme_df, SCRIPT_STEM, "phes_scheme_properties")
-markdown_table(phes_scheme_df)
+phes_scheme_display = DataFrame(
+    Symbol("Project / technology") => phes_scheme_df.scheme_label,
+    Symbol("Generation capacity (MW)") => phes_scheme_df.installed_generation_capacity_mw,
+    Symbol("Pump capacity (MW)") => phes_scheme_df.installed_pump_capacity_mw,
+    Symbol("Storage duration (h)") => phes_scheme_df.duration_hours,
+    Symbol("Round-trip efficiency") => [
+        value === missing ? "Unavailable" : "Unavailable; pumping efficiency $(value)%"
+        for value in phes_scheme_df.pumping_efficiency_pct
+    ],
+    Symbol("Source sheet / field") => fill(
+        "Storage properties / Pumped hydro properties",
+        nrow(phes_scheme_df),
+    ),
+)
+markdown_table(phes_scheme_display)
 
-# ## Where PHES build limits are reported
+# The inspected source supplies pumping efficiency, not round-trip efficiency.
+# The table keeps that distinction explicit rather than converting between them.
+
+# ## PHES build limits
 
 phes_limits_df = phes_build_limits(phes_limit_matrix)
 write_table(phes_limits_df, SCRIPT_STEM, "phes_build_limits")
-markdown_table(phes_limits_df)
+phes_limits_display = select(
+    phes_limits_df,
+    :name => Symbol("Location"),
+    :region => Symbol("Region"),
+    :isp_subregion => Symbol("ISP sub-region"),
+    :phes_8hrs_storage_mw => Symbol("8-hour limit (MW)"),
+    :phes_24hrs_storage_mw => Symbol("24-hour limit (MW)"),
+    :phes_48hrs_storage_mw => Symbol("48-hour limit (MW)"),
+    :botn_cethana_mw => Symbol("BOTN - Cethana (MW)"),
+)
+markdown_table(phes_limits_display)
 
-# ## Which fields are comparable across storage classes?
+# ## Storage-class comparison
 
 comparison_df = comparison_summary(battery_df, phes_scheme_df, phes_limits_df)
 write_table(comparison_df, SCRIPT_STEM, "storage_class_availability_summary")
-markdown_table(comparison_df)
+comparison_display = select(
+    comparison_df,
+    :storage_class => Symbol("Storage class"),
+    :duration_range_hours => Symbol("Duration range (h)"),
+    :round_trip_efficiency_status => Symbol("Efficiency evidence"),
+    :buildable_capacity_status => Symbol("Build-limit evidence"),
+)
+markdown_table(comparison_display)
 
-# ## How PHES build limits are concentrated
+# ## PHES concentration
 
 concentration_df = phes_concentration(phes_limits_df)
 write_table(concentration_df, SCRIPT_STEM, "phes_regional_category_concentration")
-markdown_table(concentration_df)
+concentration_display = select(
+    first(concentration_df, min(10, nrow(concentration_df))),
+    :concentration_axis => Symbol("Grouping"),
+    :label => Symbol("Category or sub-region"),
+    :total_phes_build_limit_mw => Symbol("PHES build limit (MW)"),
+    :share_of_total_phes_build_limit_pct => Symbol("Share of total (%)"),
+)
+markdown_table(concentration_display)
 
-# ## Computed availability and concentration summary
+# ## Summary metrics
 
 total_phes_build_limit = sum(coalesce.(phes_limits_df.phes_8hrs_storage_mw, 0.0)) +
     sum(coalesce.(phes_limits_df.phes_24hrs_storage_mw, 0.0)) +
@@ -368,7 +428,16 @@ top_subregion = first(subregion_rows)
 println("PHES round-trip efficiency: unavailable in inspected source; pumping efficiency is reported separately.")
 println("Battery buildable capacity: unavailable in general Build limits; not fabricated.")
 
-# ## Observations
+metric_value_table([
+    "Battery rows" => nrow(battery_df),
+    "PHES scheme rows" => nrow(phes_scheme_df),
+    "PHES build-limit rows" => nrow(phes_limits_df),
+    "Total PHES build limit (MW)" => total_phes_build_limit,
+    "Largest category" => top_category.label,
+    "Largest ISP sub-region" => "$(top_subregion.region)/$(top_subregion.isp_subregion)",
+])
+
+# ## Comparison findings
 #
 # - Utility-battery duration classes span `1-8` hours and the reported utility round-trip efficiencies span `83-85%`.
 # - PHES scheme durations span `6-168` hours in the inspected property table, while the available efficiency field is pumping efficiency rather than round-trip efficiency.
@@ -380,14 +449,14 @@ println("Battery buildable capacity: unavailable in general Build limits; not fa
 # Battery properties, PHES scheme properties, and PHES regional build limits are different evidence layers.
 # They should not be force-joined or compared through fields that the workbook does not supply on a common basis.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - PHES pumping efficiency is not converted into round-trip efficiency.
 # - The general build-limit evidence does not provide battery buildable capacity, so none is inferred.
 # - A duration-class build limit is not the same as an individual scheme's energy capacity or feasible project pipeline.
 # - `BOTN - Cethana` remains separate because it is a named column, not an 8/24/48-hour category.
 #
-# ## Implications for PISP users
+# ## Model-input treatment
 #
 # Preserve the source-specific meaning of each storage field.
 # Comparative models should introduce any missing common assumptions explicitly and label them as project assumptions rather than workbook-derived values.

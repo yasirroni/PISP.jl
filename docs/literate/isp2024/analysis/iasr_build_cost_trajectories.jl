@@ -1,8 +1,8 @@
 # # ISP 2024: IASR build-cost trajectories by technology
 #
-# This analysis compares the capital-cost trajectories supplied for utility-scale solar, onshore and offshore wind, and battery storage in the IASR `Build costs` sheet.
+# The IASR `Build costs` sheet supplies capital-cost trajectories for utility-scale solar, onshore and offshore wind, and battery storage.
 #
-# ## Analytical scope
+# ## Workbook source
 #
 # | Item | Definition |
 # |---|---|
@@ -14,7 +14,7 @@
 # | Comparison metrics | Total percentage change and CAGR-style annualised decline rate |
 #
 # Pumped hydro and BOTN rows are outside this page's technology scope.
-# No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
+# Source basis: the 2024 ISP Inputs and Assumptions workbook and the named sheets listed above.
 
 using CSV
 using DataFrames
@@ -145,7 +145,7 @@ function decline_summary(long_table)
 end
 nothing #hide
 
-# ## Load the bounded build-cost source table
+# ## Build-cost source table
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -156,16 +156,16 @@ end
 println("Trimmed \"$SHEET_NAME\" sheet shape: ", size(matrix))
 nothing #hide
 
-# ## Identify the technology table and projection years
+# ## Projection years and technology fields
 
 header_row = find_master_header_row(matrix)
 years, col_indices = year_columns(matrix, header_row)
 println("Master table header at row $header_row, ", length(years), " projection years: ", first(years), " .. ", last(years))
 nothing #hide
 
-# ## Select the documented technology scope
+# ## Technology comparison
 #
-# All 19 technologies on the sheet are listed in `technology_match` for transparency; the analysis itself only follows the utility-scale solar, onshore/offshore wind, and battery-storage rows matched by `is_target_technology`. The full long-format target table (technology x scenario x year) is written as evidence; the table below previews only its first rows.
+# All 19 technologies on the sheet are listed in `technology_match` for transparency; the analysis itself only follows the utility-scale solar, onshore/offshore wind, and battery-storage rows matched by `is_target_technology`. The full long-format target table (technology x scenario x year) is saved as supporting data; the table below previews only its first rows.
 
 long_table = build_cost_long_table(matrix, header_row, years, col_indices)
 all_technologies = unique(long_table.technology)
@@ -185,17 +185,17 @@ markdown_table(technology_match)
 
 target_long = filter(:technology => is_target_technology, long_table)
 write_table(target_long, SCRIPT_STEM, "build_cost_trajectory")
-println("Target-technology long-format rows written as evidence: ", nrow(target_long))
+println("Target-technology long-format rows saved as supporting data: ", nrow(target_long))
 markdown_table(first(target_long, 8))
 
-# ## Compare decline rates by technology and scenario
+# ## Cost trajectories
 
 decline = decline_summary(target_long)
 decline = sort(decline, :annualized_decline_rate_pct)
 write_table(decline, SCRIPT_STEM, "build_cost_decline_summary")
 markdown_table(decline)
 
-# ## Observations
+# ## Cost-trajectory findings
 #
 # - Every matched technology declines between its first and last available projection year in every scenario.
 # - The annualised decline rate ranges from about `-0.78%/yr` for fixed offshore wind under Current Policies/Progressive Change to about `-4.30%/yr` for eight-hour battery storage under Global NZE by 2050/Green Energy Exports.
@@ -207,14 +207,14 @@ markdown_table(decline)
 # Large-scale solar declines fastest in the two lower-decarbonisation scenario rows, while longer-duration batteries decline fastest in the four higher-decarbonisation rows.
 # The workbook therefore supplies scenario-conditioned cost assumptions rather than one fixed technology ranking.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - These are input assumptions from the workbook, not realised project costs or forecasts guaranteed to occur.
 # - The comparison does not add financing, operating costs, project-specific connection costs, or construction constraints.
 # - The CAGR-style measure summarises the first-to-last change and does not describe every intermediate-year step.
 # - Pumped hydro and BOTN assumptions are intentionally excluded.
 #
-# ## Implications for PISP users
+# ## Cost-input use
 #
 # Preserve the workbook scenario when selecting build costs and avoid applying one decline rate across technologies.
 # Studies comparing technology economics should retain the original `$/kW` basis and add other cost components explicitly rather than attributing them to this table.

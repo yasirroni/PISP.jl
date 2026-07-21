@@ -1,24 +1,20 @@
 # Source material
 
-PISP works with AEMO Integrated System Plan material drawn from several source families.
-The relationship between a source family and a PISP workflow is edition-specific.
-PISP.jl provides ISP 2026 asset and report downloaders and an archive-extraction helper.
-The source-only pages report local availability separately from any parser or
-generated-output capability.
-The [supported editions](supported-editions.md) page is the detailed status authority.
+PISP uses edition-specific AEMO reports, workbooks, archives, and traces.
+The table identifies the actual source artefacts and distinguishes an acquired 2026 source from an integrated PISP.jl dataset input.
 
-| Source family | ISP 2024 PISP consumer or support | ISP 2026 PISP support boundary | Cross-release relationship status |
-| --- | --- | --- | --- |
-| Report PDFs | `PISP.download_ISP24_reports` downloads selected reports for documentation and source consultation. | `PISP.download_ISP26_reports` downloads selected report PDFs. No PISP.jl parser or dataset-build consumer for report PDFs is yet integrated or documented. | Unknown |
-| Appendices | The 2024 report downloader includes selected appendices for documentation and source consultation. | The 2026 report downloader includes appendices A2, A3, A4, A6, and A7. No PISP.jl parser or dataset-build consumer for these appendices is yet integrated or documented. | Unknown |
-| Inputs and assumptions workbooks | The implemented 2024 parser and `PISP.build_ISP24_datasets` consume the configured 2024 input workbook. | `PISP.download_isp2026_assets` downloads the 2026 inputs-and-assumptions workbook, and the extraction helper prepares downloaded archives where applicable. Integration into PISP.jl and detailed under-review parser coverage are not established. | Unknown |
-| EV workbook | The implemented 2024 parser uses the configured 2023 IASR EV workbook when building EV DER schedules. | The 2026 asset downloader obtains the 2025 IASR EV workbook. Integration into PISP.jl and detailed under-review parser coverage are not established. | Unknown |
-| Model archive | The implemented 2024 workflow consumes model-side material, including hydro-inflow inputs. | The 2026 asset downloader obtains the model archive, and `PISP.ISPdatabuilder.extract_downloads` provides archive extraction. No PISP.jl parser or build consumer for this family is yet integrated or documented. | Unknown |
-| Generation and storage outlook archive | The implemented 2024 workflow uses outlook material to derive development and schedule inputs. | The 2026 asset downloader obtains the outlook archive, and the extraction helper can prepare downloaded archives. No PISP.jl parser or build consumer for this family is yet integrated or documented. | Unknown |
-| Solar trace archive | The implemented 2024 workflow downloads and uses release-specific solar traces. | The 2026 asset downloader obtains the solar-trace archive, and the extraction helper can prepare downloaded archives. No PISP.jl trace contract is yet integrated or documented. | Unknown |
-| Wind trace archive | The implemented 2024 workflow downloads and uses release-specific wind traces. | The 2026 asset downloader obtains the wind-trace archive, and the extraction helper can prepare downloaded archives. No PISP.jl trace contract is yet integrated or documented. | Unknown |
-| `Auxiliary` material | The 2024 build pipeline creates and consumes `Auxiliary` outlook workbooks as package-derived support material. | No PISP.jl 2026 `Auxiliary` layout or build consumer is yet integrated or documented. | Edition-only: ISP 2024 PISP support material |
-| Generated PISP datasets | `PISP.build_ISP24_datasets` writes the implemented 2024 PISP dataset outputs. | Under-review parser development does not yet establish an integrated PISP.jl dataset-build workflow or generated-output contract. | Edition-only: ISP 2024 package output |
+| Source material | ISP 2024 role in PISP | ISP 2026 acquisition and integration status |
+| --- | --- | --- |
+| Report PDFs | `PISP.download_ISP24_reports` downloads selected reports for documentation and source consultation. | `PISP.download_ISP26_reports` downloads selected report PDFs. Report acquisition does not define an integrated parser or dataset-build consumer. |
+| Report appendices | The 2024 report downloader includes selected appendices for documentation and source consultation. | The 2026 report downloader includes appendices A2, A3, A4, A6, and A7. These remain source material unless processed through a separately verified workflow. |
+| Inputs and assumptions workbook | The implemented parser and `PISP.build_ISP24_datasets` consume the configured 2024 workbook. | `PISP.download_isp2026_assets` downloads the 2026 inputs-and-assumptions workbook. Detailed parser coverage is not established by PISP.jl documentation. |
+| EV workbook | The 2024 parser uses the configured 2023 IASR EV workbook when constructing EV-related DER schedules. | The 2026 asset downloader obtains the 2025 IASR EV workbook. Its fields are not part of a documented PISP.jl 2026 output contract. |
+| Model archive | The implemented 2024 workflow consumes model-side material, including hydro-inflow inputs. | The 2026 asset downloader obtains the model archive, and `PISP.ISPdatabuilder.extract_downloads` extracts downloaded archives. |
+| Generation and storage outlook archive | The implemented 2024 workflow uses outlook material to derive development and schedule inputs. | The 2026 asset downloader obtains the outlook archive, and the extraction helper prepares its contents for inspection. |
+| Solar trace archive | The implemented 2024 workflow downloads and consumes release-specific solar traces. | The 2026 asset downloader obtains and can extract the solar-trace archive; no PISP.jl 2026 trace contract is documented. |
+| Wind trace archive | The implemented 2024 workflow downloads and consumes release-specific wind traces. | The 2026 asset downloader obtains and can extract the wind-trace archive; no PISP.jl 2026 trace contract is documented. |
+| `Auxiliary` material | The 2024 build creates and consumes `Auxiliary` outlook workbooks as package-derived support material. | No equivalent 2026 `Auxiliary` layout or build consumer is documented. |
+| Generated PISP datasets | `PISP.build_ISP24_datasets` writes the documented ISP 2024 static and schedule outputs. | PISP.jl does not document an integrated ISP 2026 dataset builder or generated-output contract. |
 
 The [ISP 2024 data sources](../generated/isp2024/reference/data-sources.md) page explains the source families consumed by the implemented 2024 workflow.
 The [ISP 2026 overview](isp2026.md) describes source download and extraction, the ParseISP.jl review state, and the current PISP.jl integration boundary.
@@ -28,7 +24,5 @@ Instructions, physical pp. 5 and 7. The local source pages use those reports to
 explain trace groups, not to infer that similarly named local folders are
 equivalent across editions.
 
-An unknown relationship is not a compatibility claim. Similar source names do
-not establish a shared schema, coverage, scenario definition, modelling role,
-parser compatibility, or generated-output contract. Those relationships need
-release-specific evidence and an explicit crosswalk.
+Similar source names do not establish a shared schema, coverage, scenario definition, modelling role, parser compatibility, or generated-output contract.
+The [comparison guide](comparison.md) defines the release-specific evidence and crosswalks required before comparing editions.

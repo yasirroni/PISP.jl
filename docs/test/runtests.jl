@@ -1,13 +1,126 @@
 using Test
+using DataFrames
 
 const TEST_DOCS_DIR = normpath(joinpath(@__DIR__, ".."))
 
 include(joinpath(TEST_DOCS_DIR, "page_registry.jl"))
 include(joinpath(TEST_DOCS_DIR, "render_literate.jl"))
 include(joinpath(TEST_DOCS_DIR, "navigation.jl"))
+include(joinpath(TEST_DOCS_DIR, "eda_support.jl"))
 
 using .PISPDocsPageRegistry
 using .PISPDocsNavigation
+using .EdaSupport
+
+@testset "Markdown table rendering" begin
+    rendered = markdown_table(DataFrame(Label = ["alpha", "beta"], Value = [1.0, 2.0]))
+    separator_cells = strip.(split(split(chomp(rendered.text), '\n')[2], '|'; keepempty = false))
+
+    @test length(separator_cells) == 2
+    @test !endswith(separator_cells[1], ":")
+    @test endswith(separator_cells[2], ":")
+    @test occursin("alpha", rendered.text)
+
+    currency = markdown_table(DataFrame(Label = ["Cost ($/MW)"], Value = [2.0]))
+    @test occursin(raw"\$", currency.text)
+
+    missing_numeric = markdown_table(
+        DataFrame(Label = ["alpha", "beta"], Value = Union{Missing, Float64}[1.0, missing]),
+    )
+    missing_separator = strip.(split(split(chomp(missing_numeric.text), '\n')[2], '|'; keepempty = false))
+    @test endswith(missing_separator[2], ":")
+
+    empty_typed = markdown_table(DataFrame(Label = String[], Value = Float64[]))
+    empty_separator = strip.(split(split(chomp(empty_typed.text), '\n')[2], '|'; keepempty = false))
+    @test !endswith(empty_separator[1], ":")
+    @test endswith(empty_separator[2], ":")
+
+    mixed_any = markdown_table(DataFrame(Mixed = Any[1, "two"], Value = Any[1, 2]))
+    mixed_separator = strip.(split(split(chomp(mixed_any.text), '\n')[2], '|'; keepempty = false))
+    @test !endswith(mixed_separator[1], ":")
+    @test endswith(mixed_separator[2], ":")
+
+    overridden = markdown_table(
+        DataFrame(Label = ["alpha"], Value = [1.0]);
+        alignment = [:r, :l],
+    )
+    overridden_separator = strip.(split(split(chomp(overridden.text), '\n')[2], '|'; keepempty = false))
+    @test endswith(overridden_separator[1], ":")
+    @test !endswith(overridden_separator[2], ":")
+
+    multiline = markdown_table(DataFrame(Label = ["alpha\nbeta"], Value = [1]))
+    @test occursin("alpha beta", multiline.text)
+    @test !occursin("alpha\nbeta", multiline.text)
+
+    metrics = metric_value_table(["Rows" => 12, "Coverage (%)" => 98.5])
+    @test occursin("Metric", metrics.text)
+    @test occursin("Coverage (%)", metrics.text)
+
+    table_interface = markdown_table((Label = ["alpha"], Value = [1.0]))
+    @test occursin("alpha", table_interface.text)
+end
+
+@testset "Human-use documentation invariants" begin
+    read_doc(path...) = read(joinpath(TEST_DOCS_DIR, "src", path...), String)
+
+    concepts = read_doc("concepts.md")
+    for required in (
+        "Demand.id_bus",
+        "Generator.id_bus",
+        "ESS.id_bus",
+        "DER.id_dem",
+        "Line.id_bus_from",
+        "Line.id_bus_to",
+        "Generator.tech",
+        "schedule-<year>",
+        "1 July",
+        "4006",
+    )
+        @test occursin(required, concepts)
+    end
+    @test occursin("rooftop PV is represented in `Generator`", concepts)
+    @test occursin("storage is represented in `ESS`", concepts)
+
+    assumptions = read_doc("assumptions.md")
+    for required in (
+        "problem_type = \"UC\"",
+        "seasonal or year-by-year outage-rate schedules",
+        "Rooftop PV",
+        "write_traces",
+        "check_exist_trace",
+        "checksums",
+    )
+        @test occursin(required, assumptions)
+    end
+
+    isp2026 = read_doc("editions", "isp2026.md")
+    @test occursin("https://github.com/airampg/ParseISP.jl", isp2026)
+
+    source_material = read_doc("editions", "source-material.md")
+    for required in (
+        "A2, A3, A4, A6, and A7",
+        "2023 IASR EV workbook",
+        "2025 IASR EV workbook",
+        "`Auxiliary`",
+    )
+        @test occursin(required, source_material)
+    end
+
+    mappings = read_doc("editions", "parameters-and-mappings.md")
+    for required in ("`1`, `2`, and `3`", "Twelve package bus aliases", "PISP.WEATHER_YEARS_ISP", "B11:K297", "B7:G50")
+        @test occursin(required, mappings)
+    end
+
+    comparison = read_doc("editions", "comparison.md")
+    for required in ("price year", "real or nominal", "one-to-many", "many-to-one", "inner join")
+        @test occursin(required, comparison)
+    end
+
+    trace_coverage = read_doc("editions", "trace-coverage.md")
+    for required in ("14 historical reference years", "16 for 2026", "DNSP", "probability of exceedance")
+        @test occursin(required, trace_coverage)
+    end
+end
 
 function fixture_page(
     ;
@@ -474,6 +587,7 @@ end
 
         @test first.(navigation) == [
             "Home",
+            "Quickstart",
             "Understand PISP and ISP data",
             "ISP 2024",
             "ISP 2026",
@@ -481,7 +595,7 @@ end
             "API Reference",
         ]
 
-        shared_material = last(navigation[2])
+        shared_material = last(navigation[3])
         @test first.(shared_material) == [
             "Supported ISP editions",
             "Domain concepts",
@@ -503,7 +617,7 @@ end
             "editions/parameters-and-mappings.md",
         ]
 
-        isp2024_navigation = last(navigation[3])
+        isp2024_navigation = last(navigation[4])
         @test first.(isp2024_navigation) == [
             "Overview",
             "Reference and inputs",
@@ -526,10 +640,10 @@ end
         @test !occursin("draft", repr(isp2024_navigation))
         @test !occursin("archived", repr(isp2024_navigation))
 
-        isp2026_navigation = last(navigation[4])
+        isp2026_navigation = last(navigation[5])
         @test isp2026_navigation == Any["Overview" => "editions/isp2026.md"]
 
-        comparison_navigation = last(navigation[5])
+        comparison_navigation = last(navigation[6])
         @test comparison_navigation == Any[
             "Overview and comparison rules" => "editions/comparison.md",
         ]

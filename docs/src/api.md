@@ -3,6 +3,9 @@
 PISP's dataset-construction API applies to ISP 2024.
 The main public entry point is `PISP.build_ISP24_datasets`; the problem-table helpers explain the scenario/time split used by that build pipeline and are exercised in the tutorial.
 
+Begin with the [Quickstart](quickstart.md) for installation, one small build, and output verification.
+Use this page for the complete public signatures and additional examples.
+
 ## ISP 2024 dataset construction
 
 ```@docs
@@ -94,6 +97,5 @@ PISP.ISPdatabuilder.extract_downloads(
 )
 ```
 
-ISP 2026 parser development is under review in [ParseISP.jl](https://github.com/airampg/ParseISP.jl), outside the public PISP.jl API documented on this page.
-An ISP 2026 dataset builder and generated-output contract are not yet integrated into PISP.jl, and no ISP 2026 validation or analysis result is published here.
-See [Supported ISP editions](editions/supported-editions.md) for the complete support boundary.
+The [ISP 2026 overview](editions/isp2026.md) identifies the separate parser-development repository and the boundary between source acquisition and PISP.jl dataset construction.
+[Supported ISP editions](editions/supported-editions.md) is the capability authority.

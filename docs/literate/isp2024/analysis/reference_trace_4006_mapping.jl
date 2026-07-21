@@ -3,7 +3,7 @@
 # Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon.
 # A near-term or far-term renewable profile is therefore a reuse of selected historical solar and wind years rather than an independent weather forecast.
 #
-# ## Analytical scope
+# ## Mapping definition
 #
 # | Item | Definition |
 # |---|---|
@@ -14,7 +14,7 @@
 # | Far-term group | Financial years ending 2045-2049 |
 # | Metrics | Historical-year counts, annual and summer capacity factor, grouped daily profiles |
 #
-# The page builds the mapping and the renewable statistics derived from it so that planning-year comparisons retain their historical-weather basis.
+# The mapping and derived renewable statistics retain the historical-weather basis of each planning-year comparison.
 
 ENV["GKSwstype"] = "100"
 
@@ -51,7 +51,7 @@ const NEAR_YEARS = [2025, 2026, 2027, 2028, 2029]
 const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
 nothing #hide
 
-# The financial-year-to-historical-year mapping is read directly from `PISP.WEATHER_YEARS_ISP` rather than restated here, so this page cannot drift from the package's own mapping. An invariant check confirms every financial-year range is contiguous.
+# The financial-year-to-historical-year mapping is read directly from the package configuration in `PISP.WEATHER_YEARS_ISP`. An invariant check confirms every financial-year range is contiguous.
 
 const DATE_RANGES_REFYEARS = [
     (fy_range[1], fy_range[2], parse(Int, ref_year))
@@ -92,7 +92,7 @@ function load_year_cf(years, tech, loc, hh_cols)
 end
 nothing #hide
 
-# ## Which historical year supplies each financial year?
+# ## Financial-year sequence
 #
 # Each row assigns one financial year in the planning horizon to the historical weather year whose trace is reused for it.
 
@@ -119,7 +119,7 @@ for row in eachrow(mapping_table)
     println("  ", row.fy_start[1:4], " → ref ", row.ref_year)
 end
 
-# ## How renewable availability differs by historical year
+# ## Historical-year renewable statistics
 #
 # For every historical year actually used by the mapping, this computes the annual mean capacity factor and the summer (Dec/Jan/Feb) mean, minimum, and 5th-percentile capacity factor for the representative solar and wind locations.
 
@@ -149,7 +149,7 @@ historical_year_vre_stats = DataFrame(historical_year_vre_stats_rows)
 write_table(historical_year_vre_stats, SCRIPT_STEM, "historical_year_vre_stats")
 markdown_table(historical_year_vre_stats)
 
-# ## How the near-term and far-term groups are composed
+# ## Near- and far-term composition
 #
 # The near-term group (financial years ending 2025-2029) and far-term group (financial years ending 2045-2049) are each translated through the mapping to their historical reference years, then averaged day-by-day across the group's traces. Each historical reference trace covers many years of half-hourly data reduced to one capacity-factor value per day, so the resulting near/far series run to tens of thousands of rows per technology; the full daily series is written to file as complete evidence, and the table below summarises it by technology and term.
 
@@ -353,7 +353,7 @@ nothing #hide
 
 # ![Annual mean capacity factor by historical year and technology, coloured and annotated per cell](08_vre_heatmap.png)
 
-# ## Observations
+# ## Verification
 #
 # - The current mapping contains `28` financial years supplied by `13` historical labels.
 # - Historical year `2015` is reused four times; each other historical label is reused twice.
@@ -364,13 +364,13 @@ nothing #hide
 # A difference between near-term and far-term grouped profiles reflects the historical-year composition assigned to those financial years.
 # It should not be interpreted as a monotonic climate trend or as evidence that weather conditions improve or deteriorate with planning year.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - Renewable statistics use one Victorian solar and one Victorian wind site.
 # - Group averages can hide adverse days and differences between the historical years within each group.
 # - The page explains the package mapping; it does not validate the mapping as a climate projection.
 #
-# ## Implications for PISP users
+# ## Implications
 #
 # Report both the planning year and its mapped historical year when interpreting a trace-`4006` result.
 # Where conclusions are sensitive to renewable availability, test the constituent historical labels directly instead of treating planning year as an independent weather dimension.

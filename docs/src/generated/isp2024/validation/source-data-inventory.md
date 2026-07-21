@@ -4,7 +4,7 @@ EditURL = "../../../../literate/isp2024/validation/source_data_inventory.jl"
 
 # ISP 2024: Source-data inventory
 
-This page walks the local PISP download root directly, producing a file inventory, a top-level summary, an extension summary, and a depth-limited directory tree, all computed live on this page.
+The inventory summarises files, extensions, top-level directories, and a three-level directory view for the configured ISP 2024 download root.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -42,7 +42,7 @@ end
 </details>
 ```
 
-Single recursive walk of the download tree that produces both a flat file inventory (every depth) and a depth-limited directory-tree listing, so the tree structure does not need a second filesystem walk.
+The inventory covers the complete download tree and records a compact three-level directory view.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -209,9 +209,9 @@ end
 </details>
 ```
 
-## Step 1 — walk the local download tree
+## Source-tree coverage
 
-A single recursive walk over the download root produces a flat file inventory (every file, at every depth) and a depth-limited directory-tree listing in the same pass.
+A recursive inventory over the download root produces a flat file inventory (every file, at every depth) and a depth-limited directory-tree listing in the same pass.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -220,7 +220,7 @@ A single recursive walk over the download root produces a flat file inventory (e
 ````julia
 isdir(abs_path(DOWNLOAD_ROOT)) || error(
     "expected local download tree at \"$DOWNLOAD_ROOT\"; " *
-    "run the PISP downloader to populate $(DOWNLOAD_ROOT)/ before rendering this page",
+    "run the PISP downloader to populate $(DOWNLOAD_ROOT)/ before rendering the source inventory",
 )
 
 files, tree_rows = walk_download_root(abs_path(DOWNLOAD_ROOT))
@@ -236,9 +236,9 @@ Total files discovered under data/2024/pisp-downloads: 8250
 
 ````
 
-## Step 2 — file inventory, top-level summary, and extension summary
+## File and extension summary
 
-`file_inventory` lists every discovered file; the full inventory is written as evidence, while the table below previews only the ten largest files by size. `top_level_summary` aggregates by immediate child of the download root, and `extension_summary` aggregates by file extension across the whole tree.
+`file_inventory` lists every discovered file. The table below shows the ten largest files, while `top_level_summary` and `extension_summary` aggregate the complete inventory.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -258,7 +258,7 @@ markdown_table(largest_files)
 ```
 
 | **relative\_path** | **size\_bytes** | **extension** | **depth** |
-|--:|--:|--:|--:|
+|:--|--:|:--|--:|
 | zip/Traces/57\_ISP\_Wind\_Traces\_r2018.zip | 361191687 | zip | 3 |
 | zip/Traces/53\_ISP\_Wind\_Traces\_r2014.zip | 361112039 | zip | 3 |
 | zip/Traces/51\_ISP\_Wind\_Traces\_r2012.zip | 361090963 | zip | 3 |
@@ -286,7 +286,7 @@ markdown_table(top_level_summary)
 ```
 
 | **name** | **kind** | **file\_count** | **total\_bytes** | **extensions** |
-|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|:--|
 | 2019-input-and-assumptions-workbook-v1-3-dec-19.xlsx | file | 1 | 25926656 |  |
 | 2023-iasr-ev-workbook.xlsx | file | 1 | 505291 |  |
 | 2024 ISP Model | directory | 90 | 495584080 | csv,xml |
@@ -313,14 +313,14 @@ markdown_table(extension_summary)
 ```
 
 | **extension** | **file\_count** | **total\_bytes** |
-|--:|--:|--:|
+|:--|--:|--:|
 | csv | 8158 | 50752303703 |
 | xlsx | 22 | 102972933 |
 | xml | 6 | 91464073 |
 | zip | 64 | 19034494645 |
 
 
-## Step 3 — directory tree (depth ≤ 3)
+## Directory structure
 
 The tree below mirrors the on-disk folder layout down to three levels deep. Some folders hold far more files than are useful to list one by one — a single `Traces/<tech>_<year>/` folder holds hundreds of near-identical per-location trace CSVs — so a folder with many files shows only its first several, followed by a line stating how many more were left out.
 
@@ -719,7 +719,7 @@ pisp-downloads/
 
 ````
 
-## Step 4 — inventory totals
+## Inventory totals
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -740,16 +740,32 @@ inventory_summary = DataFrame([
     ),
 ])
 write_table(inventory_summary, SCRIPT_STEM, "inventory_summary")
-markdown_table(inventory_summary)
+metric_value_table([
+    "Download root" => inventory_summary.download_root[1],
+    "Total files" => inventory_summary.total_files[1],
+    "Total bytes" => inventory_summary.total_bytes[1],
+    "Tree depth" => inventory_summary.tree_depth[1],
+    "Maximum files in one directory" => inventory_summary.max_files_per_directory[1],
+    "Top-level entries" => inventory_summary.top_level_entries[1],
+    "Largest entry" => inventory_summary.largest_entry[1],
+    "Largest entry (bytes)" => inventory_summary.largest_entry_bytes[1],
+])
 ````
 
 ```@raw html
 </details>
 ```
 
-| **download\_root** | **total\_files** | **total\_bytes** | **tree\_depth** | **max\_files\_per\_directory** | **top\_level\_entries** | **largest\_entry** | **largest\_entry\_bytes** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
-| data/2024/pisp-downloads | 8250 | 69981235354 | 3 | 3 | 9 | Traces | 50348183696 |
+| **Metric** | **Value** |
+|:--|:--|
+| Download root | data/2024/pisp-downloads |
+| Total files | 8250 |
+| Total bytes | 69981235354 |
+| Tree depth | 3 |
+| Maximum files in one directory | 3 |
+| Top-level entries | 9 |
+| Largest entry | Traces |
+| Largest entry (bytes) | 50348183696 |
 
 
 ```@raw html
@@ -772,5 +788,5 @@ Total: 8250 files, 66739.31 MB under data/2024/pisp-downloads
 ## Summary
 
 - The download root currently holds the file counts and sizes shown in `inventory_summary` above, broken down by top-level entry and by file extension.
-- The full per-file inventory (`file_inventory.csv`) and the depth-limited directory tree (`directory_tree.csv`) are both written as evidence for downstream inspection, even though only bounded previews are rendered on this page.
+- The complete per-file inventory and three-level directory tree are retained in `file_inventory.csv` and `directory_tree.csv`; the main summary presents the counts needed for interpretation.
 

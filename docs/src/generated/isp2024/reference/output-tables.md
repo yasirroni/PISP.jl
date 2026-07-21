@@ -80,7 +80,7 @@ markdown_table(static_tables)
 ```
 
 | **output\_table** | **container\_field** | **primary\_id** | **relationship\_ids** | **columns** |
-|--:|--:|--:|--:|--:|
+|:--|:--|:--|:--|:--|
 | Bus | bus | id\_bus | id\_area | id\_bus, name, alias, active, latitude, longitude, id\_area |
 | Demand | dem | id\_dem | id\_bus | id\_dem, name, load\_, id\_bus, active, controllable, voll, contingency |
 | ESS | ess | id\_ess | id\_bus | id\_ess, name, alias, tech, type, capacity, investment, active, id\_bus, ch\_eff, dch\_eff, eini, emin, emax, pmin, pmax, lmin, lmax, fullout, partialout, mttrfull, mttrpart, inertia, powerfactor, ffr, pfr, res2, res3, fr\_db, fr\_ad, fr\_dt, fr\_frt, fr\_fr, longitude, latitude, n, contingency |
@@ -127,7 +127,7 @@ markdown_table(schedule_tables)
 ```
 
 | **output\_table** | **container\_field** | **primary\_id** | **relationship\_ids** | **columns** |
-|--:|--:|--:|--:|--:|
+|:--|:--|:--|:--|:--|
 | Demand\_load\_sched | dem\_load | id | id\_dem | id, id\_dem, scenario, date, value |
 | ESS\_emax\_sched | ess\_emax | id | id\_ess | id, id\_ess, scenario, date, value |
 | ESS\_lmax\_sched | ess\_lmax | id | id\_ess | id, id\_ess, scenario, date, value |

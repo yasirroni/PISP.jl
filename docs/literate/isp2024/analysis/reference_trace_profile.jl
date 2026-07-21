@@ -1,9 +1,9 @@
 # # ISP 2024: Reference trace 4006 profiles
 #
 # Reference trace `4006` combines location-specific solar and wind profiles with a planning-horizon weather-year mapping.
-# This page examines the spatial, daily, diurnal, seasonal, and financial-year structure of the raw ISP 2024 trace.
+# The selected raw ISP 2024 traces are examined across spatial, daily, diurnal, seasonal, and financial-year dimensions.
 #
-# ## Analytical scope
+# ## Selected trace data
 #
 # | Item | Definition |
 # |---|---|
@@ -147,7 +147,7 @@ function daily_cf_row(tech, state, loc, df::DataFrame, hh_cols)
 end
 nothing #hide
 
-# ## Load the representative 4006 traces
+# ## Selected trace files
 #
 # One representative solar and one representative wind location per state are loaded for trace year `4006`.
 
@@ -158,7 +158,7 @@ wind_4006 = load_traces("wind", 4006, last.(WIND_LOCATIONS))
 
 println("Loaded $(length(sol_4006)) solar locations, $(length(wind_4006)) wind locations for trace 4006")
 
-# ## Which representative files are available?
+# ## File coverage
 #
 # The loaded-location inventory records, for every representative solar and wind site, whether its trace file was found and its shape if so.
 
@@ -192,7 +192,7 @@ loaded_locations = DataFrame(loaded_location_rows)
 write_table(loaded_locations, SCRIPT_STEM, "loaded_locations")
 markdown_table(loaded_locations)
 
-# ## How daily capacity factor differs across representative sites
+# ## Daily capacity-factor summary
 #
 # For each loaded location, the daily summary reports descriptive statistics of the daily mean capacity factor, including the mean of a 7-day rolling average.
 
@@ -212,7 +212,7 @@ daily_cf_summary = DataFrame(daily_cf_summary_rows)
 write_table(daily_cf_summary, SCRIPT_STEM, "daily_cf_summary")
 markdown_table(daily_cf_summary)
 
-# ## How Victorian solar changes by season and half hour
+# ## Solar profile
 #
 # The half-hourly diurnal profile at `Bannerton_SAT` is split into summer (Dec-Feb) and winter (Jun-Aug) days, reporting the mean, 10th and 90th percentile capacity factor at each half hour.
 
@@ -242,10 +242,10 @@ solar_diurnal_profile = DataFrame(solar_diurnal_profile_rows)
 write_table(solar_diurnal_profile, SCRIPT_STEM, "solar_diurnal_profile")
 markdown_table(solar_diurnal_profile)
 
-# ## How Victorian wind changes by month and half hour
+# ## Wind profile
 #
 # The half-hourly diurnal profile at `DUNDWF1` is reported separately for each calendar month present in the trace: 12 months of 48 half-hourly points each.
-# The full table is written to the evidence CSV; the page displays one complete month while the monthly-structure figure shows all months together.
+# The complete table is written to the evidence CSV. One month is shown below, while the monthly-structure figure includes all months.
 
 df_wind_prof = wind_4006["DUNDWF1"]
 
@@ -271,7 +271,7 @@ markdown_table(first(wind_monthly_diurnal_profile, 48))
 # ## How Victorian wind varies by month
 #
 # The daily capacity factor at `DUNDWF1` is grouped by calendar-month start to give a compact monthly mean series spanning the full trace.
-# The full series is written to the evidence CSV and plotted in the monthly-structure figure; the page displays the first two years as a bounded sample.
+# The complete series is written to the evidence CSV and plotted in the monthly-structure figure; the table below shows the first two years.
 
 df_wind_prof = wind_4006["DUNDWF1"]
 daily_wind = daily_cf(df_wind_prof, HH_COLS_WIND)
@@ -489,9 +489,9 @@ nothing #hide
 
 println("\nDone.")
 
-# ## Observations
+# ## Profile findings
 #
-# - All five representative solar files and all five representative wind files load successfully in the rendered evidence.
+# - The selected five representative solar files and five representative wind files loaded successfully in this execution.
 # - Each representative series contains `10,227` daily rows after the half-hourly trace is reduced to daily mean capacity factor.
 # - Mean daily solar capacity factor across the five sites ranges from about `0.257` to `0.295`; the corresponding wind range is about `0.326` to `0.386`.
 # - The diurnal and monthly evidence shows that trace `4006` contains time structure that is not represented by one annual mean.
@@ -501,14 +501,14 @@ println("\nDone.")
 # Reference trace `4006` is a collection of location-specific profiles plus a historical-year mapping, not one generic renewable shape.
 # Site selection, season, and financial-year mapping all affect the availability premise used by downstream studies.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - One site per state is a documentation sample, not a state-wide renewable portfolio.
 # - The page does not quantify spatial correlation or portfolio smoothing.
 # - Capacity-factor traces describe availability rather than realised generation, dispatch, or adequacy.
 # - The historical-year mapping does not make `4006` a future climate projection.
 #
-# ## Implications for PISP users
+# ## Trace selection
 #
 # Report the selected location and financial-year mapping whenever trace `4006` is used.
 # Studies that depend on spatial diversity or adverse renewable conditions should use additional sites and historical-year sensitivity rather than relying on one representative profile.

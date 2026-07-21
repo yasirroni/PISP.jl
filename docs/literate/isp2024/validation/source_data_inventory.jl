@@ -1,6 +1,6 @@
 # # ISP 2024: Source-data inventory
 #
-# This page walks the local PISP download root directly, producing a file inventory, a top-level summary, an extension summary, and a depth-limited directory tree, all computed live on this page.
+# The inventory summarises files, extensions, top-level directories, and a three-level directory view for the configured ISP 2024 download root.
 
 using CSV
 using DataFrames
@@ -29,7 +29,7 @@ function lowercase_extension(name)
 end
 nothing #hide
 
-# Single recursive walk of the download tree that produces both a flat file inventory (every depth) and a depth-limited directory-tree listing, so the tree structure does not need a second filesystem walk.
+# The inventory covers the complete download tree and records a compact three-level directory view.
 function walk_download_root(root; max_tree_depth = MAX_TREE_DEPTH, max_children_per_dir = MAX_TREE_CHILDREN_PER_DIR)
     files = NamedTuple[]
     tree_rows = NamedTuple[]
@@ -166,22 +166,22 @@ function render_tree(tree::DataFrame; root_label = "pisp-downloads")
 end
 nothing #hide
 
-# ## Step 1 — walk the local download tree
+# ## Source-tree coverage
 #
-# A single recursive walk over the download root produces a flat file inventory (every file, at every depth) and a depth-limited directory-tree listing in the same pass.
+# A recursive inventory over the download root produces a flat file inventory (every file, at every depth) and a depth-limited directory-tree listing in the same pass.
 
 isdir(abs_path(DOWNLOAD_ROOT)) || error(
     "expected local download tree at \"$DOWNLOAD_ROOT\"; " *
-    "run the PISP downloader to populate $(DOWNLOAD_ROOT)/ before rendering this page",
+    "run the PISP downloader to populate $(DOWNLOAD_ROOT)/ before rendering the source inventory",
 )
 
 files, tree_rows = walk_download_root(abs_path(DOWNLOAD_ROOT))
 println("Total files discovered under ", DOWNLOAD_ROOT, ": ", length(files))
 nothing #hide
 
-# ## Step 2 — file inventory, top-level summary, and extension summary
+# ## File and extension summary
 #
-# `file_inventory` lists every discovered file; the full inventory is written as evidence, while the table below previews only the ten largest files by size. `top_level_summary` aggregates by immediate child of the download root, and `extension_summary` aggregates by file extension across the whole tree.
+# `file_inventory` lists every discovered file. The table below shows the ten largest files, while `top_level_summary` and `extension_summary` aggregate the complete inventory.
 
 file_inventory = DataFrame(files)
 write_table(file_inventory, SCRIPT_STEM, "file_inventory")
@@ -202,7 +202,7 @@ extension_summary = summarize_extensions(files)
 write_table(extension_summary, SCRIPT_STEM, "extension_summary")
 markdown_table(extension_summary)
 
-# ## Step 3 — directory tree (depth ≤ 3)
+# ## Directory structure
 #
 # The tree below mirrors the on-disk folder layout down to three levels deep. Some folders hold far more files than are useful to list one by one — a single `Traces/<tech>_<year>/` folder holds hundreds of near-identical per-location trace CSVs — so a folder with many files shows only its first several, followed by a line stating how many more were left out.
 
@@ -216,7 +216,7 @@ tree_text = render_tree(directory_tree);
 
 print(tree_text) #hide
 
-# ## Step 4 — inventory totals
+# ## Inventory totals
 
 total_bytes = isempty(files) ? 0 : sum(f.size_bytes for f in files)
 inventory_summary = DataFrame([
@@ -232,7 +232,16 @@ inventory_summary = DataFrame([
     ),
 ])
 write_table(inventory_summary, SCRIPT_STEM, "inventory_summary")
-markdown_table(inventory_summary)
+metric_value_table([
+    "Download root" => inventory_summary.download_root[1],
+    "Total files" => inventory_summary.total_files[1],
+    "Total bytes" => inventory_summary.total_bytes[1],
+    "Tree depth" => inventory_summary.tree_depth[1],
+    "Maximum files in one directory" => inventory_summary.max_files_per_directory[1],
+    "Top-level entries" => inventory_summary.top_level_entries[1],
+    "Largest entry" => inventory_summary.largest_entry[1],
+    "Largest entry (bytes)" => inventory_summary.largest_entry_bytes[1],
+])
 
 #-
 
@@ -241,4 +250,4 @@ markdown_table(inventory_summary)
 # ## Summary
 #
 # - The download root currently holds the file counts and sizes shown in `inventory_summary` above, broken down by top-level entry and by file extension.
-# - The full per-file inventory (`file_inventory.csv`) and the depth-limited directory tree (`directory_tree.csv`) are both written as evidence for downstream inspection, even though only bounded previews are rendered on this page.
+# - The complete per-file inventory and three-level directory tree are retained in `file_inventory.csv` and `directory_tree.csv`; the main summary presents the counts needed for interpretation.

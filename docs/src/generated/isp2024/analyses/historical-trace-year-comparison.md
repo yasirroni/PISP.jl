@@ -5,9 +5,9 @@ EditURL = "../../../../literate/isp2024/analysis/historical_trace_years.jl"
 # ISP 2024: Historical trace-year comparison
 
 A single reference year can conceal interannual variation in renewable availability.
-This page compares the ISP 2024 historical solar and wind trace archive across 2011-2023.
+The analysis compares the ISP 2024 historical solar and wind trace archive across 2011-2023.
 
-## Analytical scope
+## Trace-year coverage
 
 | Item | Definition |
 |---|---|
@@ -83,7 +83,7 @@ row_max(df::DataFrame, cols) = [maximum(row[col] for col in cols) for row in eac
 </details>
 ```
 
-## Load the historical trace ensemble
+## Historical trace ensemble
 
 `Bannerton_SAT` (solar) and `DUNDWF1` (wind) are loaded for every historical reference year in `YEARS` that has a local trace file available.
 AEMO describes this as a rolling reference-year approach: the traces combine a 14-year historical sequence that repeats across the planning horizon ([2024 ISP PLEXOS Model Instructions, p. 5](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5)).
@@ -110,7 +110,7 @@ Loaded wind DUNDWF1: 13 years
 
 ````
 
-## How seasonal capacity factor varies by year
+## Annual and seasonal variability
 
 For each loaded year, the summer (Dec/Jan/Feb) and winter (Jun/Jul/Aug) daily mean capacity factors are summarised separately, since variation between seasons and variation between years within the same season are different effects.
 
@@ -174,7 +174,7 @@ markdown_table(seasonal_cf_by_year)
 ```
 
 | **tech** | **location** | **season** | **year** | **n\_days** | **mean\_cf** | **std\_cf** | **min\_cf** | **max\_cf** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|:--|--:|--:|--:|--:|--:|--:|
 | solar | Bannerton\_SAT | Summer | 2011 | 3068 | 0.361699 | 0.138521 | 0.0145063 | 0.499403 |
 | solar | Bannerton\_SAT | Winter | 2011 | 3128 | 0.156857 | 0.0585027 | 0.0095789 | 0.320306 |
 | solar | Bannerton\_SAT | Summer | 2012 | 3068 | 0.38577 | 0.113911 | 0.0311683 | 0.498795 |
@@ -258,7 +258,7 @@ markdown_table(annual_cf_by_year)
 ```
 
 | **tech** | **location** | **year** | **mean\_cf** |
-|--:|--:|--:|--:|
+|:--|:--|--:|--:|
 | solar | Bannerton\_SAT | 2011 | 0.257362 |
 | solar | Bannerton\_SAT | 2012 | 0.274037 |
 | solar | Bannerton\_SAT | 2013 | 0.287337 |
@@ -287,7 +287,7 @@ markdown_table(annual_cf_by_year)
 | wind | DUNDWF1 | 2023 | 0.369846 |
 
 
-## Which summer solar day is most adverse in each year?
+## Extreme summer days
 
 For each year, this finds the summer day with the lowest midday (hour 12-18) maximum capacity factor — an event-screening metric rather than a complete adequacy or energy-shortfall measure. Ties resolve to the first occurrence.
 
@@ -318,7 +318,7 @@ markdown_table(worst_summer_day_by_year)
 ```
 
 | **year** | **date** | **midday\_max\_cf** |
-|--:|--:|--:|
+|--:|:--|--:|
 | 2011 | 2022-01-09 | 0.0456214 |
 | 2012 | 2022-01-30 | 0.135249 |
 | 2013 | 2021-12-17 | 0.0892427 |
@@ -334,7 +334,7 @@ markdown_table(worst_summer_day_by_year)
 | 2023 | 2021-12-22 | 0.315597 |
 
 
-## How often near-zero-output days occur
+## Near-zero-output frequency
 
 Solar and wind use different low-output metrics: solar counts summer days whose midday maximum falls below the threshold, while wind uses the summer daily mean capacity factor. Their percentages are therefore not directly interchangeable without retaining the metric definition.
 
@@ -398,7 +398,7 @@ markdown_table(low_output_days_by_year)
 ```
 
 | **tech** | **location** | **year** | **metric** | **threshold** | **n\_low** | **n\_total** | **low\_percent** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|:--|--:|--:|--:|--:|
 | solar | Bannerton\_SAT | 2011 | midday\_max\_cf | 0.05 | 34 | 3068 | 1.10821 |
 | solar | Bannerton\_SAT | 2012 | midday\_max\_cf | 0.05 | 0 | 3068 | 0.0 |
 | solar | Bannerton\_SAT | 2013 | midday\_max\_cf | 0.05 | 0 | 3068 | 0.0 |
@@ -465,7 +465,7 @@ markdown_table(annual_cf_variability_summary)
 ```
 
 | **tech** | **location** | **mean\_annual\_cf** | **std\_annual\_cf** | **min\_annual\_cf** | **max\_annual\_cf** |
-|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|
 | solar | Bannerton\_SAT | 0.282295 | 0.0104352 | 0.257362 | 0.297859 |
 | wind | DUNDWF1 | 0.38675 | 0.019416 | 0.361648 | 0.421323 |
 
@@ -705,7 +705,7 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_zero_output_days.png"), "03
 
 ![Percentage of summer days each year with near-zero solar midday-max or wind daily-mean capacity factor, annotated with the underlying day count](03_zero_output_days.png)
 
-## Observations
+## Trace-year findings
 
 - Thirteen historical labels are available for both representative locations.
 - Annual mean solar capacity factor ranges from `0.257362` to `0.297859`, a spread of about `4.05` percentage points.
@@ -717,13 +717,13 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "03_zero_output_days.png"), "03
 Choosing one historical trace year changes the renewable-availability premise used by a study.
 The annual range, seasonal distributions, and adverse-day metrics should therefore be treated as complementary evidence rather than reduced to one preferred year.
 
-## Limitations and non-claims
+## Limitations
 
 - Each technology is represented by one Victorian location, so the results do not quantify geographic smoothing.
 - Solar and wind use different low-output definitions; their percentages cannot be ranked as though they measured the same event.
 - The analysis describes source traces and does not calculate dispatch, energy shortfall, or adequacy risk.
 
-## Implications for PISP users
+## Trace selection
 
 Studies sensitive to renewable droughts or extreme availability should test multiple historical labels and report the selected location and metric.
 Reference trace `4006` should not be treated as a substitute for this trace-year sensitivity analysis.

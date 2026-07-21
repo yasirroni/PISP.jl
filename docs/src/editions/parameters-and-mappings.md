@@ -4,8 +4,7 @@ PISP's implemented mapping layer is specific to the ISP 2024 workflow.
 It combines source-derived workbook fields with package-defined identifiers,
 aliases, classifications, and constants that make those fields usable in the
 PISP data model.
-For ISP 2026, parser development is under review and not yet integrated into PISP.jl's documented workflow, and detailed mapping coverage is unverified here.
-The [supported editions](supported-editions.md) page is the detailed status authority.
+The [supported editions](supported-editions.md) page records the separate ISP 2026 acquisition and integration boundary.
 
 | Mapping or parameter layer | ISP 2024 PISP evidence | ISP 2026 PISP status |
 | --- | --- | --- |
@@ -31,8 +30,5 @@ downloaded source files are unchanged. See [Assumptions and scope](../assumption
 for technology-specific capacity caveats and [Trace coverage](trace-coverage.md)
 for the release-specific trace boundary.
 
-ISP 2026 assets are available to download and extract, and parser development is under review and not yet integrated into PISP.jl's documented workflow.
-PISP.jl does not yet document an integrated mapping layer that establishes how 2026 labels, scenarios, geography, REZs, technologies, source sheets, or trace conventions relate to the 2024 ones.
-Detailed under-review parser mapping coverage remains unverified here.
-A comparison requires release-specific source evidence and an explicit
-crosswalk; the [comparison guide](comparison.md) lists the required categories.
+PISP.jl does not document an integrated mapping layer that establishes how ISP 2026 labels, scenarios, geography, REZs, technologies, source sheets, or trace conventions relate to the ISP 2024 model.
+A comparison therefore requires release-specific source evidence and an explicit crosswalk; the [comparison guide](comparison.md) lists the required categories.

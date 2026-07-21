@@ -5,7 +5,17 @@ using DataFrames
 using Pkg
 using PrettyTables
 
-export TABLE_ROOT, FIGURE_ROOT, table_dir, table_path, write_table, figure_dir, figure_path, embed_figure, MarkdownTable, markdown_table
+export TABLE_ROOT,
+    FIGURE_ROOT,
+    table_dir,
+    table_path,
+    write_table,
+    figure_dir,
+    figure_path,
+    embed_figure,
+    MarkdownTable,
+    markdown_table,
+    metric_value_table
 
 const TABLE_ROOT = joinpath(normpath(joinpath(@__DIR__, "..")), "eda", "tables")
 const FIGURE_ROOT = joinpath(normpath(joinpath(@__DIR__, "..")), "eda", "figures")
@@ -49,9 +59,8 @@ function embed_figure(canonical_path, figure_name)
     return embedded_path
 end
 
-# Renders a Tables.jl-compatible table (e.g. a DataFrame) as a Markdown pipe table via PrettyTables, exposed only as a `text/markdown` MIME show method.
-# Literate captures this MIME over the richer `text/html` DataFrames representation, so the generated docs page gets a plain pipe table instead of an embedded HTML table.
-# Column names are left as-is by default (this is EDA evidence for the user reading the source, not a polished report for an external reader), but callers may still pass any PrettyTables keyword (column_labels, formatters, alignment, ...) when a page needs one.
+# Renders a Tables.jl-compatible table as a Markdown pipe table.
+# Literate captures this MIME instead of DataFrames' richer HTML representation.
 struct MarkdownTable
     text::String
 end
@@ -59,8 +68,7 @@ end
 Base.show(io::IO, ::MIME"text/markdown", table::MarkdownTable) =
     print(io, table.text)
 
-# A literal, unescaped `$` in generated Markdown reads to Documenter as the start of inline Julia interpolation, which can fail the build (e.g. a "$/kW"-style column label or cell value).
-# Escapes `$` as `\$` (respecting any existing backslash the value already carries) so currency-style labels and values pass through Documenter unchanged.
+# A literal, unescaped `$` in generated Markdown starts Documenter interpolation.
 function escape_dollar_signs(text::AbstractString)
     output = IOBuffer()
     preceding_backslashes = 0
@@ -78,20 +86,59 @@ function escape_dollar_signs(text::AbstractString)
     return String(take!(output))
 end
 
-function markdown_table(table; column_labels = names(table), kwargs...)
-    escaped_labels = [escape_dollar_signs(string(label)) for label in column_labels]
-    escape_formatter = (value, _row, _column) -> value isa AbstractString ? escape_dollar_signs(value) : value
+function normalise_markdown_text(text::AbstractString)
+    return escape_dollar_signs(replace(strip(text), r"\s*\n\s*" => " "))
+end
+
+function numeric_markdown_column(column)
+    nonmissing_type = Base.nonmissingtype(eltype(column))
+    nonmissing_type <: Number && return true
+    nonmissing_type !== Any && return false
+
+    observed = collect(skipmissing(column))
+    return !isempty(observed) && all(value -> value isa Number, observed)
+end
+
+function infer_markdown_alignment(table::AbstractDataFrame)
+    return [numeric_markdown_column(column) ? :r : :l for column in eachcol(table)]
+end
+
+function markdown_table(
+    table;
+    column_labels = nothing,
+    alignment = nothing,
+    formatters = (),
+    kwargs...,
+)
+    render_table = table isa AbstractDataFrame ? table : DataFrame(table)
+    resolved_labels = isnothing(column_labels) ? names(render_table) : column_labels
+    resolved_alignment = isnothing(alignment) ? infer_markdown_alignment(render_table) : alignment
+    escaped_labels = [normalise_markdown_text(string(label)) for label in resolved_labels]
+    text_formatter = (value, _row, _column) ->
+        value isa AbstractString ? normalise_markdown_text(value) : value
+    additional_formatters = formatters isa Function ? [formatters] : collect(formatters)
+
     MarkdownTable(
         pretty_table(
             String,
-            table;
+            render_table;
             backend = :markdown,
             column_labels = escaped_labels,
             table_format = MarkdownTableFormat(compact_table = true),
-            formatters = [escape_formatter],
+            alignment = resolved_alignment,
+            formatters = [text_formatter, additional_formatters...],
             kwargs...,
         ),
     )
+end
+
+function metric_value_table(metrics)
+    pairs = collect(metrics)
+    table = DataFrame(
+        Metric = [first(pair) for pair in pairs],
+        Value = [last(pair) for pair in pairs],
+    )
+    return markdown_table(table; alignment = [:l, :l])
 end
 
 end # module EdaSupport

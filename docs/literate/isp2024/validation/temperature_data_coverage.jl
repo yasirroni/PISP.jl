@@ -1,6 +1,6 @@
-# # ISP 2024: Temperature-data coverage and climate-zone solar comparison
+# # ISP 2024: Temperature-related fields and climate-zone solar proxies
 #
-# Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the 2024 ISP assumptions workbook, PISP's own 2024 ISP output files (`out-ref4006-poe10` schedule build), and 2019 climate-zone summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present.
+# Temperature-related workbook fields and PISP outputs are inventoried alongside descriptive summer solar comparisons for selected climate-zone proxy sites.
 #
 # No observed temperature time series is loaded, and no causal temperature-response model is estimated. Climate-zone comparisons are descriptive solar-trace comparisons, not direct measurements of thermal derating.
 
@@ -85,7 +85,7 @@ function empty_df(schema::Vector{Pair{Symbol, DataType}})
 end
 nothing #hide
 
-# ## Step 1 — inventory the ISP assumptions workbook's sheets
+# ## Temperature-related source fields
 #
 # The workbook lists all its worksheets; a keyword match identifies material for review, it does not by itself prove that a sheet contains a usable temperature dependency.
 
@@ -167,7 +167,18 @@ workbook_sheet_inventory = isempty(sheet_inventory_rows) ?
     empty_df([:sheet_index => Int, :sheet_name => String, :is_keyword_match => Int, :is_rooftop_match => Int, :is_reliability_match => Int]) :
     DataFrame(sheet_inventory_rows)
 write_table(workbook_sheet_inventory, SCRIPT_STEM, "workbook_sheet_inventory")
-markdown_table(workbook_sheet_inventory)
+workbook_inventory_summary = DataFrame(
+    Metric = ["Workbook sheets", "Keyword matches", "Rooftop-PV matches", "Reliability matches"],
+    Value = [
+        nrow(workbook_sheet_inventory),
+        sum(workbook_sheet_inventory.is_keyword_match),
+        sum(workbook_sheet_inventory.is_rooftop_match),
+        sum(workbook_sheet_inventory.is_reliability_match),
+    ],
+)
+markdown_table(workbook_inventory_summary)
+
+# The complete sheet inventory is retained in `workbook_sheet_inventory.csv`.
 
 #-
 
@@ -193,7 +204,7 @@ workbook_reliability_sheet_shapes = isempty(reliability_shape_rows) ?
 write_table(workbook_reliability_sheet_shapes, SCRIPT_STEM, "workbook_reliability_sheet_shapes")
 markdown_table(workbook_reliability_sheet_shapes)
 
-# ## Step 2 — which temperature-related fields reach the PISP output dataset?
+# ## Exported fields
 #
 # The output inventory and generator-column table distinguish information present in the downloaded workbook from fields actually exported by PISP.
 
@@ -282,7 +293,7 @@ generator_temperature_columns = DataFrame([generator_temp_row])
 write_table(generator_temperature_columns, SCRIPT_STEM, "generator_temperature_columns")
 markdown_table(generator_temperature_columns)
 
-# ## Step 3 — how do selected climate-zone solar traces differ in summer?
+# ## Solar proxy comparison
 #
 # The zone labels are analytical groupings attached to representative sites. The summary describes summer solar capacity-factor distributions and does not isolate temperature from cloud, season, geography, or trace construction.
 
@@ -331,7 +342,7 @@ climate_zone_summer_cf_summary = isempty(zone_summary_rows) ?
 write_table(climate_zone_summer_cf_summary, SCRIPT_STEM, "climate_zone_summer_cf_summary")
 markdown_table(climate_zone_summer_cf_summary)
 
-# ## Step 4 — plot the summer daily capacity-factor distribution by climate zone
+# ## Summer capacity-factor distribution
 #
 # Each climate zone's summer daily-mean capacity factor is drawn as an overlaid density histogram, showing how much the four representative sites overlap or diverge.
 
@@ -352,7 +363,7 @@ nothing #hide
 
 # ![Summer daily solar capacity-factor distribution by climate zone](05_cf_by_climate_zone.png)
 
-# ## Step 5 — plot midday capacity factor against daily mean capacity factor
+# ## Midday and daily-mean relationship
 #
 # For each climate zone, midday-mean capacity factor is plotted against daily-mean capacity factor for every summer day, with a 1:1 reference line showing how far midday output sits above the daily average.
 
@@ -376,7 +387,13 @@ nothing #hide
 
 # ![Midday capacity factor against daily mean capacity factor by climate zone](05_midday_vs_daily_scatter.png)
 
-# ## Summary
+# ## Interpretation
 #
 # - The ISP assumptions workbook and PISP's own output files contain some temperature-, derating-, and reliability-adjacent fields, but a keyword match only flags material for review, it does not establish a usable temperature dependency.
 # - No observed temperature series is loaded here; the climate-zone comparison is a descriptive summer solar-trace comparison across four representative sites, not a measurement of thermal derating.
+#
+# ## Limitations
+#
+# - The source inventory does not contain an observed temperature time series for this analysis.
+# - Climate-zone labels are analytical proxies and do not isolate temperature from cloud, season, geography, or trace construction.
+# - No thermal-derating response is estimated from the solar comparisons.

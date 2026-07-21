@@ -20,7 +20,7 @@ Missing inputs fail before any aggregation or plotting begins.
 | `Generator_pmax_sched.csv` | Time-varying maximum available generator output |
 | `Demand_load_sched.csv` | Time-varying demand load |
 
-## What this tutorial establishes
+## Output relationships
 
 The workflow joins generator and demand schedules back to their static definitions, then aggregates daily solar PMax, wind PMax, and total demand series.
 `Generator_pmax_sched.csv` is an availability or maximum-output schedule; it is not realised dispatch or observed generation.
@@ -78,7 +78,7 @@ isempty(missing_files) || error("missing PISP output files: $(join(missing_files
 true
 ````
 
-## Step 1 — inspect the static tables
+## Load static tables
 
 `Generator.csv`, `Demand.csv`, and `Bus.csv` are static tables written once per PISP build.
 
@@ -123,7 +123,7 @@ markdown_table(fuel_counts)
 ```
 
 | **fuel** | **count** |
-|--:|--:|
+|:--|--:|
 | Natural Gas | 37 |
 | Hydro | 30 |
 | Solar | 22 |
@@ -147,7 +147,7 @@ markdown_table(tech_counts)
 ```
 
 | **tech** | **count** |
-|--:|--:|
+|:--|--:|
 | Reservoir | 28 |
 | OCGT | 28 |
 | RoofPV | 12 |
@@ -163,7 +163,7 @@ markdown_table(tech_counts)
 | Brown Coal | 1 |
 
 
-## Step 2 — inspect the schedule tables
+## Load schedules
 
 `Generator_pmax_sched.csv` and `Demand_load_sched.csv` are time-varying companion tables for generator maximum available output and demand load.
 Maximum available output is a technical limit, not a record of dispatch.
@@ -208,7 +208,7 @@ markdown_table(first(gen_pmax, 5))
 ```
 
 | **id** | **id\_gen** | **scenario** | **date** | **value** |
-|--:|--:|--:|--:|--:|
+|--:|--:|--:|:--|--:|
 | 1 | 78 | 1 | 2044-07-01T00:00:00 | 106.0 |
 | 2 | 78 | 2 | 2044-07-01T00:00:00 | 106.0 |
 | 3 | 78 | 3 | 2044-07-01T00:00:00 | 106.0 |
@@ -249,7 +249,7 @@ markdown_table(first(dem_load, 5))
 ```
 
 | **id** | **id\_dem** | **scenario** | **date** | **value** |
-|--:|--:|--:|--:|--:|
+|--:|--:|--:|:--|--:|
 | 1 | 1 | 2 | 2030-01-01T00:00:00 | 749.427 |
 | 2 | 1 | 2 | 2030-01-01T01:00:00 | 717.852 |
 | 3 | 1 | 2 | 2030-01-01T02:00:00 | 674.352 |
@@ -257,7 +257,7 @@ markdown_table(first(dem_load, 5))
 | 5 | 1 | 2 | 2030-01-01T04:00:00 | 641.313 |
 
 
-## Step 3 — attach area and technology context
+## Area and technology context
 
 `Bus.csv` carries `id_area`; joining that onto `Generator.csv` via `id_bus` assigns each generator to a NEM area. Solar and wind are identified from `tech` using case-insensitive substring matches.
 
@@ -308,7 +308,7 @@ markdown_table(solar_tech_counts)
 ```
 
 | **tech** | **count** |
-|--:|--:|
+|:--|--:|
 | RoofPV | 12 |
 | LargePV | 10 |
 
@@ -329,11 +329,11 @@ markdown_table(wind_tech_counts)
 ```
 
 | **tech** | **count** |
-|--:|--:|
+|:--|--:|
 | Wind | 11 |
 
 
-## Step 4 — align schedule rows with static definitions
+## Join identifiers
 
 The demand schedule is filtered to demand IDs present in `Demand.csv`. The generator PMax schedule is joined to `Generator.csv` so solar and wind schedules can be separated by technology.
 
@@ -356,7 +356,7 @@ wind_pmax_ts = filter(:tech => is_wind, gen_pmax_ts)
 </details>
 ```
 
-## Step 5 — aggregate daily availability and demand
+## Aggregate daily series
 
 Values are summed by day and converted from MW to GW for plotting.
 
@@ -386,7 +386,7 @@ Daily aggregate series length — solar: 365, wind: 365, demand: 365
 
 ````
 
-## Step 6 — visualise the selected schedules
+## Selected schedule profiles
 
 The figure compares the daily aggregate schedules in GW.
 It should not be read as a supply-demand balance: it omits dispatch decisions, curtailment, storage operation, network constraints, and interchange.
@@ -431,7 +431,7 @@ embed_figure(FIGURE_PATH, "isp2024_working_with_pisp_outputs-timeseries.png")
 - The generator counts verify which records are classified as solar and wind.
 - The reported daily-series lengths verify the overlapping date coverage used by the figure.
 
-## Interpretation and limits
+## Interpret the result
 
 The static-table joins attach technology and bus-area context to otherwise identifier-only schedule rows.
 The resulting solar and wind series describe aggregate PMax availability, while the demand series describes aggregate load.

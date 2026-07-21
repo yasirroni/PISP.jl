@@ -4,7 +4,7 @@ EditURL = "../../../../literate/isp2024/validation/trace_coverage_and_schema.jl"
 
 # ISP 2024: Trace data availability and structure
 
-PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. AEMO's [2024 ISP PLEXOS Model Instructions, physical p. 5](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5) describes traces as time series combined from 14 historical weather years in a rolling reference-year sequence. The report lists demand, hydro, load-subtracter, solar, timeslice, and wind trace groups in the model package ([physical p. 7](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=7)). In the configured local downloads, solar and wind are grouped by technology and reference year, while demand is grouped by state/scenario and node. This page loads source traces directly and shows their shape, date coverage, value ranges, and a demand-trace example.
+PISP uses historical demand, solar, and wind traces with different directory layouts and table schemas. AEMO's [2024 ISP PLEXOS Model Instructions, physical p. 5](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=5) describes traces as time series combined from 14 historical weather years in a rolling reference-year sequence. The report lists demand, hydro, load-subtracter, solar, timeslice, and wind trace groups in the model package ([physical p. 7](../../../../../data/2024/pisp-reports/2024-isp-plexos-model-instructions.pdf#page=7)). In the configured local downloads, solar and wind are grouped by technology and reference year, while demand is grouped by state/scenario and node. The validation records source shape, date coverage, value ranges, and a demand-trace example.
 
 A trace here means a source time series supplied to the detailed long-term
 model. The report-backed group descriptions do not imply that every local
@@ -110,7 +110,7 @@ end
 </details>
 ```
 
-## Step 1 — load the solar and wind reference traces for trace year 4006
+## Trace families
 
 `Bannerton_SAT` (solar) and `ARWF1` (wind) are the same representative locations used throughout the EDA 02-08 pages.
 
@@ -151,7 +151,7 @@ Date range: {Year: 2024, Month: 7, Day: 1} to {Year: 2052, Month: 6, Day: 30}
 
 ````
 
-## Step 2 — table structure and date coverage
+## Schema
 
 Both traces share the same layout: three metadata columns (`Year`, `Month`, `Day`) followed by half-hourly value columns.
 
@@ -171,7 +171,7 @@ markdown_table(trace_shape_columns)
 ```
 
 | **trace\_type** | **file** | **file\_name** | **rows** | **columns** | **metadata\_columns** | **value\_columns** | **first\_value\_column** | **last\_value\_column** | **columns\_preview** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|:--|--:|--:|:--|--:|:--|:--|:--|
 | solar | data/2024/pisp-downloads/Traces/solar\_4006/Bannerton\_SAT\_RefYear4006.csv | Bannerton\_SAT\_RefYear4006.csv | 10227 | 51 | Year,Month,Day | 48 | 1 | 48 | Year\|Month\|Day\|1\|2\|3\|4\|5\|6\|7 |
 | wind | data/2024/pisp-downloads/Traces/wind\_4006/ARWF1\_RefYear4006.csv | ARWF1\_RefYear4006.csv | 10227 | 51 | Year,Month,Day | 48 | 01 | 48 | Year\|Month\|Day\|01\|02\|03\|04\|05\|06\|07 |
 
@@ -191,12 +191,14 @@ markdown_table(trace_date_ranges)
 ```
 
 | **trace\_type** | **file\_name** | **first\_year** | **first\_month** | **first\_day** | **last\_year** | **last\_month** | **last\_day** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|--:|--:|
 | solar | Bannerton\_SAT\_RefYear4006.csv | 2024 | 7 | 1 | 2052 | 6 | 30 |
 | wind | ARWF1\_RefYear4006.csv | 2024 | 7 | 1 | 2052 | 6 | 30 |
 
 
-## Step 3 — value ranges and the solar low-output threshold
+## Coverage
+
+### Value ranges and low-output screen
 
 The minimum and maximum values describe the numeric range in each sampled trace. The solar low-output summary counts days at Bannerton_SAT whose midday half-hourly maximum, across columns `24:35`, falls below the fixed capacity-factor threshold `0.1`.
 
@@ -215,7 +217,7 @@ markdown_table(trace_value_ranges)
 ```
 
 | **trace\_type** | **file\_name** | **min\_value** | **max\_value** |
-|--:|--:|--:|--:|
+|:--|:--|--:|--:|
 | solar | Bannerton\_SAT\_RefYear4006.csv | 0.0 | 1.0 |
 | wind | ARWF1\_RefYear4006.csv | -0.0 | 1.0 |
 
@@ -243,19 +245,33 @@ solar_midday_low_days = DataFrame([
     ),
 ])
 write_table(solar_midday_low_days, SCRIPT_STEM, "solar_midday_low_days")
-markdown_table(solar_midday_low_days)
+metric_value_table([
+    "Trace type" => solar_midday_low_days.trace_type[1],
+    "File" => solar_midday_low_days.file_name[1],
+    "Midday columns" => solar_midday_low_days.midday_columns[1],
+    "Low-output threshold" => solar_midday_low_days.low_threshold[1],
+    "Low-output days" => solar_midday_low_days.low_days[1],
+    "Days checked" => solar_midday_low_days.total_days[1],
+    "Low-output share (%)" => solar_midday_low_days.low_percent[1],
+])
 ````
 
 ```@raw html
 </details>
 ```
 
-| **trace\_type** | **file\_name** | **midday\_columns** | **low\_threshold** | **low\_days** | **total\_days** | **low\_percent** |
-|--:|--:|--:|--:|--:|--:|--:|
-| solar | Bannerton\_SAT\_RefYear4006.csv | 24\|25\|26\|27\|28\|29\|30\|31\|32\|33\|34\|35 | 0.1 | 67 | 10227 | 0.655129 |
+| **Metric** | **Value** |
+|:--|:--|
+| Trace type | solar |
+| File | Bannerton\_SAT\_RefYear4006.csv |
+| Midday columns | 24\|25\|26\|27\|28\|29\|30\|31\|32\|33\|34\|35 |
+| Low-output threshold | 0.1 |
+| Low-output days | 67 |
+| Days checked | 10227 |
+| Low-output share (%) | 0.655129 |
 
 
-## Step 4 — a demand-trace example
+### Demand-trace example
 
 Demand traces use a different file family and schema from solar and wind traces: one file per demand node under a state/scenario directory, rather than one file per reference year.
 
@@ -312,19 +328,37 @@ else
     ])
 end
 write_table(demand_sample_metadata, SCRIPT_STEM, "demand_sample_metadata")
-markdown_table(demand_sample_metadata)
+metric_value_table([
+    "Demand directory" => demand_sample_metadata.demand_dir[1],
+    "Files" => demand_sample_metadata.file_count[1],
+    "Sample file" => demand_sample_metadata.sample_file[1],
+    "Sample rows" => demand_sample_metadata.sample_rows[1],
+    "Sample columns" => demand_sample_metadata.sample_columns[1],
+    "Metadata columns" => demand_sample_metadata.metadata_columns[1],
+    "Value columns" => demand_sample_metadata.value_columns[1],
+    "First value column" => demand_sample_metadata.first_value_column[1],
+    "Last value column" => demand_sample_metadata.last_value_column[1],
+])
 ````
 
 ```@raw html
 </details>
 ```
 
-| **demand\_dir** | **file\_count** | **sample\_file** | **sample\_rows** | **sample\_columns** | **metadata\_columns** | **value\_columns** | **first\_value\_column** | **last\_value\_column** | **columns\_list** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| data/2024/pisp-downloads/Traces/demand\_VIC\_Step Change | 27 | VIC\_RefYear\_2011\_STEP\_CHANGE\_POE10\_PV\_TOT.csv | 11323 | 51 | Year,Month,Day | 48 | 01 | 48 | Year\|Month\|Day\|01\|02\|03\|04\|05\|06\|07\|08\|09\|10\|11\|12\|13\|14\|15\|16\|17\|18\|19\|20\|21\|22\|23\|24\|25\|26\|27\|28\|29\|30\|31\|32\|33\|34\|35\|36\|37\|38\|39\|40\|41\|42\|43\|44\|45\|46\|47\|48 |
+| **Metric** | **Value** |
+|:--|:--|
+| Demand directory | data/2024/pisp-downloads/Traces/demand\_VIC\_Step Change |
+| Files | 27 |
+| Sample file | VIC\_RefYear\_2011\_STEP\_CHANGE\_POE10\_PV\_TOT.csv |
+| Sample rows | 11323 |
+| Sample columns | 51 |
+| Metadata columns | Year,Month,Day |
+| Value columns | 48 |
+| First value column | 01 |
+| Last value column | 48 |
 
 
-## Step 5 — which reference years are available
+### Historical reference-year coverage
 
 PISP's reference-trace convention spans several historical weather years plus the composite `4006` trace; not every year is present in every local download.
 
@@ -359,14 +393,16 @@ markdown_table(available_year_checks)
 ```
 
 | **year** | **solar\_file** | **exists** | **first\_year** | **first\_month** | **first\_day** |
-|--:|--:|--:|--:|--:|--:|
+|--:|:--|--:|--:|--:|--:|
 | 2011 | data/2024/pisp-downloads/Traces/solar\_2011/Bannerton\_SAT\_RefYear2011.csv | 1 | 2021 | 7 | 1 |
 | 2015 | data/2024/pisp-downloads/Traces/solar\_2015/Bannerton\_SAT\_RefYear2015.csv | 1 | 2021 | 7 | 1 |
 | 2019 | data/2024/pisp-downloads/Traces/solar\_2019/Bannerton\_SAT\_RefYear2019.csv | 1 | 2021 | 7 | 1 |
 | 2023 | data/2024/pisp-downloads/Traces/solar\_2023/Bannerton\_SAT\_RefYear2023.csv | 1 | 2021 | 7 | 1 |
 
 
-## Step 6 — plot the first 30 days of each trace
+## Validation result
+
+### First-30-day profiles
 
 The two panels compare the shape of a representative solar half-hourly capacity-factor series against a representative wind series over the same window.
 
@@ -399,7 +435,7 @@ EdaSupport.embed_figure(CANONICAL_FIGURE_PATH, "01_sample_traces.png")
 
 ![First 30 days of the solar and wind 4006 reference traces](01_sample_traces.png)
 
-## Summary
+### Interpretation
 
 - The executed 4006 samples for solar site Bannerton_SAT and wind site ARWF1 each contain 10,227 rows and 51 columns, spanning 2024-07-01 through 2052-06-30.
 - For the solar 4006 sample at Bannerton_SAT, 67 of 10,227 days (0.655129%) have a midday maximum below the threshold `0.1` across columns `24:35`.

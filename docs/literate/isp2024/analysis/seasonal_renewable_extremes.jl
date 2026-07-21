@@ -1,9 +1,9 @@
 # # ISP 2024: Seasonal renewable extremes
 #
 # Mean capacity factors do not describe the persistence, timing, or intraday shape of low-output conditions.
-# This page examines threshold-defined summer events in the ISP 2024 historical solar and wind traces.
+# Threshold-defined summer events are examined in the ISP 2024 historical solar and wind traces.
 #
-# ## Analytical scope
+# ## Data coverage
 #
 # | Item | Definition |
 # |---|---|
@@ -15,7 +15,7 @@
 # | Wind event threshold | Daily mean capacity factor below `0.15` for at least three consecutive calendar days |
 # | Smoothing | Trailing 3-day mean for descriptive plots only |
 #
-# The predefined hot/cool year lists are grouping labels used by this page; their meteorological classification is not revalidated here.
+# The predefined hot/cool year lists are analytical grouping labels; their meteorological classification is not independently validated.
 # The event definitions are exploratory trace screens, not a system-wide adequacy criterion.
 
 ENV["GKSwstype"] = "100"
@@ -129,7 +129,7 @@ function low_output_events_for(tech, loc, hh_cols, threshold, yr)
     return rows
 end
 
-# ## How the predefined summer groups differ
+# ## Seasonal patterns
 #
 # For each historical hot or cool summer, this computes the mean daily capacity factor across December/January/February and summarises it with its own spread and range.
 
@@ -160,7 +160,7 @@ hot_cool_summer_solar_summary = DataFrame(rows)
 write_table(hot_cool_summer_solar_summary, SCRIPT_STEM, "hot_cool_summer_solar_summary")
 markdown_table(hot_cool_summer_solar_summary)
 
-# ## Which threshold-defined events persist for at least three days?
+# ## Persistent low-output periods
 #
 # An event is a run of consecutive summer calendar days whose daily mean capacity factor stays below the technology's threshold for at least 3 days; a run never bridges the excluded March-November gap between a summer's December and the following January/February. The full event-by-event table is written to `eda/tables/julia/04_seasonal_extremes/low_output_events.csv`; the page instead shows a compact per-technology-per-year summary of how many candidate events were found and how long they lasted.
 
@@ -193,7 +193,7 @@ else
 end
 markdown_table(low_output_event_summary)
 
-# ## Which solar day is most adverse in each historical label?
+# ## Extreme summer days
 #
 # The summary identifies the selected adverse day for each year, while the profile table retains the intraday shape needed to understand whether the low-output metric is broad or confined to a short interval.
 
@@ -464,7 +464,7 @@ nothing #hide
 
 # ![RefYear2019 summer daily mean solar capacity factor with a 3-day rolling mean, shown in Black Summer historical context](04_summer_2019_black_summer.png)
 
-# ## Observations
+# ## Extreme-period findings
 #
 # - Mean daily solar capacity factor in the predefined hot-year group ranges from about `0.382` to `0.426`; the predefined cool-year group ranges from about `0.362` to `0.410`.
 # - Those ranges overlap, so the grouping label alone does not determine the solar trace outcome.
@@ -476,15 +476,15 @@ nothing #hide
 # Persistence and intraday shape add information that annual or seasonal means cannot provide.
 # The event counts are conditional on the chosen location, threshold, summer filter, and minimum duration, so they should be read as trace diagnostics rather than technology risk rankings.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
-# - The hot/cool lists are predefined labels and are not meteorologically validated on this page.
+# - The hot/cool lists are predefined labels and are not independently meteorologically validated.
 # - One solar and one wind location cannot represent NEM-wide renewable diversity.
 # - Solar and wind use different thresholds, so their event counts are not directly comparable.
 # - `RefYear2019` provides historical context but does not identify causal effects from temperature, smoke, cloud, or bushfire conditions.
 # - The analysis does not calculate storage requirements, dispatch, or adequacy outcomes.
 #
-# ## Implications for PISP users
+# ## Sensitivity design
 #
 # Treat low-output events as sensitivity cases defined by explicit thresholds and locations.
 # System studies should test alternative thresholds, multiple sites, historical labels, and operational constraints before drawing adequacy conclusions.

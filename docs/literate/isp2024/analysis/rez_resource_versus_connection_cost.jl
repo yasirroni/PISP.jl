@@ -1,8 +1,8 @@
 # # ISP 2024: REZ resource potential versus connection cost
 #
-# This analysis asks whether REZs with larger workbook-derived resource limits also have higher first-listed augmentation costs.
+# Workbook-derived REZ resource limits are compared with first-listed augmentation costs to test whether the two source dimensions move together.
 #
-# ## Analytical scope
+# ## Source tables and join
 #
 # | Item | Definition |
 # |---|---|
@@ -13,9 +13,8 @@
 # | Screening ratio | Expected cost in million dollars divided by resource limit in MW |
 # | Exclusion | Genuine zero-resource rows remain in evidence but are excluded from finite ratios and correlation |
 #
-# `Renewable Energy Zones` and `REZ Costs forecast` do not contain the two numeric fields required for a direct join.
-# The analysis therefore uses the two workbook tables above and preserves that source limitation explicitly.
-# No AEMO report-PDF page citation is currently verified for this specific join.
+# Source basis: the `Build limits` and `REZ Augmentations Options` sheets in the 2024 ISP Inputs and Assumptions workbook.
+# `Renewable Energy Zones` and `REZ Costs forecast` do not contain the two numeric fields required for this comparison.
 
 using CSV
 using DataFrames
@@ -177,7 +176,7 @@ function rounded_columns(frame, columns; digits = 3)
 end
 nothing #hide
 
-# ## Load the two numeric source tables
+# ## Source tables
 
 println("Workbook exists: ", isfile(abs_path(IASR_WORKBOOK)))
 isfile(abs_path(IASR_WORKBOOK)) || error("IASR workbook not found at $IASR_WORKBOOK")
@@ -187,27 +186,45 @@ resource_matrix, augmentation_matrix = XLSX.openxlsx(abs_path(IASR_WORKBOOK)) do
 end
 nothing #hide
 
-# ## Construct resource and augmentation evidence by REZ
+# ## Resource potential and augmentation options
 
 resource_limits = load_rez_resource_limits(resource_matrix)
 write_table(resource_limits, SCRIPT_STEM, "rez_resource_limits")
 println("REZ resource-limit rows (Build limits sheet): ", nrow(resource_limits))
-markdown_table(first(resource_limits, 8))
+resource_display = select(
+    first(resource_limits, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :region => Symbol("Region"),
+    :wind_resource_mw => Symbol("Wind resource limit (MW)"),
+    :solar_mw => Symbol("Solar resource limit (MW)"),
+    :total_resource_limit_mw => Symbol("Total resource limit (MW)"),
+)
+markdown_table(resource_display)
 
 #-
 
 augmentation_options = load_rez_augmentation_options(augmentation_matrix)
 write_table(augmentation_options, SCRIPT_STEM, "rez_augmentation_options")
 println("REZ augmentation-option rows (REZ Augmentations Options sheet): ", nrow(augmentation_options))
-markdown_table(first(augmentation_options, 8))
+augmentation_display = select(
+    first(augmentation_options, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :option => Symbol("Option"),
+    :additional_capacity_mw => Symbol("Additional capacity (MW)"),
+    :expected_cost_million => Symbol("Expected cost (\$ million)"),
+    :dollar_million_per_mw => Symbol("Source cost ratio (\$ million/MW)"),
+)
+markdown_table(augmentation_display)
 
-# ## Select the first-listed standalone option and join the evidence
+# ## Join definition
 
 primary_options, excluded = primary_option_per_rez(augmentation_options)
 write_table(excluded, SCRIPT_STEM, "rez_augmentation_excluded")
 println("REZs with a usable primary (first-listed) option: ", nrow(primary_options))
 println("REZs excluded (first-listed option has no standalone numeric capacity/cost -- a cross-reference to a shared augmentation, or a named option with blank/non-numeric figures): ", nrow(excluded))
-markdown_table(excluded)
+markdown_table(excluded; column_labels = ["REZ ID", "REZ name", "First-listed option"])
 
 #-
 
@@ -215,9 +232,18 @@ joined = innerjoin(resource_limits, primary_options, on = [:rez_id, :rez_name])
 joined_row_count = nrow(joined)
 write_table(joined, SCRIPT_STEM, "rez_resource_vs_cost")
 println("Joined REZs (resource limit + primary augmentation option): ", joined_row_count)
-markdown_table(first(joined, 8))
+joined_display = select(
+    first(joined, 8),
+    :rez_id => Symbol("REZ ID"),
+    :rez_name => Symbol("REZ name"),
+    :total_resource_limit_mw => Symbol("Total resource limit (MW)"),
+    :primary_option => Symbol("Primary option"),
+    :additional_capacity_mw => Symbol("Additional capacity (MW)"),
+    :expected_cost_million => Symbol("Expected cost (\$ million)"),
+)
+markdown_table(joined_display)
 
-# ## Evaluate the relationship and screening ratio
+# ## Derived comparison
 #
 # One REZ (N12, Illawarra) carries a genuine 0 MW total resource limit in this workbook (both wind and solar limits are 0) -- a real modelled value, not a parsing artifact, confirmed by direct inspection of the sheet. It is excluded from the correlation and cost-per-MW ranking (undefined/infinite ratio) and reported separately rather than dropped silently.
 
@@ -240,7 +266,12 @@ correlation_summary = DataFrame(
     source_column_y = ["expected_cost_million"],
 )
 write_table(correlation_summary, SCRIPT_STEM, "rez_resource_cost_correlation_summary")
-markdown_table(correlation_summary)
+metric_value_table([
+    "Pearson correlation" => correlation,
+    "Usable joined rows" => nrow(joined),
+    "Zero-resource exclusions" => zero_resource_exclusion_count,
+    "All joined rows" => joined_row_count,
+])
 
 #-
 
@@ -258,7 +289,7 @@ markdown_table(first(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 
 
 markdown_table(last(rounded_columns(ranking, [:cost_per_resource_mw]; digits = 4), 6))
 
-# ## Observations
+# ## Comparison findings
 
 coefficient = only(correlation_summary.coefficient)
 usable_rows = only(correlation_summary.usable_row_count)
@@ -304,14 +335,14 @@ largest_expected_cost = ranking[argmax(ranking.expected_cost_million), :]
 # Within this workbook-derived join, resource limit and first-listed augmentation cost behave as largely separate dimensions.
 # The cost-per-MW ratio is a screening measure: it identifies how the selected source fields relate, not the economic value of developing a REZ.
 #
-# ## Limitations and non-claims
+# ## Limitations
 #
 # - The cost field is the first-listed standalone augmentation option, not a complete least-cost development pathway.
 # - The ratio omits energy yield, technology mix, sequencing, network interactions, financing, operating costs, and system benefits.
 # - Pearson correlation tests only linear association and is sensitive to the selected source construction.
 # - The result is not a direct join of `Renewable Energy Zones` with `REZ Costs forecast` because those sheets lack the required paired numeric fields.
 #
-# ## Implications for PISP users
+# ## Model-input separation
 #
 # Keep resource potential and augmentation cost as separate modelling inputs unless an explicit economic model combines them.
 # Preserve zero-resource and unmatched rows in evidence so that filtering decisions remain auditable.

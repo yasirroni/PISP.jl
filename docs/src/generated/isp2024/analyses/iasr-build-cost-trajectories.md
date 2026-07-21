@@ -4,9 +4,9 @@ EditURL = "../../../../literate/isp2024/analysis/iasr_build_cost_trajectories.jl
 
 # ISP 2024: IASR build-cost trajectories by technology
 
-This analysis compares the capital-cost trajectories supplied for utility-scale solar, onshore and offshore wind, and battery storage in the IASR `Build costs` sheet.
+The IASR `Build costs` sheet supplies capital-cost trajectories for utility-scale solar, onshore and offshore wind, and battery storage.
 
-## Analytical scope
+## Workbook source
 
 | Item | Definition |
 |---|---|
@@ -18,7 +18,7 @@ This analysis compares the capital-cost trajectories supplied for utility-scale 
 | Comparison metrics | Total percentage change and CAGR-style annualised decline rate |
 
 Pumped hydro and BOTN rows are outside this page's technology scope.
-No AEMO report-PDF page citation is currently verified for this question, so the evidence basis is the inspected workbook.
+Source basis: the 2024 ISP Inputs and Assumptions workbook and the named sheets listed above.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -198,7 +198,7 @@ end
 </details>
 ```
 
-## Load the bounded build-cost source table
+## Build-cost source table
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -224,7 +224,7 @@ Trimmed "Build costs" sheet shape: (223, 35)
 
 ````
 
-## Identify the technology table and projection years
+## Projection years and technology fields
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -245,9 +245,9 @@ Master table header at row 81, 32 projection years: 2022-23 .. 2053-54
 
 ````
 
-## Select the documented technology scope
+## Technology comparison
 
-All 19 technologies on the sheet are listed in `technology_match` for transparency; the analysis itself only follows the utility-scale solar, onshore/offshore wind, and battery-storage rows matched by `is_target_technology`. The full long-format target table (technology x scenario x year) is written as evidence; the table below previews only its first rows.
+All 19 technologies on the sheet are listed in `technology_match` for transparency; the analysis itself only follows the utility-scale solar, onshore/offshore wind, and battery-storage rows matched by `is_target_technology`. The full long-format target table (technology x scenario x year) is saved as supporting data; the table below previews only its first rows.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -274,7 +274,7 @@ markdown_table(technology_match)
 ```
 
 | **technology** | **is\_target\_technology** |
-|--:|--:|
+|:--|--:|
 | OCGT (small GT) | 0 |
 | OCGT (large GT) | 0 |
 | CCGT | 0 |
@@ -303,7 +303,7 @@ markdown_table(technology_match)
 ````julia
 target_long = filter(:technology => is_target_technology, long_table)
 write_table(target_long, SCRIPT_STEM, "build_cost_trajectory")
-println("Target-technology long-format rows written as evidence: ", nrow(target_long))
+println("Target-technology long-format rows saved as supporting data: ", nrow(target_long))
 markdown_table(first(target_long, 8))
 ````
 
@@ -312,7 +312,7 @@ markdown_table(first(target_long, 8))
 ```
 
 | **technology** | **scenario** | **year** | **cost\_dollar\_per\_kw** |
-|--:|--:|--:|--:|
+|:--|:--|:--|--:|
 | Large scale Solar PV | GenCost Current Policies | 2022-23 | 1680.94 |
 | Large scale Solar PV | GenCost Current Policies | 2023-24 | 1621.06 |
 | Large scale Solar PV | GenCost Current Policies | 2024-25 | 1504.51 |
@@ -323,7 +323,7 @@ markdown_table(first(target_long, 8))
 | Large scale Solar PV | GenCost Current Policies | 2029-30 | 1166.61 |
 
 
-## Compare decline rates by technology and scenario
+## Cost trajectories
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -341,7 +341,7 @@ markdown_table(decline)
 ```
 
 | **technology** | **scenario** | **first\_year** | **last\_year** | **first\_cost\_dollar\_per\_kw** | **last\_cost\_dollar\_per\_kw** | **annualized\_decline\_rate\_pct** | **total\_pct\_change\_pct** |
-|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|:--|:--|--:|--:|--:|--:|
 | Battery storage (8hrs storage) | GenCost Global NZE by 2050 | 2022-23 | 2053-54 | 4148.88 | 1060.75 | -4.30419 | -74.433 |
 | Battery storage (8hrs storage) | Green Energy Exports | 2022-23 | 2053-54 | 4148.88 | 1060.75 | -4.30419 | -74.433 |
 | Wind - offshore (floating) | GenCost Global NZE by 2050 | 2022-23 | 2053-54 | 8417.53 | 2377.05 | -3.99682 | -71.7607 |
@@ -392,7 +392,7 @@ markdown_table(decline)
 | Wind - offshore (fixed) | Progressive Change | 2022-23 | 2053-54 | 6075.76 | 4773.36 | -0.775231 | -21.4361 |
 
 
-## Observations
+## Cost-trajectory findings
 
 - Every matched technology declines between its first and last available projection year in every scenario.
 - The annualised decline rate ranges from about `-0.78%/yr` for fixed offshore wind under Current Policies/Progressive Change to about `-4.30%/yr` for eight-hour battery storage under Global NZE by 2050/Green Energy Exports.
@@ -404,14 +404,14 @@ The fastest-declining technology depends on the scenario.
 Large-scale solar declines fastest in the two lower-decarbonisation scenario rows, while longer-duration batteries decline fastest in the four higher-decarbonisation rows.
 The workbook therefore supplies scenario-conditioned cost assumptions rather than one fixed technology ranking.
 
-## Limitations and non-claims
+## Limitations
 
 - These are input assumptions from the workbook, not realised project costs or forecasts guaranteed to occur.
 - The comparison does not add financing, operating costs, project-specific connection costs, or construction constraints.
 - The CAGR-style measure summarises the first-to-last change and does not describe every intermediate-year step.
 - Pumped hydro and BOTN assumptions are intentionally excluded.
 
-## Implications for PISP users
+## Cost-input use
 
 Preserve the workbook scenario when selecting build costs and avoid applying one decline rate across technologies.
 Studies comparing technology economics should retain the original `$/kW` basis and add other cost components explicitly rather than attributing them to this table.

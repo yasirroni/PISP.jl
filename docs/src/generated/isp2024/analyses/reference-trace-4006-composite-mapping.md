@@ -7,7 +7,7 @@ EditURL = "../../../../literate/isp2024/analysis/reference_trace_4006_mapping.jl
 Reference trace `4006` assigns a historical weather year to each financial year across the planning horizon.
 A near-term or far-term renewable profile is therefore a reuse of selected historical solar and wind years rather than an independent weather forecast.
 
-## Analytical scope
+## Mapping definition
 
 | Item | Definition |
 |---|---|
@@ -18,7 +18,7 @@ A near-term or far-term renewable profile is therefore a reuse of selected histo
 | Far-term group | Financial years ending 2045-2049 |
 | Metrics | Historical-year counts, annual and summer capacity factor, grouped daily profiles |
 
-The page builds the mapping and the renewable statistics derived from it so that planning-year comparisons retain their historical-weather basis.
+The mapping and derived renewable statistics retain the historical-weather basis of each planning-year comparison.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -64,7 +64,7 @@ const FAR_YEARS = [2045, 2046, 2047, 2048, 2049]
 </details>
 ```
 
-The financial-year-to-historical-year mapping is read directly from `PISP.WEATHER_YEARS_ISP` rather than restated here, so this page cannot drift from the package's own mapping. An invariant check confirms every financial-year range is contiguous.
+The financial-year-to-historical-year mapping is read directly from the package configuration in `PISP.WEATHER_YEARS_ISP`. An invariant check confirms every financial-year range is contiguous.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -125,7 +125,7 @@ end
 </details>
 ```
 
-## Which historical year supplies each financial year?
+## Financial-year sequence
 
 Each row assigns one financial year in the planning horizon to the historical weather year whose trace is reused for it.
 
@@ -156,7 +156,7 @@ markdown_table(mapping_table)
 ```
 
 | **fy\_start** | **fy\_end** | **ref\_year** | **fy\_label** | **ref\_label** |
-|--:|--:|--:|--:|--:|
+|:--|:--|--:|:--|:--|
 | 2024-07-01 | 2025-06-30 | 2019 | FY2025 | 2019 |
 | 2025-07-01 | 2026-06-30 | 2020 | FY2026 | 2020 |
 | 2026-07-01 | 2027-06-30 | 2021 | FY2027 | 2021 |
@@ -235,7 +235,7 @@ end
 
 ````
 
-## How renewable availability differs by historical year
+## Historical-year renewable statistics
 
 For every historical year actually used by the mapping, this computes the annual mean capacity factor and the summer (Dec/Jan/Feb) mean, minimum, and 5th-percentile capacity factor for the representative solar and wind locations.
 
@@ -276,7 +276,7 @@ markdown_table(historical_year_vre_stats)
 ```
 
 | **ref\_year** | **tech** | **annual\_mean\_cf** | **summer\_mean\_cf** | **summer\_min\_cf** | **summer\_p5\_cf** |
-|--:|--:|--:|--:|--:|--:|
+|--:|:--|--:|--:|--:|--:|
 | 2011 | solar | 0.257362 | 0.361699 | 0.0145063 | 0.0377352 |
 | 2011 | wind | 0.361648 | 0.307114 | 0.020218 | 0.0412972 |
 | 2012 | solar | 0.274037 | 0.38577 | 0.0311683 | 0.102937 |
@@ -305,7 +305,7 @@ markdown_table(historical_year_vre_stats)
 | 2023 | wind | 0.369846 | 0.321152 | 0.0375621 | 0.094468 |
 
 
-## How the near-term and far-term groups are composed
+## Near- and far-term composition
 
 The near-term group (financial years ending 2025-2029) and far-term group (financial years ending 2045-2049) are each translated through the mapping to their historical reference years, then averaged day-by-day across the group's traces. Each historical reference trace covers many years of half-hourly data reduced to one capacity-factor value per day, so the resulting near/far series run to tens of thousands of rows per technology; the full daily series is written to file as complete evidence, and the table below summarises it by technology and term.
 
@@ -348,7 +348,7 @@ markdown_table(near_vs_far_term_summary)
 ```
 
 | **tech** | **term** | **mean\_cf** | **min\_cf** | **max\_cf** | **n\_days** |
-|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|
 | solar | far | 0.276654 | 0.0462443 | 0.495946 | 12418 |
 | solar | near | 0.287307 | 0.0886683 | 0.491964 | 12418 |
 | wind | far | 0.382318 | 0.0602974 | 0.748947 | 12418 |
@@ -383,7 +383,7 @@ markdown_table(vre_heatmap)
 ```
 
 | **tech** | **ref\_year** | **annual\_mean\_cf** |
-|--:|--:|--:|
+|:--|--:|--:|
 | solar | 2011 | 0.257362 |
 | solar | 2012 | 0.274037 |
 | solar | 2013 | 0.287337 |
@@ -630,7 +630,7 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), "08_vre_
 
 ![Annual mean capacity factor by historical year and technology, coloured and annotated per cell](08_vre_heatmap.png)
 
-## Observations
+## Verification
 
 - The current mapping contains `28` financial years supplied by `13` historical labels.
 - Historical year `2015` is reused four times; each other historical label is reused twice.
@@ -641,13 +641,13 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "08_vre_heatmap.png"), "08_vre_
 A difference between near-term and far-term grouped profiles reflects the historical-year composition assigned to those financial years.
 It should not be interpreted as a monotonic climate trend or as evidence that weather conditions improve or deteriorate with planning year.
 
-## Limitations and non-claims
+## Limitations
 
 - Renewable statistics use one Victorian solar and one Victorian wind site.
 - Group averages can hide adverse days and differences between the historical years within each group.
 - The page explains the package mapping; it does not validate the mapping as a climate projection.
 
-## Implications for PISP users
+## Implications
 
 Report both the planning year and its mapped historical year when interpreting a trace-`4006` result.
 Where conclusions are sensitive to renewable availability, test the constituent historical labels directly instead of treating planning year as an independent weather dimension.

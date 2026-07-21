@@ -4,9 +4,8 @@ EditURL = "../../../../literate/isp2026/validation/source_availability.jl"
 
 # ISP 2026: Source availability and release structure
 
-This page describes source material observed in the configured ISP 2026 report
-and download roots. It does not establish parser, dataset, or cross-edition
-support.
+The configured ISP 2026 report and download roots are inventoried against the
+source families described by the release documentation.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -51,9 +50,8 @@ complete.
 
 ## Report and archive observations
 
-`report-backed` statements above describe the report's release structure.
-`package-code-derived` requirements below follow PISP's configured report
-targets and source-download layout. `local-observed` statements are limited to
+The AEMO reports define the release structure, PISP configuration defines the
+expected download targets, and the local inventory records files present in
 the roots supplied to this render.
 
 ```@raw html
@@ -88,9 +86,9 @@ PoE labels observed in local filenames: POE10
 
 ````
 
-The local observation above identifies files and folders in one checkout. It
-does not establish upstream completeness, a 2026 PISP trace schema, a PoE
-contract, or equivalence with ISP 2024.
+Snapshot scope: counts describe the configured local roots. They do not imply
+upstream completeness, parser coverage, a trace contract, or equivalence with
+ISP 2024.
 
 ## Probability of exceedance (PoE)
 

@@ -1,6 +1,7 @@
 # # ISP 2024: Generated-output consistency
 #
-# PISP writes a static asset dataset (`Generator.csv`, `Demand.csv`, `Bus.csv`) alongside time-varying schedules (`Generator_pmax_sched.csv`, `Demand_load_sched.csv`) for one generated build. This page loads one such build, joins the static and schedule tables, and checks identifier coverage, schedule coverage, generator classification, and daily solar/wind/demand alignment, computed live on this page and written to `eda/tables/julia/06_pisp_outputs/` as evidence. It also builds the three PISP-output figures shown in the generated docs site.
+# This validation checks identifier coverage, schedule coverage, generator classification, and daily solar, wind, and demand alignment for one generated ISP 2024 build.
+# Supporting tables are saved under `eda/tables/julia/06_pisp_outputs/`, and the selected figures summarise the same computed evidence.
 #
 # By default it reads `data/2024/pisp-datasets/out-ref4006-poe10/csv/` and `schedule-2030/`; set `PISP_DOCS_ISP2024_OUTPUT_ROOT` or `PISP_DOCS_ISP2024_SCHEDULE_TAG` to select another local generated build.
 
@@ -60,6 +61,12 @@ function append_relationship_diagnostics!(summary_rows, detail_rows, relationshi
             relationship = relationship,
             left_label = left_label,
             right_label = right_label,
+            checked_unique_ids = length(left_set) + length(right_set),
+            matched_unique_ids = length(intersect(left_set, right_set)),
+            unmatched_unique_ids = length(left_unmatched) + length(right_unmatched),
+            unmatched_pct = isempty(left_set) && isempty(right_set) ? 0.0 :
+                100 * (length(left_unmatched) + length(right_unmatched)) /
+                (length(left_set) + length(right_set)),
             left_unique_ids = length(left_set),
             right_unique_ids = length(right_set),
             left_unmatched_ids = length(left_unmatched),
@@ -79,7 +86,7 @@ nothing #hide
 # Capacity factor for solar and wind divides each generator's scheduled mean output by that generator's own scheduled maximum, not by the static `pmax` recorded in `Generator.csv`.
 # The static field is not a reliable capacity reference for these generators: rooftop PV rows carry a fixed placeholder pmax ([`src/parsers/PISP-2024parser.jl`](https://github.com/ARPST-UniMelb/PISP.jl/blob/main/src/parsers/PISP-2024parser.jl):1070, `gen_pmax_distpv`), and utility-scale solar/wind rows record only currently operating capacity, which a future-year schedule can exceed once ISP-outlook build-out is reflected in the trace (`gen_pmax_wind`, ~1386 vs. ~1477 in the same file).
 # [SiennaNEM.jl](https://github.com/ARPST-UniMelb/SiennaNEM.jl), which builds unit-commitment models from this same PISP output, applies the same convention ([`src/read_data.jl`](https://github.com/ARPST-UniMelb/SiennaNEM.jl/blob/main/src/read_data.jl):214-229, `update_system_data_bound!`) and calls the static pmax "dummy" for these generators ([`src/create_system.jl`](https://github.com/ARPST-UniMelb/SiennaNEM.jl/blob/main/src/create_system.jl):342,368).
-# See PISP.jl's own the generated Parameters and mappings page and docs/src/assumptions.md for the full caveat.
+# See the generated Parameters and mappings page and `docs/src/assumptions.md` for the full caveat.
 function capacity_factor_duration_frame(gen_pmax::DataFrame, gens::DataFrame, tech::AbstractString)
     ids = Set(gens.id_gen)
 
@@ -118,7 +125,7 @@ function daily_tech_sum(gen_pmax_ts::DataFrame, tech_predicate)
 end
 nothing #hide
 
-# ## Step 1 — load the static asset tables and the 2030 schedule outputs
+# ## Selected build and inputs
 #
 # `Generator.csv`, `Demand.csv`, and `Bus.csv` describe the static network; `Generator_pmax_sched.csv` and `Demand_load_sched.csv` under the `schedule-2030` tag describe the time-varying build for this generated dataset.
 
@@ -130,7 +137,7 @@ gen_pmax = CSV.read(abs_path(joinpath(SCHEDULE_DIR, "Generator_pmax_sched.csv"))
 dem_load = CSV.read(abs_path(joinpath(SCHEDULE_DIR, "Demand_load_sched.csv")), DataFrame)
 nothing #hide
 
-# ## Step 2 — record which output root and schedule directory were used
+# ## Build identity
 #
 # The recorded paths are relative to the repository root so this evidence table stays comparable across machines and reproducible from any checkout.
 
@@ -144,7 +151,7 @@ build_metadata = DataFrame([
 write_table(build_metadata, SCRIPT_STEM, "build_metadata")
 markdown_table(build_metadata)
 
-# ## Step 3 — generator table shape and classification counts
+# ## Generator coverage
 #
 # `Generator.csv` classifies each generator by `fuel` and by `tech`; these counts show which classifications are available for later technology-specific filtering.
 
@@ -161,7 +168,7 @@ generator_tech_counts = combine(groupby(gen_df, :tech), nrow => :count)
 write_table(generator_tech_counts, SCRIPT_STEM, "generator_tech_counts")
 markdown_table(generator_tech_counts)
 
-# ## Step 4 — schedule shapes and time coverage
+# ## Schedule coverage
 #
 # The two schedule tables share the same long-format layout (one row per identifier per timestamp); their row/column shapes and represented time interval describe the extent of this generated build.
 
@@ -200,7 +207,7 @@ schedule_time_coverage = DataFrame(schedule_time_coverage_rows)
 write_table(schedule_time_coverage, SCRIPT_STEM, "schedule_time_coverage")
 markdown_table(schedule_time_coverage)
 
-# ## Step 5 — join coverage between schedules, static tables, and the bus table
+# ## Static-to-schedule join coverage
 #
 # Each relationship below compares one schedule or static identifier column against the identifier column it should join against, recording how many identifiers are unmatched on either side.
 
@@ -246,17 +253,40 @@ append_relationship_diagnostics!(
 
 join_coverage = DataFrame(join_summary_rows)
 write_table(join_coverage, SCRIPT_STEM, "join_coverage")
-markdown_table(join_coverage)
+join_coverage_display = select(
+    join_coverage,
+    :relationship => Symbol("Relationship"),
+    :checked_unique_ids => Symbol("Unique IDs checked"),
+    :matched_unique_ids => Symbol("Matched IDs"),
+    :unmatched_unique_ids => Symbol("Unmatched IDs"),
+    :unmatched_pct => Symbol("Unmatched (%)"),
+)
+markdown_table(join_coverage_display)
 
 #-
 
 unmatched_ids = isempty(join_detail_rows) ? DataFrame(relationship = String[], unmatched_side = String[], id = String[]) : DataFrame(join_detail_rows)
 write_table(unmatched_ids, SCRIPT_STEM, "unmatched_ids")
-markdown_table(unmatched_ids)
+if isempty(unmatched_ids)
+    metric_value_table(["Unmatched identifiers" => 0])
+else
+    unmatched_summary = combine(
+        groupby(unmatched_ids, [:relationship, :unmatched_side]),
+        nrow => :unmatched_count,
+    )
+    markdown_table(unmatched_summary; column_labels = ["Relationship", "Unmatched side", "Count"])
 
-# ## Step 6 — identify the solar and wind generators
+    unmatched_examples = vcat(
+        [first(group, min(5, nrow(group))) for group in groupby(unmatched_ids, :relationship)]...;
+        cols = :union,
+    )
+    ## At most five identifiers per relationship are shown; the complete list remains in `unmatched_ids.csv`.
+    markdown_table(unmatched_examples; column_labels = ["Relationship", "Unmatched side", "Identifier"])
+end
+
+# ## Renewable classification
 #
-# Solar and wind generators are identified from `Generator.tech` using the same case-insensitive pattern match used throughout this page.
+# Solar and wind generators are identified from `Generator.tech` with one case-insensitive pattern match used consistently throughout the validation.
 
 solar_gens = gen_df[is_solar_tech.(gen_df.tech), :]
 wind_gens = gen_df[is_wind_tech.(gen_df.tech), :]
@@ -280,7 +310,7 @@ solar_wind_tech_counts = vcat(solar_wind_tech_counts_solar, solar_wind_tech_coun
 write_table(solar_wind_tech_counts, SCRIPT_STEM, "solar_wind_tech_counts")
 markdown_table(solar_wind_tech_counts)
 
-# ## Step 7 — annual mean pmax per generator
+# ## Annual mean available output
 #
 # This is a plain per-generator annual mean of the scheduled pmax series, unrelated to the capacity-factor denominator question addressed next.
 
@@ -299,7 +329,7 @@ annual_mean_pmax = vcat(sol_annual, wind_annual)[:, [:tech, :id_gen, :mean_pmax]
 write_table(annual_mean_pmax, SCRIPT_STEM, "annual_mean_pmax")
 markdown_table(annual_mean_pmax)
 
-# ## Step 8 — capacity factor duration curve
+# ## Capacity-factor duration
 #
 # Each generator's capacity factor is its scheduled mean output divided by its own scheduled maximum (see the caveat documented on `capacity_factor_duration_frame` above); generators are then ranked in descending capacity-factor order within each technology.
 
@@ -310,7 +340,7 @@ capacity_factor_duration = vcat(
 write_table(capacity_factor_duration, SCRIPT_STEM, "capacity_factor_duration")
 markdown_table(capacity_factor_duration)
 
-# ## Step 9 — demand by area
+# ## Demand by area
 #
 # The demand schedule is joined to the static `Demand` table to obtain each demand node's bus, then to `Bus` to obtain its NEM area, before summing to a daily total per area. The full daily series (1825 rows: 5 NEM areas x 365 days) is written to `demand_by_area_daily.csv`; the table below summarises it per area.
 
@@ -329,9 +359,9 @@ demand_by_area_summary = combine(
 )
 markdown_table(demand_by_area_summary)
 
-# ## Step 10 — daily solar, wind, and demand aggregates in GW
+# ## Daily aggregate profiles
 #
-# Generator schedules are joined to generator technology before summing solar and wind pmax separately by day; the demand schedule's daily total, already joined above, is combined alongside them and converted from MW to GW. The full daily series (one row per calendar date) is written to `daily_solar_wind_demand_gw.csv`; the page displays only the first 10 rows as a representative sample.
+# Generator schedules are joined to generator technology before summing solar and wind pmax separately by day; the demand schedule's daily total is combined alongside them and converted from MW to GW. The complete daily series is written to `daily_solar_wind_demand_gw.csv`; the table below shows the first 10 dates.
 
 gen_pmax_ts = build_gen_pmax_ts(gen_pmax, gen_df)
 
@@ -354,7 +384,7 @@ daily_gw = DataFrame(
 write_table(daily_gw, SCRIPT_STEM, "daily_solar_wind_demand_gw")
 markdown_table(first(daily_gw, 10))
 
-# ## Step 11 — hourly pmax profile for the first 30 days
+# ## Hourly available-output profile
 #
 # Restricting to the first 30 scheduled days and grouping scheduled pmax by hour of day gives a representative diurnal shape for solar and wind generators. The full per-generator profile (792 rows) is written to `hourly_pmax_profile.csv`; the table below averages across generators within each technology to show the fleet-level diurnal shape, and Step 15 plots the per-generator profile for up to 5 generators of each technology.
 
@@ -380,7 +410,7 @@ hourly_pmax_profile_fleet_mean = combine(
 )
 markdown_table(hourly_pmax_profile_fleet_mean)
 
-# ## Step 12 — VRE-vs-demand and demand-distribution summaries
+# ## Renewable availability and demand summaries
 #
 # The first summary describes the scale and correlation of daily VRE (solar + wind) generation against daily demand; the second describes the distribution of daily demand alone.
 
@@ -397,7 +427,16 @@ vre_vs_demand_summary = DataFrame([(
     corr_demand_vre = cor(demand_daily, vre_daily),
 )])
 write_table(vre_vs_demand_summary, SCRIPT_STEM, "vre_vs_demand_summary")
-markdown_table(vre_vs_demand_summary)
+metric_value_table([
+    "Days" => vre_vs_demand_summary.n_days[1],
+    "Mean demand (GW)" => vre_vs_demand_summary.mean_demand_gw[1],
+    "Mean VRE (GW)" => vre_vs_demand_summary.mean_vre_gw[1],
+    "Minimum demand (GW)" => vre_vs_demand_summary.min_demand_gw[1],
+    "Maximum demand (GW)" => vre_vs_demand_summary.max_demand_gw[1],
+    "Minimum VRE (GW)" => vre_vs_demand_summary.min_vre_gw[1],
+    "Maximum VRE (GW)" => vre_vs_demand_summary.max_vre_gw[1],
+    "Demand-VRE correlation" => vre_vs_demand_summary.corr_demand_vre[1],
+])
 
 #-
 
@@ -410,9 +449,16 @@ demand_distribution_summary = DataFrame([(
     median_mw = median(dem_daily_ts.total_demand),
 )])
 write_table(demand_distribution_summary, SCRIPT_STEM, "demand_distribution_summary")
-markdown_table(demand_distribution_summary)
+metric_value_table([
+    "Days" => demand_distribution_summary.n[1],
+    "Mean demand (MW)" => demand_distribution_summary.mean_mw[1],
+    "Demand standard deviation (MW)" => demand_distribution_summary.std_mw[1],
+    "Minimum demand (MW)" => demand_distribution_summary.min_mw[1],
+    "Maximum demand (MW)" => demand_distribution_summary.max_mw[1],
+    "Median demand (MW)" => demand_distribution_summary.median_mw[1],
+])
 
-# ## Step 13 — figure: PISP outputs overview
+# ## Output overview
 #
 # A 2x2 overview: annual mean pmax per solar generator, annual mean pmax per wind generator, daily total demand by NEM area, and the capacity-factor duration curve for solar and wind. The per-generator pmax panels use horizontal-line scatter plots rather than `Plots.jl` bar charts, a plotting-library workaround with no effect on the underlying values.
 
@@ -480,7 +526,7 @@ nothing #hide
 
 # ![PISP outputs overview: annual mean pmax by generator for solar and wind, daily demand by NEM area, and the solar/wind capacity-factor duration curve](06_pisp_outputs_overview.png)
 
-# ## Step 14 — figure: solar and wind PMax versus total demand over time
+# ## Renewable availability and demand over time
 #
 # Daily solar PMax, wind PMax, and total demand, each summed across generators/nodes and expressed in GW, plotted over the full scheduled horizon.
 
@@ -504,7 +550,7 @@ nothing #hide
 
 # ![Daily solar PMax, wind PMax, and total demand over the scheduled horizon, each in GW](06_solar_wind_vs_demand_ts.png)
 
-# ## Step 15 — figure: PISP detailed
+# ## Detailed output diagnostics
 #
 # A second 2x2 detail view: hourly pmax profile (first 30 days) for up to 5 solar generators, the same for up to 5 wind generators, a VRE-vs-demand scatter with a 1:1 reference line, and the daily demand distribution histogram.
 
@@ -559,6 +605,6 @@ nothing #hide
 # ## Summary
 #
 # - Static asset tables and 2030 schedule outputs join cleanly for this generated build, with identifier coverage and schedule time coverage recorded above and any unmatched identifiers listed in `unmatched_ids`.
-# - Solar and wind generator classification, annual mean pmax, and capacity-factor duration curves are all computed live above, following the capacity-factor denominator convention documented on `capacity_factor_duration_frame`.
-# - The three figures — outputs overview, solar/wind-vs-demand time series, and the detailed 2x2 view — are all built on this page from the same joined tables shown above.
-# - This page writes its full evidence tables to `eda/tables/julia/06_pisp_outputs/*.csv`; four of them — `build_metadata`, `join_coverage`, `schedule_time_coverage`, and `unmatched_ids` — are this page's own diagnostics with no prior baseline to compare against.
+# - Solar and wind classification, annual mean available output, and capacity-factor duration follow the denominator convention documented on `capacity_factor_duration_frame`.
+# - The figures and tables use the same joined static and schedule inputs.
+# - Complete diagnostics are saved under `eda/tables/julia/06_pisp_outputs/`; no historical thresholds are applied.

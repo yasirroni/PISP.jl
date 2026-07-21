@@ -2,9 +2,9 @@
 EditURL = "../../../../literate/isp2024/validation/temperature_data_coverage.jl"
 ```
 
-# ISP 2024: Temperature-data coverage and climate-zone solar comparison
+# ISP 2024: Temperature-related fields and climate-zone solar proxies
 
-Temperature can affect demand, renewable output, thermal ratings, and equipment reliability, but those effects are not automatically represented by a planning dataset. This page loads the 2024 ISP assumptions workbook, PISP's own 2024 ISP output files (`out-ref4006-poe10` schedule build), and 2019 climate-zone summer solar traces for selected climate-zone proxies, then builds the tables and figures that describe what temperature-related material is (and is not) present.
+Temperature-related workbook fields and PISP outputs are inventoried alongside descriptive summer solar comparisons for selected climate-zone proxy sites.
 
 No observed temperature time series is loaded, and no causal temperature-response model is estimated. Climate-zone comparisons are descriptive solar-trace comparisons, not direct measurements of thermal derating.
 
@@ -118,7 +118,7 @@ end
 </details>
 ```
 
-## Step 1 — inventory the ISP assumptions workbook's sheets
+## Temperature-related source fields
 
 The workbook lists all its worksheets; a keyword match identifies material for review, it does not by itself prove that a sheet contains a usable temperature dependency.
 
@@ -205,92 +205,31 @@ workbook_sheet_inventory = isempty(sheet_inventory_rows) ?
     empty_df([:sheet_index => Int, :sheet_name => String, :is_keyword_match => Int, :is_rooftop_match => Int, :is_reliability_match => Int]) :
     DataFrame(sheet_inventory_rows)
 write_table(workbook_sheet_inventory, SCRIPT_STEM, "workbook_sheet_inventory")
-markdown_table(workbook_sheet_inventory)
+workbook_inventory_summary = DataFrame(
+    Metric = ["Workbook sheets", "Keyword matches", "Rooftop-PV matches", "Reliability matches"],
+    Value = [
+        nrow(workbook_sheet_inventory),
+        sum(workbook_sheet_inventory.is_keyword_match),
+        sum(workbook_sheet_inventory.is_rooftop_match),
+        sum(workbook_sheet_inventory.is_reliability_match),
+    ],
+)
+markdown_table(workbook_inventory_summary)
 ````
 
 ```@raw html
 </details>
 ```
 
-| **sheet\_index** | **sheet\_name** | **is\_keyword\_match** | **is\_rooftop\_match** | **is\_reliability\_match** |
-|--:|--:|--:|--:|--:|
-| 1 | Disclaimer | 0 | 0 | 0 |
-| 2 | Change Log | 0 | 0 | 0 |
-| 3 | Assumptions Summary | 0 | 0 | 0 |
-| 4 | Scenarios | 0 | 0 | 0 |
-| 5 | Renewable Energy Zones | 0 | 0 | 0 |
-| 6 | New Entrant Data Summary | 0 | 0 | 0 |
-| 7 | Existing Gen Data Summary | 0 | 0 | 0 |
-| 8 | Fuel Price Summary | 0 | 0 | 0 |
-| 9 | Regional Build Costs Summary | 0 | 0 | 0 |
-| 10 | Energy Policy Targets | 0 | 0 | 0 |
-| 11 | Carbon Budgets | 0 | 0 | 0 |
-| 12 | Demand and Energy Forecasts | 0 | 0 | 0 |
-| 13 | DSP | 0 | 0 | 0 |
-| 14 | Economic Growth Forecasts | 0 | 0 | 0 |
-| 15 | Energy Efficiency | 0 | 0 | 0 |
-| 16 | Rooftop PV | 1 | 1 | 0 |
-| 17 | PVNSG | 1 | 0 | 0 |
-| 18 | Battery & Plug-in EVs | 0 | 0 | 0 |
-| 19 | Fuel cell EVs | 0 | 0 | 0 |
-| 20 | EV V2G | 0 | 0 | 0 |
-| 21 | Electrification | 0 | 0 | 0 |
-| 22 | Embedded energy storages | 0 | 0 | 0 |
-| 23 | Aggregated energy storages | 0 | 0 | 0 |
-| 24 | Sub-regional demand allocation | 0 | 0 | 0 |
-| 25 | Network representation | 0 | 0 | 0 |
-| 26 | Network losses | 0 | 0 | 0 |
-| 27 | Network Capability | 0 | 0 | 0 |
-| 28 | Flow Path Augmentation options | 0 | 0 | 0 |
-| 29 | Flow Path costs forecast | 0 | 0 | 0 |
-| 30 | Transmission Reliability | 0 | 0 | 1 |
-| 31 | Maximum capacity | 0 | 0 | 0 |
-| 32 | Seasonal ratings | 0 | 0 | 0 |
-| 33 | Reserves | 0 | 0 | 0 |
-| 34 | Generation limits | 0 | 0 | 0 |
-| 35 | Maintenance | 0 | 0 | 0 |
-| 36 | Generator Reliability Settings | 0 | 0 | 1 |
-| 37 | Hydro Climate Factor | 0 | 0 | 0 |
-| 38 | Hydro Scheme Inflows | 0 | 0 | 0 |
-| 39 | Build costs | 0 | 0 | 0 |
-| 40 | Locational Cost Factors | 0 | 0 | 0 |
-| 41 | Lead time and project life | 0 | 0 | 0 |
-| 42 | Financial parameters | 0 | 0 | 0 |
-| 43 | Capacity Factors  | 0 | 0 | 0 |
-| 44 | Connection cost | 0 | 0 | 0 |
-| 45 | Connection Costs forecast | 0 | 0 | 0 |
-| 46 | REZ Augmentations Options | 0 | 0 | 0 |
-| 47 | REZ Costs forecast | 0 | 0 | 0 |
-| 48 | Non-REZ Assumptions | 0 | 0 | 0 |
-| 49 | Build limits - PHES | 0 | 0 | 0 |
-| 50 | Build limits | 0 | 0 | 0 |
-| 51 | Power System Constraints | 0 | 0 | 0 |
-| 52 | Storage properties | 0 | 0 | 0 |
-| 53 | Coal and Biomass price | 0 | 0 | 0 |
-| 54 | Gas, Liquid fuel, H2 price | 0 | 0 | 0 |
-| 55 | Retirement | 0 | 0 | 0 |
-| 56 | Heat rates | 1 | 0 | 0 |
-| 57 | Auxiliary | 0 | 0 | 0 |
-| 58 | Fixed OPEX | 0 | 0 | 0 |
-| 59 | Variable OPEX | 0 | 0 | 0 |
-| 60 | Emissions intensity | 0 | 0 | 0 |
-| 61 | H2 GPG\_emissions reduction  | 0 | 0 | 0 |
-| 62 | GPG emissions reduction - BioM | 0 | 0 | 0 |
-| 63 | Marginal Loss Factors | 0 | 0 | 0 |
-| 64 | Affine Heat rates | 1 | 0 | 0 |
-| 65 | Max Ramp Rates | 0 | 0 | 0 |
-| 66 | CCGT Unit Max Capacity | 0 | 0 | 0 |
-| 67 | GPG Min Stable Level | 0 | 0 | 0 |
-| 68 | Min Up&Down Times | 0 | 0 | 0 |
-| 69 | Costs Summary - PEM | 0 | 0 | 0 |
-| 70 | Build Costs - PEM | 0 | 0 | 0 |
-| 71 | Hydrogen demand - Domestic | 0 | 0 | 0 |
-| 72 | Hydrogen demand\_Export&Steel | 0 | 0 | 0 |
-| 73 | Hydrogen monthly profiles | 0 | 0 | 0 |
-| 74 | Hydrogen export ports | 0 | 0 | 0 |
-| 75 | Other hydrogen assumptions | 0 | 0 | 0 |
-| 76 | Summary Mapping | 0 | 0 | 0 |
+| **Metric** | **Value** |
+|:--|--:|
+| Workbook sheets | 76 |
+| Keyword matches | 4 |
+| Rooftop-PV matches | 1 |
+| Reliability matches | 2 |
 
+
+The complete sheet inventory is retained in `workbook_sheet_inventory.csv`.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -309,7 +248,7 @@ markdown_table(workbook_relevant_sheet_shapes)
 ```
 
 | **sheet\_name** | **n\_rows** | **n\_cols** | **read\_ok** |
-|--:|--:|--:|--:|
+|:--|--:|--:|--:|
 | Rooftop PV | 62 | 33 | 1 |
 | PVNSG | 62 | 33 | 1 |
 | Heat rates | 70 | 7 | 1 |
@@ -333,7 +272,7 @@ markdown_table(workbook_rooftop_sheet_summary)
 ```
 
 | **sheet\_name** | **n\_rows** | **n\_cols** | **columns\_preview** |
-|--:|--:|--:|--:|
+|:--|--:|--:|:--|
 | Rooftop PV | 61 | 33 | Unnamed: 0\|Go to Assumptions Summary\|Unnamed: 2\|Unnamed: 3\|Unnamed: 4 |
 
 
@@ -354,12 +293,12 @@ markdown_table(workbook_reliability_sheet_shapes)
 ```
 
 | **sheet\_name** | **n\_rows** | **n\_cols** |
-|--:|--:|--:|
+|:--|--:|--:|
 | Transmission Reliability | 11 | 7 |
 | Generator Reliability Settings | 64 | 14 |
 
 
-## Step 2 — which temperature-related fields reach the PISP output dataset?
+## Exported fields
 
 The output inventory and generator-column table distinguish information present in the downloaded workbook from fields actually exported by PISP.
 
@@ -399,7 +338,7 @@ markdown_table(pisp_output_inventory)
 ```
 
 | **kind** | **name** |
-|--:|--:|
+|:--|:--|
 | csv | Bus.csv |
 | csv | DER.csv |
 | csv | Demand.csv |
@@ -471,7 +410,7 @@ markdown_table(generator_solar_wind_details)
 ```
 
 | **category** | **id\_gen** | **name** | **tech** | **forate** | **derate** | **pmin** | **pmax** | **n** |
-|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+|:--|--:|:--|:--|--:|--:|--:|--:|--:|
 | solar | 92 | RTPV\_NQ | RoofPV | 1.0 | 0.0 | 0.0 | 100.0 | 1 |
 | solar | 93 | RTPV\_CQ | RoofPV | 1.0 | 0.0 | 0.0 | 100.0 | 1 |
 | solar | 94 | RTPV\_GG | RoofPV | 1.0 | 0.0 | 0.0 | 100.0 | 1 |
@@ -522,11 +461,11 @@ markdown_table(generator_temperature_columns)
 ```
 
 | **generator\_table\_exists** | **total\_columns** | **n\_temp\_columns** | **temp\_columns\_list** |
-|--:|--:|--:|--:|
+|--:|--:|--:|:--|
 | 1 | 48 | 0 |  |
 
 
-## Step 3 — how do selected climate-zone solar traces differ in summer?
+## Solar proxy comparison
 
 The zone labels are analytical groupings attached to representative sites. The summary describes summer solar capacity-factor distributions and does not isolate temperature from cloud, season, geography, or trace construction.
 
@@ -586,14 +525,14 @@ markdown_table(climate_zone_summer_cf_summary)
 ```
 
 | **zone** | **location** | **n\_summer\_days** | **mean\_daily\_cf** | **mean\_midday\_cf** | **min\_midday\_cf** | **p5\_midday\_cf** |
-|--:|--:|--:|--:|--:|--:|--:|
+|:--|:--|--:|--:|--:|--:|--:|
 | Hot\_Inland | Bomen\_SAT | 3068 | 0.379055 | 0.771988 | 0.054019 | 0.219576 |
 | Hot\_SA | Cultana\_SAT | 3068 | 0.37932 | 0.847259 | 0.230202 | 0.303985 |
 | Moderate\_VIC | Bannerton\_SAT | 3068 | 0.404872 | 0.859197 | 0.1881 | 0.307869 |
 | Cool\_TAS | Derby\_SAT | 3068 | 0.387393 | 0.810406 | 0.0913513 | 0.321397 |
 
 
-## Step 4 — plot the summer daily capacity-factor distribution by climate zone
+## Summer capacity-factor distribution
 
 Each climate zone's summer daily-mean capacity factor is drawn as an overlaid density histogram, showing how much the four representative sites overlap or diverge.
 
@@ -623,7 +562,7 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_cf_by_climate_zone.png"), "
 
 ![Summer daily solar capacity-factor distribution by climate zone](05_cf_by_climate_zone.png)
 
-## Step 5 — plot midday capacity factor against daily mean capacity factor
+## Midday and daily-mean relationship
 
 For each climate zone, midday-mean capacity factor is plotted against daily-mean capacity factor for every summer day, with a 1:1 reference line showing how far midday output sits above the daily average.
 
@@ -656,8 +595,14 @@ EdaSupport.embed_figure(figure_path(SCRIPT_STEM, "05_midday_vs_daily_scatter.png
 
 ![Midday capacity factor against daily mean capacity factor by climate zone](05_midday_vs_daily_scatter.png)
 
-## Summary
+## Interpretation
 
 - The ISP assumptions workbook and PISP's own output files contain some temperature-, derating-, and reliability-adjacent fields, but a keyword match only flags material for review, it does not establish a usable temperature dependency.
 - No observed temperature series is loaded here; the climate-zone comparison is a descriptive summer solar-trace comparison across four representative sites, not a measurement of thermal derating.
+
+## Limitations
+
+- The source inventory does not contain an observed temperature time series for this analysis.
+- Climate-zone labels are analytical proxies and do not isolate temperature from cloud, season, geography, or trace construction.
+- No thermal-derating response is estimated from the solar comparisons.
 

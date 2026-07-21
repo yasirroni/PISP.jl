@@ -16,7 +16,7 @@
 # | `Generator_pmax_sched.csv` | Time-varying maximum available generator output |
 # | `Demand_load_sched.csv` | Time-varying demand load |
 #
-# ## What this tutorial establishes
+# ## Output relationships
 #
 # The workflow joins generator and demand schedules back to their static definitions, then aggregates daily solar PMax, wind PMax, and total demand series.
 # `Generator_pmax_sched.csv` is an availability or maximum-output schedule; it is not realised dispatch or observed generation.
@@ -60,7 +60,7 @@ required_files = [
 missing_files = filter(path -> !isfile(path), required_files)
 isempty(missing_files) || error("missing PISP output files: $(join(missing_files, ", "))")
 
-# ## Step 1 — inspect the static tables
+# ## Load static tables
 #
 # `Generator.csv`, `Demand.csv`, and `Bus.csv` are static tables written once per PISP build.
 
@@ -82,7 +82,7 @@ markdown_table(fuel_counts)
 tech_counts = sort(combine(groupby(gen_df, :tech), nrow => :count), :count; rev = true)
 markdown_table(tech_counts)
 
-# ## Step 2 — inspect the schedule tables
+# ## Load schedules
 #
 # `Generator_pmax_sched.csv` and `Demand_load_sched.csv` are time-varying companion tables for generator maximum available output and demand load.
 # Maximum available output is a technical limit, not a record of dispatch.
@@ -109,7 +109,7 @@ println("Shape: ", size(dem_load))
 
 markdown_table(first(dem_load, 5))
 
-# ## Step 3 — attach area and technology context
+# ## Area and technology context
 #
 # `Bus.csv` carries `id_area`; joining that onto `Generator.csv` via `id_bus` assigns each generator to a NEM area. Solar and wind are identified from `tech` using case-insensitive substring matches.
 
@@ -141,7 +141,7 @@ wind_tech_counts = sort(
 )
 markdown_table(wind_tech_counts)
 
-# ## Step 4 — align schedule rows with static definitions
+# ## Join identifiers
 #
 # The demand schedule is filtered to demand IDs present in `Demand.csv`. The generator PMax schedule is joined to `Generator.csv` so solar and wind schedules can be separated by technology.
 
@@ -155,7 +155,7 @@ sol_pmax_ts = filter(:tech => is_solar, gen_pmax_ts)
 wind_pmax_ts = filter(:tech => is_wind, gen_pmax_ts)
 nothing #hide
 
-# ## Step 5 — aggregate daily availability and demand
+# ## Aggregate daily series
 #
 # Values are summed by day and converted from MW to GW for plotting.
 
@@ -169,7 +169,7 @@ println(
     ", demand: ", nrow(dem_daily),
 )
 
-# ## Step 6 — visualise the selected schedules
+# ## Selected schedule profiles
 #
 # The figure compares the daily aggregate schedules in GW.
 # It should not be read as a supply-demand balance: it omits dispatch decisions, curtailment, storage operation, network constraints, and interchange.
@@ -205,7 +205,7 @@ nothing #hide
 # - The generator counts verify which records are classified as solar and wind.
 # - The reported daily-series lengths verify the overlapping date coverage used by the figure.
 #
-# ## Interpretation and limits
+# ## Interpret the result
 #
 # The static-table joins attach technology and bus-area context to otherwise identifier-only schedule rows.
 # The resulting solar and wind series describe aggregate PMax availability, while the demand series describes aggregate load.

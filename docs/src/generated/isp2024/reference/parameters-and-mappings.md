@@ -54,7 +54,7 @@ markdown_table(scenario_mappings)
 ```
 
 | **scenario\_id** | **scenario\_name** | **hydro\_label** | **demand\_trace\_label** |
-|--:|--:|--:|--:|
+|--:|:--|:--|:--|
 | 1 | Progressive Change | NetZero2050 | PROGRESSIVE\_CHANGE |
 | 2 | Step Change | StepChange | STEP\_CHANGE |
 | 3 | Green Energy Exports | HydrogenSuperpower | HYDROGEN\_EXPORT |
@@ -88,7 +88,7 @@ markdown_table(bus_area_mappings)
 ```
 
 | **bus\_id** | **alias** | **name** | **area** | **area\_id** | **latitude** | **longitude** |
-|--:|--:|--:|--:|--:|--:|--:|
+|--:|:--|:--|:--|--:|--:|--:|
 | 1 | NQ | Northern Queensland | QLD | 1 | -17.7938 | 145.564 |
 | 2 | CQ | Central Queensland | QLD | 1 | -22.8242 | 149.404 |
 | 3 | GG | Gladstone Grid | QLD | 1 | -23.8429 | 151.249 |
@@ -131,7 +131,7 @@ markdown_table(weather_year_mapping)
 ```
 
 | **financial\_year\_start** | **financial\_year\_end** | **weather\_year** |
-|--:|--:|--:|
+|:--|:--|--:|
 | 2024-07-01 | 2025-06-30 | 2019 |
 | 2025-07-01 | 2026-06-30 | 2020 |
 | 2026-07-01 | 2027-06-30 | 2021 |
@@ -191,7 +191,7 @@ markdown_table(reliability_schema)
 ```
 
 | **asset\_table** | **fields** |
-|--:|--:|
+|:--|:--|
 | Generator | forate, fullout, partialout, derate, mttrfull, mttrpart, last\_state\_output |
 | ESS | fullout, partialout, mttrfull, mttrpart |
 | Line | fullout, mttrfull |

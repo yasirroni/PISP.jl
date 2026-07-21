@@ -4,9 +4,10 @@ EditURL = "../../../../literate/comparison/validation/source_availability_by_edi
 
 # ISP 2024 and ISP 2026: Source availability by edition
 
-This page compares locally observed acquisition and extraction structures. A
-similar filename, folder, or scenario label is not treated as evidence of
-semantic equivalence.
+The comparison records acquisition and extraction structures observed in the
+configured ISP 2024 and ISP 2026 roots. Similar filenames, folders, or
+scenario labels require an explicit crosswalk before they are treated as
+equivalent.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -50,8 +51,8 @@ Accelerated Transition, plus a larger trace-folder set that includes demand,
 DNSP, gas, hydro, load subtractor, rooftop PV, solar, timeslice, and wind.
 They describe 16 historical weather years (physical p. 5 and p. 7).
 
-These are `report-backed` release descriptions. Scenario labels and counts in
-the table below are not a cross-edition equivalence claim.
+These release descriptions come from the AEMO reports. Scenario labels and
+counts remain edition-specific.
 
 ```@raw html
 <details class="source-code"><summary>Show source code</summary>
@@ -102,7 +103,6 @@ covering labels, time axis, units, coverage, and missing-data treatment.
 
 ## Boundary
 
-`local-observed` availability shows what is present in the configured roots.
-It does not establish parser support, a processed-data contract, numerical
-comparability, or semantic equivalence between the editions.
+Snapshot scope: counts describe the configured local roots. They do not imply
+parser coverage, upstream completeness, or cross-edition equivalence.
 

@@ -5,9 +5,9 @@ EditURL = "../../../../literate/isp2024/analysis/seasonal_renewable_extremes.jl"
 # ISP 2024: Seasonal renewable extremes
 
 Mean capacity factors do not describe the persistence, timing, or intraday shape of low-output conditions.
-This page examines threshold-defined summer events in the ISP 2024 historical solar and wind traces.
+Threshold-defined summer events are examined in the ISP 2024 historical solar and wind traces.
 
-## Analytical scope
+## Data coverage
 
 | Item | Definition |
 |---|---|
@@ -19,7 +19,7 @@ This page examines threshold-defined summer events in the ISP 2024 historical so
 | Wind event threshold | Daily mean capacity factor below `0.15` for at least three consecutive calendar days |
 | Smoothing | Trailing 3-day mean for descriptive plots only |
 
-The predefined hot/cool year lists are grouping labels used by this page; their meteorological classification is not revalidated here.
+The predefined hot/cool year lists are analytical grouping labels; their meteorological classification is not independently validated.
 The event definitions are exploratory trace screens, not a system-wide adequacy criterion.
 
 ```@raw html
@@ -250,7 +250,7 @@ end
 low_output_events_for (generic function with 1 method)
 ````
 
-## How the predefined summer groups differ
+## Seasonal patterns
 
 For each historical hot or cool summer, this computes the mean daily capacity factor across December/January/February and summarises it with its own spread and range.
 
@@ -292,7 +292,7 @@ markdown_table(hot_cool_summer_solar_summary)
 ```
 
 | **season\_type** | **year** | **n\_days** | **mean\_daily\_cf** | **std\_daily\_cf** | **min\_daily\_cf** | **max\_daily\_cf** |
-|--:|--:|--:|--:|--:|--:|--:|
+|:--|--:|--:|--:|--:|--:|--:|
 | Hot Summers | 2019 | 3068 | 0.404872 | 0.089915 | 0.0890162 | 0.497658 |
 | Hot Summers | 2013 | 3068 | 0.404471 | 0.114939 | 0.0175779 | 0.500016 |
 | Hot Summers | 2017 | 3068 | 0.382376 | 0.116568 | 0.0515059 | 0.496493 |
@@ -304,7 +304,7 @@ markdown_table(hot_cool_summer_solar_summary)
 | Cool Summers | 2022 | 3068 | 0.410353 | 0.0854116 | 0.158083 | 0.498602 |
 
 
-## Which threshold-defined events persist for at least three days?
+## Persistent low-output periods
 
 An event is a run of consecutive summer calendar days whose daily mean capacity factor stays below the technology's threshold for at least 3 days; a run never bridges the excluded March-November gap between a summer's December and the following January/February. The full event-by-event table is written to `eda/tables/julia/04_seasonal_extremes/low_output_events.csv`; the page instead shows a compact per-technology-per-year summary of how many candidate events were found and how long they lasted.
 
@@ -348,7 +348,7 @@ markdown_table(low_output_event_summary)
 ```
 
 | **tech** | **year** | **n\_events** | **min\_duration** | **mean\_duration** | **max\_duration** |
-|--:|--:|--:|--:|--:|--:|
+|:--|--:|--:|--:|--:|--:|
 | solar | 2011 | 37 | 3 | 3.0 | 3 |
 | solar | 2012 | 1 | 3 | 3.0 | 3 |
 | wind | 2011 | 83 | 3 | 4.1 | 6 |
@@ -362,7 +362,7 @@ markdown_table(low_output_event_summary)
 | wind | 2023 | 89 | 3 | 3.4 | 5 |
 
 
-## Which solar day is most adverse in each historical label?
+## Extreme summer days
 
 The summary identifies the selected adverse day for each year, while the profile table retains the intraday shape needed to understand whether the low-output metric is broad or confined to a short interval.
 
@@ -401,7 +401,7 @@ markdown_table(worst_solar_day_summary)
 ```
 
 | **year** | **date** | **cf** | **is\_hot\_summer** |
-|--:|--:|--:|--:|
+|--:|:--|--:|--:|
 | 2011 | 2022-01-09 | 0.0145063 | 0 |
 | 2012 | 2048-02-29 | 0.0311683 | 0 |
 | 2013 | 2021-12-17 | 0.0175779 | 1 |
@@ -451,7 +451,7 @@ markdown_table(worst_solar_day_profile)
 ```
 
 | **year** | **date** | **half\_hour** | **cf** |
-|--:|--:|--:|--:|
+|--:|:--|--:|--:|
 | 2011 | 2022-01-09 | 0.5 | 0.0 |
 | 2011 | 2022-01-09 | 1.0 | 0.0 |
 | 2011 | 2022-01-09 | 1.5 | 0.0 |
@@ -585,7 +585,7 @@ markdown_table(first(black_summer_2019_daily_cf, 15))
 ```
 
 | **date** | **daily\_mean\_cf** | **rolling3\_cf** |
-|--:|--:|--:|
+|:--|--:|--:|
 | 2021-12-01 | 0.469144 | missing |
 | 2021-12-02 | 0.478529 | missing |
 | 2021-12-03 | 0.480572 | 0.476081 |
@@ -807,7 +807,7 @@ end
 
 ![RefYear2019 summer daily mean solar capacity factor with a 3-day rolling mean, shown in Black Summer historical context](04_summer_2019_black_summer.png)
 
-## Observations
+## Extreme-period findings
 
 - Mean daily solar capacity factor in the predefined hot-year group ranges from about `0.382` to `0.426`; the predefined cool-year group ranges from about `0.362` to `0.410`.
 - Those ranges overlap, so the grouping label alone does not determine the solar trace outcome.
@@ -819,15 +819,15 @@ end
 Persistence and intraday shape add information that annual or seasonal means cannot provide.
 The event counts are conditional on the chosen location, threshold, summer filter, and minimum duration, so they should be read as trace diagnostics rather than technology risk rankings.
 
-## Limitations and non-claims
+## Limitations
 
-- The hot/cool lists are predefined labels and are not meteorologically validated on this page.
+- The hot/cool lists are predefined labels and are not independently meteorologically validated.
 - One solar and one wind location cannot represent NEM-wide renewable diversity.
 - Solar and wind use different thresholds, so their event counts are not directly comparable.
 - `RefYear2019` provides historical context but does not identify causal effects from temperature, smoke, cloud, or bushfire conditions.
 - The analysis does not calculate storage requirements, dispatch, or adequacy outcomes.
 
-## Implications for PISP users
+## Sensitivity design
 
 Treat low-output events as sensitivity cases defined by explicit thresholds and locations.
 System studies should test alternative thresholds, multiple sites, historical labels, and operational constraints before drawing adequacy conclusions.
