@@ -47,6 +47,7 @@ function registry_navigation(registry_pages)
     navigation = Any[
         "Home" => "index.md",
         "Quickstart" => "quickstart.md",
+        "Contributing" => "contributing.md",
     ]
 
     push!(

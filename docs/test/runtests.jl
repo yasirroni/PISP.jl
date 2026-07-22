@@ -588,6 +588,7 @@ end
         @test first.(navigation) == [
             "Home",
             "Quickstart",
+            "Contributing",
             "Understand PISP and ISP data",
             "ISP 2024",
             "ISP 2026",
@@ -595,7 +596,10 @@ end
             "API Reference",
         ]
 
-        shared_material = last(navigation[3])
+        navigation_by_title = Dict(first(entry) => last(entry) for entry in navigation)
+        @test navigation_by_title["Contributing"] == "contributing.md"
+
+        shared_material = navigation_by_title["Understand PISP and ISP data"]
         @test first.(shared_material) == [
             "Supported ISP editions",
             "Domain concepts",
@@ -617,7 +621,7 @@ end
             "editions/parameters-and-mappings.md",
         ]
 
-        isp2024_navigation = last(navigation[4])
+        isp2024_navigation = navigation_by_title["ISP 2024"]
         @test first.(isp2024_navigation) == [
             "Overview",
             "Reference and inputs",
@@ -640,10 +644,10 @@ end
         @test !occursin("draft", repr(isp2024_navigation))
         @test !occursin("archived", repr(isp2024_navigation))
 
-        isp2026_navigation = last(navigation[5])
+        isp2026_navigation = navigation_by_title["ISP 2026"]
         @test isp2026_navigation == Any["Overview" => "editions/isp2026.md"]
 
-        comparison_navigation = last(navigation[6])
+        comparison_navigation = navigation_by_title["Compare ISP 2024 and ISP 2026"]
         @test comparison_navigation == Any[
             "Overview and comparison rules" => "editions/comparison.md",
         ]

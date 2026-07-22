@@ -24,18 +24,20 @@ Its committed source override resolves PISP from the same checkout:
 PISP = {path = ".."}
 ```
 
-The repository snapshot includes `docs/Manifest.toml`; update committed manifests only when dependencies are intentionally changed.
+The repository does not commit `Manifest.toml` files.
+Instantiate each environment from its `Project.toml`, and change dependency constraints only when dependencies are intentionally updated.
 Package and documentation-infrastructure tests use fixture or source-code checks unless a test explicitly declares an external-data prerequisite.
 Literate pages with `data_requirements` need the configured report, download, or generated-output roots described below.
 
-A common commands to use to build the docs are:
+To instantiate the documentation environment and build the site from the committed generated Markdown:
 
 ```sh
 julia --project=docs -e 'using Pkg; Pkg.instantiate()'
-julia --project=docs docs/render_literate.jl
 julia --project=docs docs/make.jl
-open docs/build/index.html
 ```
+
+Open `docs/build/index.html` in a browser to inspect the local site.
+This build does not execute Literate pages and does not require local ISP data.
 
 While iterating on Literate sources, re-render only the pages whose source changed instead of the whole published set:
 
@@ -48,12 +50,84 @@ It reports when a shared file changed (`eda_support.jl`, an EDA producer, or `pa
 Set `PISP_RUN_PRODUCERS=false` to reuse existing EDA evidence instead of re-running the producers.
 Run the full `docs/render_literate.jl` before committing regenerated Markdown; the changed-only path skips the whole-set completeness and atomic-replacement checks.
 
+## Prepare local data for complete regeneration
+
+Regenerating every published Literate page requires the referenced ISP report PDFs, the extracted ISP 2026 source assets, and the default ISP 2024 generated dataset.
+Start Julia at the repository root with `julia --project=.` and run:
+
+```julia
+using PISP
+
+repo = pwd()
+
+reports_2024   = joinpath(repo, "data", "2024", "pisp-reports")
+downloads_2024 = joinpath(repo, "data", "2024", "pisp-downloads")
+datasets_2024  = joinpath(repo, "data", "2024", "pisp-datasets")
+
+reports_2026   = joinpath(repo, "data", "2026", "pisp-reports")
+downloads_2026 = joinpath(repo, "data", "2026", "pisp-downloads")
+
+# Reports referenced by the documentation.
+PISP.download_ISP24_reports(
+    outdir = reports_2024,
+    overwrite = false,
+)
+
+PISP.download_ISP26_reports(
+    outdir = reports_2026,
+    overwrite = false,
+)
+
+# ISP 2026 source-availability and comparison pages.
+PISP.download_isp2026_assets(
+    outdir = downloads_2026,
+    overwrite = false,
+)
+
+PISP.ISPdatabuilder.extract_downloads(
+    data_root = downloads_2026,
+)
+
+# Exact ISP 2024 dataset consumed by the published pages.
+# This also downloads and extracts the required 2024 source assets.
+PISP.build_ISP24_datasets(
+    downloadpath = downloads_2024,
+    download_from_AEMO = true,
+    poe = 10,
+    reftrace = 4006,
+    years = [2030],
+    output_root = datasets_2024,
+    write_csv = true,
+    write_arrow = false,
+    scenarios = [1, 2, 3],
+)
+```
+
+The ISP 2024 build writes the schedule used by the default documentation profile under `data/2024/pisp-datasets/out-ref4006-poe10/csv/schedule-2030`.
+Downloaded and generated files remain under `data/`, which is ignored by Git.
+
+After preparing the local data, regenerate the published pages and build the site:
+
+```sh
+julia --project=docs docs/render_literate.jl
+julia --project=docs docs/make.jl
+```
+
+The combined entry point runs those stages in sequence:
+
+```sh
+julia --project=docs docs/build_all.jl
+```
+
+Local data are required for complete Literate regeneration, but not for a site build from the committed generated Markdown with `julia --project=docs docs/make.jl`.
+
 ## Documentation architecture
 
 | Surface | Responsibility |
 | --- | --- |
 | `docs/src/index.md` | Package entry points and the ISP edition guide. |
 | `docs/src/quickstart.md` | Package-user installation, first ISP 2024 build, output verification, and next steps. |
+| `docs/src/contributing.md` | Contributor workspace setup, package and documentation tests, and documentation-change checks. |
 | `docs/src/editions/` | Edition support, source-material, output-model, trace, mapping, and comparison boundaries. |
 | `docs/src/concepts.md` | Stable explanation of the ISP 2024 asset, scenario, trace, and static/schedule model. |
 | `docs/src/assumptions.md` | ISP 2024 modelling scope, caveats, validation responsibilities, and external checks. |

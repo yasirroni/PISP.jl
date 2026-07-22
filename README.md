@@ -362,7 +362,9 @@ The `jldoctest` examples embedded in the package's docstrings are verified with 
 ## Documentation
 
 - [Documentation home](docs/src/index.md)
-- [Quickstart](docs/src/api.md#build-examples)
+- [Quickstart](docs/src/quickstart.md)
+- [Contributor setup and tests](docs/src/contributing.md)
+- [Documentation maintenance and complete regeneration](docs/README.md)
 - [Download ISP source material](docs/src/editions/source-material.md)
 - [Supported ISP editions](docs/src/editions/supported-editions.md)
 - [ISP 2024 output tables and field dictionary](docs/src/generated/isp2024/reference/output-tables.md)

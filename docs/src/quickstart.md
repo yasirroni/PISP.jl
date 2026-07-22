@@ -20,7 +20,7 @@ using Pkg
 Pkg.add(url = "https://github.com/ARPST-UniMelb/PISP.jl")
 ```
 
-The contributor clone and documentation environments are described separately in `docs/README.md`.
+For a development checkout, contributor tests, and documentation maintenance, see [Contributing](contributing.md).
 
 ## Choose a small build
 
