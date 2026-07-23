@@ -51,3 +51,14 @@ makedocs(;
     warnonly = link_target == :local ? :cross_references : false,
     pages = registry_navigation(registry_pages),
 )
+
+if get(ENV, "GITHUB_ACTIONS", "false") == "true"
+    repository = get(ENV, "GITHUB_REPOSITORY", "")
+    isempty(repository) && error("GITHUB_REPOSITORY is required for GitHub Pages deployment")
+
+    deploydocs(;
+        repo = "github.com/$(repository).git",
+        devbranch = "main",
+        push_preview = false,
+    )
+end
