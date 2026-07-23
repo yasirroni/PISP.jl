@@ -21,7 +21,7 @@ using .EdaSupport
     @test endswith(separator_cells[2], ":")
     @test occursin("alpha", rendered.text)
 
-    currency = markdown_table(DataFrame(Label = ["Cost ($/MW)"], Value = [2.0]))
+    currency = markdown_table(DataFrame(Label = ["Cost (\$/MW)"], Value = [2.0]))
     @test occursin(raw"\$", currency.text)
 
     missing_numeric = markdown_table(
@@ -588,11 +588,11 @@ end
         @test first.(navigation) == [
             "Home",
             "Quickstart",
-            "Contributing",
             "Understand PISP and ISP data",
             "ISP 2024",
             "ISP 2026",
             "Compare ISP 2024 and ISP 2026",
+            "Contributing",
             "API Reference",
         ]
 
